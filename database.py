@@ -1,171 +1,331 @@
-import os
-import pg8000.native
+import sqlite3
+from datetime import datetime
 from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
-import urllib.parse
 
-# Railway'dan DATABASE_URL ni olamiz
-DATABASE_URL = os.getenv("DATABASE_URL")
+DB_PATH = "dtm_results.db"
+
 
 def get_connection():
-    """PostgreSQL bazasiga ulanish (pg8000 orqali)."""
-    if not DATABASE_URL:
-        raise ValueError("DATABASE_URL o'zgaruvchisi topilmadi!")
-    
-    url = urllib.parse.urlparse(DATABASE_URL)
-    
-    conn = pg8000.native.Connection(
-        user=url.username,
-        password=url.password,
-        host=url.hostname,
-        port=url.port,
-        database=url.path[1:],
-        ssl_context=True
-    )
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     return conn
 
+
 def init_db():
-    """Bazani yaratish va boshlang'ich yo'nalishlarni qo'shish."""
     conn = get_connection()
-    # Talabalar jadvali
-    conn.run("""
+    
+    # 1. Talabalar jadvali (Asosiy ma'lumotlar)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS talabalar (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             kod TEXT UNIQUE NOT NULL,
             yonalish TEXT NOT NULL,
+            sinf TEXT,
+            ismlar TEXT,
+            user_id INTEGER UNIQUE,
+            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # 2. Test Natijalari jadvali (Natijalar tarixi uchun)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS test_natijalari (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            talaba_kod TEXT NOT NULL,
             majburiy INTEGER NOT NULL,
             asosiy_1 INTEGER NOT NULL,
             asosiy_2 INTEGER NOT NULL,
             umumiy_ball REAL NOT NULL,
-            kiritilgan_vaqt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            test_sanasi TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (talaba_kod) REFERENCES talabalar (kod)
         )
     """)
-    
-    # Yo'nalishlar jadvali
-    conn.run("""
+
+    # 3. Foydalanuvchilar jadvali
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE NOT NULL,
+            username TEXT,
+            first_name TEXT,
+            last_name TEXT,
+            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Add user_id column to talabalar table if it doesn't exist
+    cursor = conn.execute("PRAGMA table_info(talabalar)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'user_id' not in columns:
+        conn.execute("ALTER TABLE talabalar ADD COLUMN user_id INTEGER UNIQUE")
+        conn.commit()
+
+    # 4. Yo'nalishlar jadvali
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS yonalishlar (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             nomi TEXT UNIQUE NOT NULL
         )
     """)
 
-    # Kalitlar (Keys) jadvali
-    conn.run("""
-        CREATE TABLE IF NOT EXISTS kalitlar (
-            id SERIAL PRIMARY KEY,
-            yonalish TEXT UNIQUE NOT NULL,
-            majburiy_keys TEXT NOT NULL,
-            asosiy_1_keys TEXT NOT NULL,
-            asosiy_2_keys TEXT NOT NULL
+    # 5. Sinflar jadvali
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sinflar (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nomi TEXT UNIQUE NOT NULL
         )
     """)
-    
+
     # Boshlang'ich yo'nalishlar
-    res = conn.run("SELECT COUNT(*) FROM yonalishlar")
-    if res[0][0] == 0:
-        boshlangich = [
+    count_yonalish = conn.execute("SELECT COUNT(*) FROM yonalishlar").fetchone()[0]
+    if count_yonalish == 0:
+        boshlangich_yonalish = [
             "Matematika + Fizika", "Matematika + Ingliz tili",
             "Matematika + Kimyo", "Matematika + Informatika",
             "Ingliz tili + Ona tili", "Ingliz tili + Tarix",
             "Biologiya + Kimyo", "Tarix + Geografiya"
         ]
-        for y in boshlangich:
-            conn.run("INSERT INTO yonalishlar (nomi) VALUES (:nomi)", nomi=y)
+        conn.executemany("INSERT INTO yonalishlar (nomi) VALUES (?)",
+                         [(y,) for y in boshlangich_yonalish])
+    
+    # Boshlang'ich sinflar
+    count_sinflar = conn.execute("SELECT COUNT(*) FROM sinflar").fetchone()[0]
+    if count_sinflar == 0:
+        boshlangich_sinflar = ["11-A", "11-B", "10-A", "10-B", "9-A", "9-B"]
+        conn.executemany("INSERT INTO sinflar (nomi) VALUES (?)",
+                         [(s,) for s in boshlangich_sinflar])
+
+    conn.commit()
     conn.close()
 
-# --- Yo'nalishlar ---
+
+# --- Yo'nalish va Sinf funksiyalari ---
+
 def yonalish_ol():
     conn = get_connection()
-    rows = conn.run("SELECT nomi FROM yonalishlar ORDER BY nomi ASC")
+    rows = conn.execute("SELECT nomi FROM yonalishlar ORDER BY nomi ASC").fetchall()
     conn.close()
-    return [row[0] for row in rows]
+    return [r["nomi"] for r in rows]
 
 def yonalish_qosh(nomi: str) -> bool:
     try:
         conn = get_connection()
-        conn.run("INSERT INTO yonalishlar (nomi) VALUES (:nomi)", nomi=nomi)
+        conn.execute("INSERT INTO yonalishlar (nomi) VALUES (?)", (nomi,))
+        conn.commit()
         conn.close()
         return True
-    except:
+    except sqlite3.IntegrityError:
         return False
 
 def yonalish_ochir(nomi: str):
     conn = get_connection()
-    conn.run("DELETE FROM yonalishlar WHERE nomi = :nomi", nomi=nomi)
+    conn.execute("DELETE FROM yonalishlar WHERE nomi = ?", (nomi,))
+    conn.commit()
     conn.close()
 
-# --- Kalitlar (Keys) ---
-def kalit_qosh(yonalish, majburiy, asosiy1, asosiy2):
+def sinf_ol():
     conn = get_connection()
+    rows = conn.execute("SELECT nomi FROM sinflar ORDER BY nomi ASC").fetchall()
+    conn.close()
+    return [r["nomi"] for r in rows]
+
+def sinf_qosh(nomi: str) -> bool:
     try:
-        conn.run("""
-            INSERT INTO kalitlar (yonalish, majburiy_keys, asosiy_1_keys, asosiy_2_keys)
-            VALUES (:yonalish, :majburiy, :asosiy1, :asosiy2)
-            ON CONFLICT (yonalish) DO UPDATE SET
-            majburiy_keys = EXCLUDED.majburiy_keys,
-            asosiy_1_keys = EXCLUDED.asosiy_1_keys,
-            asosiy_2_keys = EXCLUDED.asosiy_2_keys
-        """, yonalish=yonalish, majburiy=majburiy.lower(), asosiy1=asosiy1.lower(), asosiy2=asosiy2.lower())
-        return True
-    except:
-        return False
-    finally:
+        conn = get_connection()
+        conn.execute("INSERT INTO sinflar (nomi) VALUES (?)", (nomi,))
+        conn.commit()
         conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        return False
 
-def kalit_ol(yonalish):
+def sinf_ochir(nomi: str):
     conn = get_connection()
-    res = conn.run("SELECT majburiy_keys, asosiy_1_keys, asosiy_2_keys FROM kalitlar WHERE yonalish = :yonalish", yonalish=yonalish)
+    conn.execute("DELETE FROM sinflar WHERE nomi = ?", (nomi,))
+    conn.commit()
     conn.close()
-    if res:
-        return {"majburiy": res[0][0], "asosiy_1": res[0][1], "asosiy_2": res[0][2]}
-    return None
 
-# --- Talabalar ---
+
+# --- Ball hisoblash ---
+
 def ball_hisobla(majburiy: int, asosiy_1: int, asosiy_2: int) -> float:
-    ball = (majburiy * MAJBURIY_KOEFF + asosiy_1 * ASOSIY_1_KOEFF + asosiy_2 * ASOSIY_2_KOEFF)
+    ball = (majburiy * MAJBURIY_KOEFF +
+            asosiy_1 * ASOSIY_1_KOEFF +
+            asosiy_2 * ASOSIY_2_KOEFF)
     return round(ball, 2)
 
-def talaba_qosh(kod: str, yonalish: str, majburiy: int, asosiy_1: int, asosiy_2: int) -> bool:
+
+# --- Talaba va Natija funksiyalari ---
+
+def talaba_qosh(kod: str, yonalish: str, sinf: str = None, ismlar: str = None, user_id: int = None) -> bool:
+    try:
+        conn = get_connection()
+        conn.execute("""
+            INSERT INTO talabalar (kod, yonalish, sinf, ismlar, user_id)
+            VALUES (?, ?, ?, ?, ?)
+        """, (kod.upper(), yonalish, sinf, ismlar, user_id))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
+def natija_qosh(talaba_kod: str, majburiy: int, asosiy_1: int, asosiy_2: int) -> bool:
     ball = ball_hisobla(majburiy, asosiy_1, asosiy_2)
     try:
         conn = get_connection()
-        conn.run("""
-            INSERT INTO talabalar (kod, yonalish, majburiy, asosiy_1, asosiy_2, umumiy_ball)
-            VALUES (:kod, :yonalish, :majburiy, :asosiy_1, :asosiy_2, :ball)
-        """, kod=kod.upper(), yonalish=yonalish, majburiy=majburiy, asosiy_1=asosiy_1, asosiy_2=asosiy_2, ball=ball)
+        conn.execute("""
+            INSERT INTO test_natijalari (talaba_kod, majburiy, asosiy_1, asosiy_2, umumiy_ball)
+            VALUES (?, ?, ?, ?, ?)
+        """, (talaba_kod.upper(), majburiy, asosiy_1, asosiy_2, ball))
+        conn.commit()
         conn.close()
         return True
-    except:
+    except Exception:
         return False
-
-def talaba_yangilash(kod: str, yonalish: str, majburiy: int, asosiy_1: int, asosiy_2: int) -> bool:
-    ball = ball_hisobla(majburiy, asosiy_1, asosiy_2)
-    conn = get_connection()
-    conn.run("""
-        UPDATE talabalar
-        SET yonalish=:yonalish, majburiy=:majburiy, asosiy_1=:asosiy_1, asosiy_2=:asosiy_2, umumiy_ball=:ball
-        WHERE kod=:kod
-    """, yonalish=yonalish, majburiy=majburiy, asosiy_1=asosiy_1, asosiy_2=asosiy_2, ball=ball, kod=kod.upper())
-    conn.close()
-    return True
 
 def talaba_topish(kod: str):
     conn = get_connection()
-    res = conn.run("SELECT id, kod, yonalish, majburiy, asosiy_1, asosiy_2, umumiy_ball FROM talabalar WHERE kod=:kod", kod=kod.upper())
+    row = conn.execute("SELECT * FROM talabalar WHERE kod=?", (kod.upper(),)).fetchone()
     conn.close()
-    if res:
-        r = res[0]
-        return {"id": r[0], "kod": r[1], "yonalish": r[2], "majburiy": r[3], "asosiy_1": r[4], "asosiy_2": r[5], "umumiy_ball": r[6]}
-    return None
+    return dict(row) if row else None
+
+def get_user_id_by_kod(kod: str) -> int | None:
+    conn = get_connection()
+    row = conn.execute("SELECT user_id FROM talabalar WHERE kod=?", (kod.upper(),)).fetchone()
+    conn.close()
+    return row["user_id"] if row else None
+
+def talaba_natijalari(kod: str):
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT * FROM test_natijalari 
+        WHERE talaba_kod=? 
+        ORDER BY test_sanasi DESC
+    """, (kod.upper(),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def talaba_songi_natija(kod: str):
+    conn = get_connection()
+    row = conn.execute("""
+        SELECT * FROM test_natijalari 
+        WHERE talaba_kod=? 
+        ORDER BY test_sanasi DESC LIMIT 1
+    """, (kod.upper(),)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def talaba_barcha_natijalari(kod: str):
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT majburiy, asosiy_1, asosiy_2, umumiy_ball, test_sanasi
+        FROM test_natijalari
+        WHERE talaba_kod=?
+        ORDER BY test_sanasi ASC
+    """, (kod.upper(),)).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+# --- Statistika va Ro'yxat ---
+
+def get_all_students_for_excel():
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT t.kod, t.sinf, t.yonalish, t.ismlar,
+               n.majburiy, n.asosiy_1, n.asosiy_2, n.umumiy_ball, n.test_sanasi
+        FROM talabalar t
+        LEFT JOIN (
+            SELECT talaba_kod, majburiy, asosiy_1, asosiy_2, umumiy_ball, test_sanasi,
+                   MAX(test_sanasi) OVER(PARTITION BY talaba_kod) as max_date
+            FROM test_natijalari
+        ) n ON t.kod = n.talaba_kod AND n.test_sanasi = n.max_date
+        ORDER BY t.sinf ASC, n.umumiy_ball DESC
+    """).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 def talaba_hammasi():
     conn = get_connection()
-    res = conn.run("SELECT id, kod, yonalish, majburiy, asosiy_1, asosiy_2, umumiy_ball FROM talabalar ORDER BY umumiy_ball DESC")
+    rows = conn.execute("""
+        SELECT t.*, n.umumiy_ball
+        FROM talabalar t
+        LEFT JOIN (
+            SELECT talaba_kod, umumiy_ball,
+                   MAX(test_sanasi) OVER(PARTITION BY talaba_kod) as max_date
+            FROM test_natijalari
+        ) n ON t.kod = n.talaba_kod
+        ORDER BY t.sinf ASC, n.umumiy_ball DESC
+    """).fetchall()
     conn.close()
-    return [{"id": r[0], "kod": r[1], "yonalish": r[2], "majburiy": r[3], "asosiy_1": r[4], "asosiy_2": r[5], "umumiy_ball": r[6]} for r in res]
+    return [dict(r) for r in rows]
+
+
+# --- Foydalanuvchi funksiyalari ---
+
+def add_user(user_id: int, username: str = None, first_name: str = None, last_name: str = None):
+    conn = get_connection()
+    conn.execute("INSERT OR IGNORE INTO users (user_id, username, first_name, last_name) VALUES (?, ?, ?, ?)",
+                 (user_id, username, first_name, last_name))
+    conn.commit()
+    conn.close()
+
+def get_all_user_ids():
+    conn = get_connection()
+    rows = conn.execute("SELECT user_id FROM users").fetchall()
+    conn.close()
+    return [r["user_id"] for r in rows]
+
+
+# --- Tozalash ---
+
+def delete_all_data():
+    conn = get_connection()
+    conn.execute("DELETE FROM test_natijalari")
+    conn.execute("DELETE FROM talabalar")
+    conn.commit()
+    conn.close()
 
 def statistika():
     conn = get_connection()
-    res = conn.run("SELECT COUNT(*) FROM talabalar")
+    jami = conn.execute("SELECT COUNT(*) FROM talabalar").fetchone()[0]
+    if jami == 0:
+        conn.close()
+        return None
+    stat = conn.execute("""
+        SELECT AVG(umumiy_ball) as ortacha,
+               MAX(umumiy_ball) as eng_yuqori,
+               MIN(umumiy_ball) as eng_past
+        FROM test_natijalari
+    """).fetchone()
     conn.close()
-    umumiy = res[0][0]
-    return {"jami": umumiy} if umumiy > 0 else None
+    return {
+        "jami": jami,
+        "ortacha": round(stat["ortacha"], 2) if stat["ortacha"] else 0,
+        "eng_yuqori": stat["eng_yuqori"] if stat["eng_yuqori"] else 0,
+        "eng_past": stat["eng_past"] if stat["eng_past"] else 0,
+    }
+
+def get_subject_averages():
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT AVG(majburiy) as avg_majburiy,
+               AVG(asosiy_1) as avg_asosiy1,
+               AVG(asosiy_2) as avg_asosiy2
+        FROM test_natijalari
+    """).fetchone()
+    conn.close()
+    return dict(rows) if rows else None
+
+def get_class_ratings():
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT t.sinf, AVG(n.umumiy_ball) as avg_ball
+        FROM talabalar t
+        JOIN test_natijalari n ON t.kod = n.talaba_kod
+        GROUP BY t.sinf
+        ORDER BY avg_ball DESC
+    """).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
