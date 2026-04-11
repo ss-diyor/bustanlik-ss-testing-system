@@ -7,7 +7,9 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
-from database import init_db
+from database import init_db, add_user, talaba_topish, get_connection
+from aiogram import F
+from keyboards import user_menu_keyboard
 import admin
 import student
 
@@ -29,15 +31,33 @@ dp.include_router(student.router)
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     """/start buyrug'i"""
+    add_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
     await message.answer(
-        "👋 <b>DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
+        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabi DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
         "📌 <b>O'quvchilar uchun:</b>\n"
-        "Shaxsiy kodingizni yuboring — natijangiz darhol ko'rsatiladi.\n"
-        "<i>Masalan: A-001 yoki 52B</i>\n\n"
+        "Shaxsiy kodingizni yuboring — natijangiz darhol yuboriladi.\n"
+        "<i>Masalan: A-007 yoki 52B</i>\n\n"
+        "🔗 <b>Profilingizni ulash:</b>\n"
+        "Avtomatik xabarnoma olish uchun <code>ULASH_KODINGIZ</code> deb yozing.\n"
+        "<i>Masalan: ULASH_1001</i>\n\n"
         "🔑 <b>Admin uchun:</b>\n"
         "/admin buyrug'ini yozing.",
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=user_menu_keyboard()
     )
+
+@dp.message(F.text.startswith("ULASH_"))
+async def bind_user_to_kod(message: Message):
+    kod = message.text.replace("ULASH_", "").strip().upper()
+    talaba = talaba_topish(kod)
+    if talaba:
+        conn = get_connection()
+        conn.execute("UPDATE talabalar SET user_id = ? WHERE kod = ?", (message.from_user.id, kod))
+        conn.commit()
+        conn.close()
+        await message.answer(f"✅ Tabriklaymiz! Sizning profilingiz <b>{kod}</b> kodiga muvaffaqiyatli ulandi. Endi yangi natijalar haqida avtomatik xabar olasiz.", parse_mode="HTML")
+    else:
+        await message.answer("❌ Bunday kod topilmadi.")
 
 
 async def main():
