@@ -1,135 +1,171 @@
-import sqlite3
+import os
+import pg8000.native
 from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
+import urllib.parse
 
-DB_PATH = "dtm_results.db"
-
+# Railway'dan DATABASE_URL ni olamiz
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_connection():
-    """Har safar yangi ulanish ochadi. Thread-safe."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # natijani dict kabi ishlatish uchun
+    """PostgreSQL bazasiga ulanish (pg8000 orqali)."""
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL o'zgaruvchisi topilmadi!")
+    
+    url = urllib.parse.urlparse(DATABASE_URL)
+    
+    conn = pg8000.native.Connection(
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port,
+        database=url.path[1:],
+        ssl_context=True
+    )
     return conn
 
-
 def init_db():
-    """Bazani birinchi marta yaratadi yoki mavjud bo'lsa tekshiradi."""
+    """Bazani yaratish va boshlang'ich yo'nalishlarni qo'shish."""
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
+    # Talabalar jadvali
+    conn.run("""
         CREATE TABLE IF NOT EXISTS talabalar (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kod TEXT UNIQUE NOT NULL,           -- o'quvchining shaxsiy kodi
-            yonalish TEXT NOT NULL,             -- tanlagan yo'nalishi
-            majburiy INTEGER NOT NULL,          -- majburiy fanlardagi to'g'ri javoblar (0-30)
-            asosiy_1 INTEGER NOT NULL,          -- 1-asosiy fandagi to'g'ri javoblar (0-30)
-            asosiy_2 INTEGER NOT NULL,          -- 2-asosiy fandagi to'g'ri javoblar (0-30)
-            umumiy_ball REAL NOT NULL,          -- hisoblangan umumiy ball
+            id SERIAL PRIMARY KEY,
+            kod TEXT UNIQUE NOT NULL,
+            yonalish TEXT NOT NULL,
+            majburiy INTEGER NOT NULL,
+            asosiy_1 INTEGER NOT NULL,
+            asosiy_2 INTEGER NOT NULL,
+            umumiy_ball REAL NOT NULL,
             kiritilgan_vaqt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    conn.commit()
+    
+    # Yo'nalishlar jadvali
+    conn.run("""
+        CREATE TABLE IF NOT EXISTS yonalishlar (
+            id SERIAL PRIMARY KEY,
+            nomi TEXT UNIQUE NOT NULL
+        )
+    """)
+
+    # Kalitlar (Keys) jadvali
+    conn.run("""
+        CREATE TABLE IF NOT EXISTS kalitlar (
+            id SERIAL PRIMARY KEY,
+            yonalish TEXT UNIQUE NOT NULL,
+            majburiy_keys TEXT NOT NULL,
+            asosiy_1_keys TEXT NOT NULL,
+            asosiy_2_keys TEXT NOT NULL
+        )
+    """)
+    
+    # Boshlang'ich yo'nalishlar
+    res = conn.run("SELECT COUNT(*) FROM yonalishlar")
+    if res[0][0] == 0:
+        boshlangich = [
+            "Matematika + Fizika", "Matematika + Ingliz tili",
+            "Matematika + Kimyo", "Matematika + Informatika",
+            "Ingliz tili + Ona tili", "Ingliz tili + Tarix",
+            "Biologiya + Kimyo", "Tarix + Geografiya"
+        ]
+        for y in boshlangich:
+            conn.run("INSERT INTO yonalishlar (nomi) VALUES (:nomi)", nomi=y)
     conn.close()
 
+# --- Yo'nalishlar ---
+def yonalish_ol():
+    conn = get_connection()
+    rows = conn.run("SELECT nomi FROM yonalishlar ORDER BY nomi ASC")
+    conn.close()
+    return [row[0] for row in rows]
 
+def yonalish_qosh(nomi: str) -> bool:
+    try:
+        conn = get_connection()
+        conn.run("INSERT INTO yonalishlar (nomi) VALUES (:nomi)", nomi=nomi)
+        conn.close()
+        return True
+    except:
+        return False
+
+def yonalish_ochir(nomi: str):
+    conn = get_connection()
+    conn.run("DELETE FROM yonalishlar WHERE nomi = :nomi", nomi=nomi)
+    conn.close()
+
+# --- Kalitlar (Keys) ---
+def kalit_qosh(yonalish, majburiy, asosiy1, asosiy2):
+    conn = get_connection()
+    try:
+        conn.run("""
+            INSERT INTO kalitlar (yonalish, majburiy_keys, asosiy_1_keys, asosiy_2_keys)
+            VALUES (:yonalish, :majburiy, :asosiy1, :asosiy2)
+            ON CONFLICT (yonalish) DO UPDATE SET
+            majburiy_keys = EXCLUDED.majburiy_keys,
+            asosiy_1_keys = EXCLUDED.asosiy_1_keys,
+            asosiy_2_keys = EXCLUDED.asosiy_2_keys
+        """, yonalish=yonalish, majburiy=majburiy.lower(), asosiy1=asosiy1.lower(), asosiy2=asosiy2.lower())
+        return True
+    except:
+        return False
+    finally:
+        conn.close()
+
+def kalit_ol(yonalish):
+    conn = get_connection()
+    res = conn.run("SELECT majburiy_keys, asosiy_1_keys, asosiy_2_keys FROM kalitlar WHERE yonalish = :yonalish", yonalish=yonalish)
+    conn.close()
+    if res:
+        return {"majburiy": res[0][0], "asosiy_1": res[0][1], "asosiy_2": res[0][2]}
+    return None
+
+# --- Talabalar ---
 def ball_hisobla(majburiy: int, asosiy_1: int, asosiy_2: int) -> float:
-    """Ball formulasi: majburiy×1.1 + asosiy1×3.1 + asosiy2×2.1"""
-    ball = (majburiy * MAJBURIY_KOEFF +
-            asosiy_1 * ASOSIY_1_KOEFF +
-            asosiy_2 * ASOSIY_2_KOEFF)
+    ball = (majburiy * MAJBURIY_KOEFF + asosiy_1 * ASOSIY_1_KOEFF + asosiy_2 * ASOSIY_2_KOEFF)
     return round(ball, 2)
 
-
-def talaba_qosh(kod: str, yonalish: str, majburiy: int,
-                asosiy_1: int, asosiy_2: int) -> bool:
-    """
-    Yangi o'quvchi natijasini bazaga qo'shadi.
-    Agar bu kod allaqachon mavjud bo'lsa, False qaytaradi.
-    """
+def talaba_qosh(kod: str, yonalish: str, majburiy: int, asosiy_1: int, asosiy_2: int) -> bool:
     ball = ball_hisobla(majburiy, asosiy_1, asosiy_2)
     try:
         conn = get_connection()
-        conn.execute("""
+        conn.run("""
             INSERT INTO talabalar (kod, yonalish, majburiy, asosiy_1, asosiy_2, umumiy_ball)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (kod.upper(), yonalish, majburiy, asosiy_1, asosiy_2, ball))
-        conn.commit()
+            VALUES (:kod, :yonalish, :majburiy, :asosiy_1, :asosiy_2, :ball)
+        """, kod=kod.upper(), yonalish=yonalish, majburiy=majburiy, asosiy_1=asosiy_1, asosiy_2=asosiy_2, ball=ball)
         conn.close()
         return True
-    except sqlite3.IntegrityError:
-        # Unique constraint — bu kod allaqachon bazada bor
+    except:
         return False
 
-
-def talaba_yangilash(kod: str, yonalish: str, majburiy: int,
-                     asosiy_1: int, asosiy_2: int) -> bool:
-    """
-    Mavjud o'quvchi natijasini yangilaydi (tahrirlash funksiyasi).
-    Agar kod topilmasa, False qaytaradi.
-    """
+def talaba_yangilash(kod: str, yonalish: str, majburiy: int, asosiy_1: int, asosiy_2: int) -> bool:
     ball = ball_hisobla(majburiy, asosiy_1, asosiy_2)
     conn = get_connection()
-    cur = conn.execute("""
+    conn.run("""
         UPDATE talabalar
-        SET yonalish=?, majburiy=?, asosiy_1=?, asosiy_2=?, umumiy_ball=?
-        WHERE kod=?
-    """, (yonalish, majburiy, asosiy_1, asosiy_2, ball, kod.upper()))
-    conn.commit()
-    ta_siri = cur.rowcount  # nechta qator o'zgartirildi
+        SET yonalish=:yonalish, majburiy=:majburiy, asosiy_1=:asosiy_1, asosiy_2=:asosiy_2, umumiy_ball=:ball
+        WHERE kod=:kod
+    """, yonalish=yonalish, majburiy=majburiy, asosiy_1=asosiy_1, asosiy_2=asosiy_2, ball=ball, kod=kod.upper())
     conn.close()
-    return ta_siri > 0
-
+    return True
 
 def talaba_topish(kod: str):
-    """
-    Kod bo'yicha o'quvchini topadi.
-    Topilsa dict, topilmasa None qaytaradi.
-    """
     conn = get_connection()
-    cur = conn.execute(
-        "SELECT * FROM talabalar WHERE kod=?", (kod.upper(),)
-    )
-    row = cur.fetchone()
+    res = conn.run("SELECT id, kod, yonalish, majburiy, asosiy_1, asosiy_2, umumiy_ball FROM talabalar WHERE kod=:kod", kod=kod.upper())
     conn.close()
-    return dict(row) if row else None
+    if res:
+        r = res[0]
+        return {"id": r[0], "kod": r[1], "yonalish": r[2], "majburiy": r[3], "asosiy_1": r[4], "asosiy_2": r[5], "umumiy_ball": r[6]}
+    return None
 
+def talaba_hammasi():
+    conn = get_connection()
+    res = conn.run("SELECT id, kod, yonalish, majburiy, asosiy_1, asosiy_2, umumiy_ball FROM talabalar ORDER BY umumiy_ball DESC")
+    conn.close()
+    return [{"id": r[0], "kod": r[1], "yonalish": r[2], "majburiy": r[3], "asosiy_1": r[4], "asosiy_2": r[5], "umumiy_ball": r[6]} for r in res]
 
 def statistika():
-    """
-    Umumiy statistikani qaytaradi:
-    - jami kiritilgan o'quvchilar soni
-    - o'rtacha ball
-    - eng yuqori va eng past ball
-    - yo'nalishlar bo'yicha taqsimot
-    """
     conn = get_connection()
-
-    umumiy = conn.execute("SELECT COUNT(*) as n FROM talabalar").fetchone()["n"]
-
-    if umumiy == 0:
-        conn.close()
-        return None
-
-    stat = conn.execute("""
-        SELECT
-            AVG(umumiy_ball) as ortacha,
-            MAX(umumiy_ball) as eng_yuqori,
-            MIN(umumiy_ball) as eng_past
-        FROM talabalar
-    """).fetchone()
-
-    yonalishlar = conn.execute("""
-        SELECT yonalish, COUNT(*) as soni
-        FROM talabalar
-        GROUP BY yonalish
-        ORDER BY soni DESC
-    """).fetchall()
-
+    res = conn.run("SELECT COUNT(*) FROM talabalar")
     conn.close()
-
-    return {
-        "jami": umumiy,
-        "ortacha": round(stat["ortacha"], 2),
-        "eng_yuqori": stat["eng_yuqori"],
-        "eng_past": stat["eng_past"],
-        "yonalishlar": [dict(r) for r in yonalishlar],
-    }
+    umumiy = res[0][0]
+    return {"jami": umumiy} if umumiy > 0 else None
