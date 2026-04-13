@@ -120,6 +120,7 @@ def user_menu_keyboard():
     """Foydalanuvchi asosiy menyusi."""
     return ReplyKeyboardMarkup(
         keyboard=[
+            [KeyboardButton(text="📊 Mening natijalarim")],
             [KeyboardButton(text="✅ Javoblarni tekshirish")],
             [KeyboardButton(text="✍️ Admin bilan bog'lanish")],
         ],

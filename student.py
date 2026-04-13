@@ -22,6 +22,9 @@ class MurojaatState(StatesGroup):
 class TestCheckState(StatesGroup):
     javob_kutish = State()
 
+class ResultCheckState(StatesGroup):
+    kod_kutish = State()
+
 ADMIN_TUGMALAR = {
     "➕ O'quvchi qo'shish",
     "📥 Exceldan import",
@@ -38,7 +41,8 @@ ADMIN_TUGMALAR = {
     "🚪 Chiqish",
     "✍️ Admin bilan bog'lanish",
     "❌ Bekor qilish",
-    "✅ Javoblarni tekshirish"
+    "✅ Javoblarni tekshirish",
+    "📊 Mening natijalarim"
 }
 
 # ─────────────────────────────────────────
@@ -103,6 +107,11 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
 # ─────────────────────────────────────────
 # Javoblarni tekshirish (Xato ustida ishlash)
 # ─────────────────────────────────────────
+
+@router.message(F.text == "📊 Mening natijalarim")
+async def results_start(message: Message, state: FSMContext):
+    await state.set_state(ResultCheckState.kod_kutish)
+    await message.answer("📝 Natijangizni ko'rish uchun shaxsiy <b>kodingizni</b> yuboring:", parse_mode="HTML")
 
 @router.message(F.text == "✅ Javoblarni tekshirish")
 async def check_start(message: Message):
@@ -194,12 +203,15 @@ async def process_answers(message: Message, state: FSMContext):
 # Natijani ko'rish
 # ─────────────────────────────────────────
 
+@router.message(ResultCheckState.kod_kutish)
 @router.message(F.text & ~F.text.startswith("/"))
 async def talaba_natija(message: Message, state: FSMContext):
     if message.text in ADMIN_TUGMALAR:
+        await state.clear()
         return
 
     kod = message.text.strip().upper()
+    await state.clear()
     talaba = talaba_topish(kod)
 
     if not talaba:
