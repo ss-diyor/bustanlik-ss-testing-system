@@ -2,7 +2,7 @@ from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton,
     InlineKeyboardMarkup, InlineKeyboardButton
 )
-from database import yonalish_ol, sinf_ol
+from database import yonalish_ol, sinf_ol, kalit_ol
 
 
 def admin_menu_keyboard():
@@ -11,11 +11,11 @@ def admin_menu_keyboard():
         keyboard=[
             [KeyboardButton(text="➕ O'quvchi qo'shish")],
             [KeyboardButton(text="📥 Exceldan import")],
+            [KeyboardButton(text="🔑 Test kalitlarini boshqarish")],
             [KeyboardButton(text="✏️ Natijani tahrirlash")],
             [KeyboardButton(text="⚙️ Yo'nalishlarni boshqarish")],
             [KeyboardButton(text="🏫 Sinflarni boshqarish")],
             [KeyboardButton(text="📊 Statistika")],
-            [KeyboardButton(text="📊 Chuqur tahlil")],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
             [KeyboardButton(text="📥 Excelga yuklash")],
             [KeyboardButton(text="🧹 Bazani tozalash")],
@@ -66,6 +66,26 @@ def sinf_boshqarish_keyboard():
     ])
 
 
+def kalit_boshqarish_keyboard():
+    """Test kalitlarini boshqarish menyusi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 Mavjud kalitlar", callback_data="kalit_boshqar:ro'yxat")],
+        [InlineKeyboardButton(text="➕ Yangi kalit qo'shish", callback_data="kalit_boshqar:qosh")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga")],
+    ])
+
+
+def kalit_actions_keyboard(test_nomi, holat):
+    """Har bir kalit uchun amallar."""
+    holat_text = "🔓 Ochish" if holat == "yopiq" else "🔒 Yopish"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✏️ Tahrirlash", callback_data=f"kalit_edit:{test_nomi}")],
+        [InlineKeyboardButton(text=holat_text, callback_data=f"kalit_status:{test_nomi}")],
+        [InlineKeyboardButton(text="❌ O'chirish", callback_data=f"kalit_del:{test_nomi}")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:ro'yxat")],
+    ])
+
+
 def yonalish_ochirish_keyboard():
     """Yo'nalishlarni o'chirish uchun ro'yxat."""
     buttons = []
@@ -100,11 +120,24 @@ def user_menu_keyboard():
     """Foydalanuvchi asosiy menyusi."""
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📊 Mening natijalarim")],
+            [KeyboardButton(text="✅ Javoblarni tekshirish")],
             [KeyboardButton(text="✍️ Admin bilan bog'lanish")],
         ],
         resize_keyboard=True
     )
+
+
+def test_tanlash_keyboard():
+    """O'quvchi uchun ochiq testlar ro'yxati."""
+    buttons = []
+    kalitlar = kalit_ol()
+    for k in kalitlar:
+        if k['holat'] == 'ochiq':
+            buttons.append([InlineKeyboardButton(text=k['test_nomi'], callback_data=f"check_test:{k['test_nomi']}")])
+    
+    if not buttons:
+        return None
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def murojaat_bekor_qilish_keyboard():

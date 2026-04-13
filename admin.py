@@ -1,8 +1,7 @@
 import asyncio
 import os
-from datetime import datetime
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
@@ -11,12 +10,14 @@ import pandas as pd
 from database import (
     talaba_qosh, natija_qosh, talaba_topish, statistika, ball_hisobla,
     yonalish_ol, yonalish_qosh, yonalish_ochir, talaba_hammasi, get_all_students_for_excel, delete_all_data, get_all_user_ids,
-    sinf_ol, sinf_qosh, sinf_ochir, talaba_songi_natija, get_user_id_by_kod, get_subject_averages, get_class_ratings
+    sinf_ol, sinf_qosh, sinf_ochir, talaba_songi_natija,
+    kalit_qosh, kalit_ol, kalit_tahrirla, kalit_holat_ozgartir, kalit_ochir
 )
 from keyboards import (
     admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard,
     yonalish_boshqarish_keyboard, yonalish_ochirish_keyboard,
-    sinf_keyboard, sinf_boshqarish_keyboard, sinf_ochirish_keyboard
+    sinf_keyboard, sinf_boshqarish_keyboard, sinf_ochirish_keyboard,
+    kalit_boshqarish_keyboard, kalit_actions_keyboard
 )
 
 router = Router()
@@ -41,6 +42,11 @@ class TalabaQosh(StatesGroup):
 class ExcelImport(StatesGroup):
     fayl_kutish = State()
 
+class KalitBoshqar(StatesGroup):
+    nomi_kutish = State()
+    kalit_kutish = State()
+    edit_kalit_kutish = State()
+
 class KodQidirish(StatesGroup):
     kod_kutish = State()
 
@@ -58,9 +64,6 @@ class MurojaatJavob(StatesGroup):
 
 class ConfirmDelete(StatesGroup):
     tasdiqlash_kutish = State()
-
-class Analytics(StatesGroup):
-    tanlov_kutish = State()
 
 # ─────────────────────────────────────────
 # Yordamchi funksiyalar
@@ -228,6 +231,110 @@ async def sinf_ochir_tasdiq(callback: CallbackQuery):
                                      reply_markup=sinf_ochirish_keyboard())
 
 # ─────────────────────────────────────────
+# Test Kalitlarini Boshqarish
+# ─────────────────────────────────────────
+
+@router.message(F.text == "🔑 Test kalitlarini boshqarish")
+async def kalit_boshqar_start(message: Message, state: FSMContext):
+    if not await admin_tekshir(state): return
+    await message.answer("Test kalitlarini boshqarish menyusi:", 
+                         reply_markup=kalit_boshqarish_keyboard())
+
+
+@router.callback_query(F.data.startswith("kalit_boshqar:"))
+async def kalit_boshqar_actions(callback: CallbackQuery, state: FSMContext):
+    action = callback.data.split(":")[1]
+    
+    if action == "ro'yxat":
+        kalitlar = kalit_ol()
+        if not kalitlar:
+            text = "⚠️ Hozircha kalitlar yo'q."
+            await callback.message.edit_text(text, reply_markup=kalit_boshqarish_keyboard())
+        else:
+            text = "📋 <b>Mavjud test kalitlari:</b>\n\nTanlang:"
+            buttons = []
+            for k in kalitlar:
+                status = "🟢" if k['holat'] == 'ochiq' else "🔴"
+                buttons.append([InlineKeyboardButton(text=f"{status} {k['test_nomi']}", callback_data=f"kalit_view:{k['test_nomi']}")])
+            buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga")])
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+
+    elif action == "qosh":
+        await state.set_state(KalitBoshqar.nomi_kutish)
+        await callback.message.edit_text("📝 Test nomini kiriting (masalan: 15-may test):")
+    
+    elif action == "orqaga":
+        await state.set_state(None)
+        await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
+
+
+@router.message(KalitBoshqar.nomi_kutish)
+async def kalit_nomi_kutish(message: Message, state: FSMContext):
+    nomi = message.text.strip()
+    await state.update_data(test_nomi=nomi)
+    await state.set_state(KalitBoshqar.kalit_kutish)
+    await message.answer(f"✅ Test nomi: <b>{nomi}</b>\n\nEndi kalitlarni kiriting (Format: 1A2B3C...):", parse_mode="HTML")
+
+
+@router.message(KalitBoshqar.kalit_kutish)
+async def kalit_saqla(message: Message, state: FSMContext):
+    kalitlar = message.text.strip().upper()
+    data = await state.get_data()
+    if kalit_qosh(data['test_nomi'], kalitlar):
+        await message.answer(f"✅ <b>{data['test_nomi']}</b> uchun kalitlar saqlandi!", parse_mode="HTML", reply_markup=admin_menu_keyboard())
+    else:
+        await message.answer("❌ Bu nomli test allaqachon mavjud.")
+    await state.set_state(None)
+
+
+@router.callback_query(F.data.startswith("kalit_view:"))
+async def kalit_view(callback: CallbackQuery):
+    test_nomi = callback.data.split(":")[1]
+    k = kalit_ol(test_nomi)
+    text = (
+        f"📋 <b>Test:</b> {k['test_nomi']}\n"
+        f"🔑 <b>Kalitlar:</b> <code>{k['kalitlar']}</code>\n"
+        f"📊 <b>Holat:</b> {k['holat'].upper()}"
+    )
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kalit_actions_keyboard(test_nomi, k['holat']))
+
+
+@router.callback_query(F.data.startswith("kalit_status:"))
+async def kalit_status_change(callback: CallbackQuery):
+    test_nomi = callback.data.split(":")[1]
+    k = kalit_ol(test_nomi)
+    yangi_holat = "yopiq" if k['holat'] == "ochiq" else "ochiq"
+    kalit_holat_ozgartir(test_nomi, yangi_holat)
+    await callback.answer(f"✅ Holat {yangi_holat}ga o'zgartirildi")
+    await kalit_view(callback)
+
+
+@router.callback_query(F.data.startswith("kalit_edit:"))
+async def kalit_edit_start(callback: CallbackQuery, state: FSMContext):
+    test_nomi = callback.data.split(":")[1]
+    await state.update_data(edit_test_nomi=test_nomi)
+    await state.set_state(KalitBoshqar.edit_kalit_kutish)
+    await callback.message.answer(f"📝 <b>{test_nomi}</b> uchun yangi kalitlarni kiriting:", parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(KalitBoshqar.edit_kalit_kutish)
+async def kalit_edit_save(message: Message, state: FSMContext):
+    yangi_kalitlar = message.text.strip().upper()
+    data = await state.get_data()
+    kalit_tahrirla(data['edit_test_nomi'], yangi_kalitlar)
+    await message.answer(f"✅ <b>{data['edit_test_nomi']}</b> kalitlari yangilandi!", parse_mode="HTML", reply_markup=admin_menu_keyboard())
+    await state.set_state(None)
+
+
+@router.callback_query(F.data.startswith("kalit_del:"))
+async def kalit_delete(callback: CallbackQuery):
+    test_nomi = callback.data.split(":")[1]
+    kalit_ochir(test_nomi)
+    await callback.answer(f"✅ {test_nomi} o'chirildi")
+    await callback.message.edit_text("Test kalitlarini boshqarish menyusi:", reply_markup=kalit_boshqarish_keyboard())
+
+# ─────────────────────────────────────────
 # O'quvchi QO'SHISH
 # ─────────────────────────────────────────
 
@@ -316,48 +423,7 @@ async def talaba_tasdiq(callback: CallbackQuery, state: FSMContext):
     else:
         await callback.message.edit_text("❌ Bekor qilindi.")
     await state.set_state(None)
-    await message.answer("Keyingi amal:", reply_markup=admin_menu_keyboard())
-
-@router.message(F.text == "📊 Chuqur tahlil")
-async def analytics_start(message: Message, state: FSMContext):
-    if not await admin_tekshir(state): return
-    await message.answer("Qanday tahlilni ko'rishni istaysiz?", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Eng qiyin fanlar", callback_data="analytics:hard_subjects")],
-        [InlineKeyboardButton(text="Sinflar reytingi", callback_data="analytics:class_ratings")]
-    ]))
-
-@router.callback_query(F.data.startswith("analytics:"))
-async def process_analytics_query(callback: CallbackQuery, state: FSMContext):
-    action = callback.data.split(":")[1]
-    if action == "hard_subjects":
-        averages = get_subject_averages()
-        if averages:
-            text = "📊 <b>Fanlar bo'yicha o'rtacha ballar:</b>\n\n"
-            text += f"Majburiy fanlar: <b>{round(averages['avg_majburiy'], 2) if averages['avg_majburiy'] else 0}</b>\n"
-            text += f"Asosiy 1 fan: <b>{round(averages['avg_asosiy1'], 2) if averages['avg_asosiy1'] else 0}</b>\n"
-            text += f"Asosiy 2 fan: <b>{round(averages['avg_asosiy2'], 2) if averages['avg_asosiy2'] else 0}</b>\n\n"
-            
-            # Eng qiyin fanni aniqlash
-            subject_scores = {
-                "Majburiy": averages['avg_majburiy'],
-                "Asosiy 1": averages['avg_asosiy1'],
-                "Asosiy 2": averages['avg_asosiy2']
-            }
-            hardest_subject = min(subject_scores, key=subject_scores.get)
-            text += f"Eng qiyin fan (o'rtacha ball bo'yicha): <b>{hardest_subject}</b>"
-        else:
-            text = "⚠️ Hozircha ma'lumotlar mavjud emas."
-        await callback.message.edit_text(text, parse_mode="HTML")
-    elif action == "class_ratings":
-        ratings = get_class_ratings()
-        if ratings:
-            text = "🏆 <b>Sinflar reytingi (o'rtacha ball bo'yicha):</b>\n\n"
-            for i, r in enumerate(ratings, 1):
-                text += f"{i}. Sinf: <b>{r['sinf']}</b> - O'rtacha ball: <b>{round(r['avg_ball'], 2)}</b>\n"
-        else:
-            text = "⚠️ Hozircha ma'lumotlar mavjud emas."
-        await callback.message.edit_text(text, parse_mode="HTML")
-    await callback.answer()
+    await callback.message.answer("Keyingi amal:", reply_markup=admin_menu_keyboard())
 
 # ─────────────────────────────────────────
 # Exceldan IMPORT
@@ -405,21 +471,6 @@ async def excel_import_process(message: Message, state: FSMContext):
                 # Natijani qo'shish
                 if natija_qosh(kod, majburiy, asosiy1, asosiy2):
                     count += 1
-                    # Avtomatik xabarnoma yuborish
-                    user_id = get_user_id_by_kod(kod)
-                    if user_id:
-                        try:
-                            ball = ball_hisobla(majburiy, asosiy1, asosiy2)
-                            await message.bot.send_message(
-                                user_id, 
-                                f"🔔 <b>Yangi test natijangiz tayyor!</b>\n\n"
-                                f"📊 Ball: <b>{ball}</b>\n"
-                                f"📅 Sana: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
-                                f"Batafsil ko'rish uchun <b>'📊 Mening natijalarim'</b> tugmasini bosing.",
-                                parse_mode="HTML"
-                            )
-                        except:
-                            pass
                 else:
                     errors += 1
             except:

@@ -14,7 +14,7 @@ def get_connection():
 def init_db():
     conn = get_connection()
     
-    # 1. Talabalar jadvali (Asosiy ma'lumotlar)
+    # 1. Talabalar jadvali
     conn.execute("""
         CREATE TABLE IF NOT EXISTS talabalar (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,12 +22,11 @@ def init_db():
             yonalish TEXT NOT NULL,
             sinf TEXT,
             ismlar TEXT,
-            user_id INTEGER UNIQUE,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # 2. Test Natijalari jadvali (Natijalar tarixi uchun)
+    # 2. Test Natijalari jadvali
     conn.execute("""
         CREATE TABLE IF NOT EXISTS test_natijalari (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,13 +52,6 @@ def init_db():
         )
     """)
 
-    # Add user_id column to talabalar table if it doesn't exist
-    cursor = conn.execute("PRAGMA table_info(talabalar)")
-    columns = [col[1] for col in cursor.fetchall()]
-    if 'user_id' not in columns:
-        conn.execute("ALTER TABLE talabalar ADD COLUMN user_id INTEGER UNIQUE")
-        conn.commit()
-
     # 4. Yo'nalishlar jadvali
     conn.execute("""
         CREATE TABLE IF NOT EXISTS yonalishlar (
@@ -73,6 +65,17 @@ def init_db():
         CREATE TABLE IF NOT EXISTS sinflar (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nomi TEXT UNIQUE NOT NULL
+        )
+    """)
+
+    # 6. Test Kalitlari jadvali
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS test_kalitlari (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            test_nomi TEXT UNIQUE NOT NULL,
+            kalitlar TEXT NOT NULL,
+            holat TEXT DEFAULT 'ochiq',
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
@@ -146,6 +149,48 @@ def sinf_ochir(nomi: str):
     conn.close()
 
 
+# --- Test Kalitlari funksiyalari ---
+
+def kalit_qosh(test_nomi: str, kalitlar: str) -> bool:
+    try:
+        conn = get_connection()
+        conn.execute("INSERT INTO test_kalitlari (test_nomi, kalitlar) VALUES (?, ?)", (test_nomi, kalitlar.upper()))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
+def kalit_ol(test_nomi: str = None):
+    conn = get_connection()
+    if test_nomi:
+        row = conn.execute("SELECT * FROM test_kalitlari WHERE test_nomi = ?", (test_nomi,)).fetchone()
+        conn.close()
+        return dict(row) if row else None
+    else:
+        rows = conn.execute("SELECT * FROM test_kalitlari ORDER BY yaratilgan_sana DESC").fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+def kalit_tahrirla(test_nomi: str, yangi_kalitlar: str):
+    conn = get_connection()
+    conn.execute("UPDATE test_kalitlari SET kalitlar = ? WHERE test_nomi = ?", (yangi_kalitlar.upper(), test_nomi))
+    conn.commit()
+    conn.close()
+
+def kalit_holat_ozgartir(test_nomi: str, holat: str):
+    conn = get_connection()
+    conn.execute("UPDATE test_kalitlari SET holat = ? WHERE test_nomi = ?", (holat, test_nomi))
+    conn.commit()
+    conn.close()
+
+def kalit_ochir(test_nomi: str):
+    conn = get_connection()
+    conn.execute("DELETE FROM test_kalitlari WHERE test_nomi = ?", (test_nomi,))
+    conn.commit()
+    conn.close()
+
+
 # --- Ball hisoblash ---
 
 def ball_hisobla(majburiy: int, asosiy_1: int, asosiy_2: int) -> float:
@@ -157,13 +202,13 @@ def ball_hisobla(majburiy: int, asosiy_1: int, asosiy_2: int) -> float:
 
 # --- Talaba va Natija funksiyalari ---
 
-def talaba_qosh(kod: str, yonalish: str, sinf: str = None, ismlar: str = None, user_id: int = None) -> bool:
+def talaba_qosh(kod: str, yonalish: str, sinf: str = None, ismlar: str = None) -> bool:
     try:
         conn = get_connection()
         conn.execute("""
-            INSERT INTO talabalar (kod, yonalish, sinf, ismlar, user_id)
-            VALUES (?, ?, ?, ?, ?)
-        """, (kod.upper(), yonalish, sinf, ismlar, user_id))
+            INSERT INTO talabalar (kod, yonalish, sinf, ismlar)
+            VALUES (?, ?, ?, ?)
+        """, (kod.upper(), yonalish, sinf, ismlar))
         conn.commit()
         conn.close()
         return True
@@ -190,12 +235,6 @@ def talaba_topish(kod: str):
     conn.close()
     return dict(row) if row else None
 
-def get_user_id_by_kod(kod: str) -> int | None:
-    conn = get_connection()
-    row = conn.execute("SELECT user_id FROM talabalar WHERE kod=?", (kod.upper(),)).fetchone()
-    conn.close()
-    return row["user_id"] if row else None
-
 def talaba_natijalari(kod: str):
     conn = get_connection()
     rows = conn.execute("""
@@ -215,17 +254,6 @@ def talaba_songi_natija(kod: str):
     """, (kod.upper(),)).fetchone()
     conn.close()
     return dict(row) if row else None
-
-def talaba_barcha_natijalari(kod: str):
-    conn = get_connection()
-    rows = conn.execute("""
-        SELECT majburiy, asosiy_1, asosiy_2, umumiy_ball, test_sanasi
-        FROM test_natijalari
-        WHERE talaba_kod=?
-        ORDER BY test_sanasi ASC
-    """, (kod.upper(),)).fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
 
 
 # --- Statistika va Ro'yxat ---
@@ -306,26 +334,3 @@ def statistika():
         "eng_yuqori": stat["eng_yuqori"] if stat["eng_yuqori"] else 0,
         "eng_past": stat["eng_past"] if stat["eng_past"] else 0,
     }
-
-def get_subject_averages():
-    conn = get_connection()
-    rows = conn.execute("""
-        SELECT AVG(majburiy) as avg_majburiy,
-               AVG(asosiy_1) as avg_asosiy1,
-               AVG(asosiy_2) as avg_asosiy2
-        FROM test_natijalari
-    """).fetchone()
-    conn.close()
-    return dict(rows) if rows else None
-
-def get_class_ratings():
-    conn = get_connection()
-    rows = conn.execute("""
-        SELECT t.sinf, AVG(n.umumiy_ball) as avg_ball
-        FROM talabalar t
-        JOIN test_natijalari n ON t.kod = n.talaba_kod
-        GROUP BY t.sinf
-        ORDER BY avg_ball DESC
-    """).fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
