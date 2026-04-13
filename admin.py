@@ -819,14 +819,16 @@ async def search_kod(message: Message, state: FSMContext):
         await message.answer(f"❌ {kod} topilmadi.")
     else:
         natija = talaba_songi_natija(kod)
+        ball_text = natija['umumiy_ball'] if natija else "Natija yo'q"
+        ulangan_text = "Ha" if talaba.get('user_id') else "Yo'q"
         text = (
             f"🔍 <b>Ma'lumot topildi:</b>\n\n"
             f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
             f"🆔 Kod: <b>{talaba['kod']}</b>\n"
             f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
             f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n"
-            f"📊 Ball: <b>{natija['umumiy_ball'] if natija else 'Natija yo\\'q'}</b>\n"
-            f"🔗 Ulangan: <b>{'Ha' if talaba.get('user_id') else 'Yo\\'q'}</b>"
+            f"📊 Ball: <b>{ball_text}</b>\n"
+            f"🔗 Ulangan: <b>{ulangan_text}</b>"
         )
         await message.answer(text, parse_mode="HTML")
     await state.set_state(None)
