@@ -67,10 +67,14 @@ def sinf_boshqarish_keyboard():
 
 
 def kalit_boshqarish_keyboard():
-    """Test kalitlarini boshqarish menyusi."""
+    """
+    Test kalitlarini boshqarish menyusi.
+    Umumiy kalit + Yo'nalish bo'yicha kalit qo'shish imkoni.
+    """
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📋 Mavjud kalitlar", callback_data="kalit_boshqar:ro'yxat")],
-        [InlineKeyboardButton(text="➕ Yangi kalit qo'shish", callback_data="kalit_boshqar:qosh")],
+        [InlineKeyboardButton(text="➕ Umumiy kalit qo'shish", callback_data="kalit_boshqar:qosh")],
+        [InlineKeyboardButton(text="🎯 Yo'nalishga kalit qo'shish", callback_data="kalit_boshqar:yonalish_qosh")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga")],
     ])
 
@@ -84,6 +88,18 @@ def kalit_actions_keyboard(test_nomi, holat):
         [InlineKeyboardButton(text="❌ O'chirish", callback_data=f"kalit_del:{test_nomi}")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:ro'yxat")],
     ])
+
+
+def kalit_yonalish_tanlash_keyboard():
+    """Kalit uchun yo'nalish tanlash (inline)."""
+    buttons = []
+    yonalishlar = yonalish_ol()
+    for y in yonalishlar:
+        # callback_data uzunligi 64 belgidan oshmasligi uchun truncate
+        cb_data = f"kalit_yon:{y[:40]}"
+        buttons.append([InlineKeyboardButton(text=y, callback_data=cb_data)])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def yonalish_ochirish_keyboard():
@@ -128,14 +144,24 @@ def user_menu_keyboard():
     )
 
 
-def test_tanlash_keyboard():
-    """O'quvchi uchun ochiq testlar ro'yxati."""
+def test_tanlash_keyboard(yonalish: str = None):
+    """
+    O'quvchi uchun ochiq testlar ro'yxati.
+    Agar yonalish berilsa — faqat o'sha yo'nalish + umumiy (yonalish=NULL) kalitlari ko'rsatiladi.
+    """
     buttons = []
     kalitlar = kalit_ol()
     for k in kalitlar:
-        if k['holat'] == 'ochiq':
-            buttons.append([InlineKeyboardButton(text=k['test_nomi'], callback_data=f"check_test:{k['test_nomi']}")])
-    
+        if k['holat'] != 'ochiq':
+            continue
+        # Agar kalit biror yo'nalishga bog'liq bo'lsa va talabaning yo'nalishi mos kelmasa — o'tkazib yuborish
+        if k.get('yonalish') and yonalish and k['yonalish'] != yonalish:
+            continue
+        label = k['test_nomi']
+        if k.get('yonalish'):
+            label = f"🎯 {k['test_nomi']} ({k['yonalish']})"
+        buttons.append([InlineKeyboardButton(text=label, callback_data=f"check_test:{k['test_nomi']}")])
+
     if not buttons:
         return None
     return InlineKeyboardMarkup(inline_keyboard=buttons)
