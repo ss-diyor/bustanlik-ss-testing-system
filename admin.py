@@ -332,10 +332,10 @@ async def process_analytics_query(callback: CallbackQuery, state: FSMContext):
     if action == "hard_subjects":
         averages = get_subject_averages()
         if averages:
-            text = "📊 **Fanlar bo'yicha o'rtacha ballar:**\n\n"
-            text += f"Majburiy fanlar: {round(averages['avg_majburiy'], 2) if averages['avg_majburiy'] else 0}\n"
-            text += f"Asosiy 1 fan: {round(averages['avg_asosiy1'], 2) if averages['avg_asosiy1'] else 0}\n"
-            text += f"Asosiy 2 fan: {round(averages['avg_asosiy2'], 2) if averages['avg_asosiy2'] else 0}\n\n"
+            text = "📊 <b>Fanlar bo'yicha o'rtacha ballar:</b>\n\n"
+            text += f"Majburiy fanlar: <b>{round(averages['avg_majburiy'], 2) if averages['avg_majburiy'] else 0}</b>\n"
+            text += f"Asosiy 1 fan: <b>{round(averages['avg_asosiy1'], 2) if averages['avg_asosiy1'] else 0}</b>\n"
+            text += f"Asosiy 2 fan: <b>{round(averages['avg_asosiy2'], 2) if averages['avg_asosiy2'] else 0}</b>\n\n"
             
             # Eng qiyin fanni aniqlash
             subject_scores = {
@@ -344,16 +344,16 @@ async def process_analytics_query(callback: CallbackQuery, state: FSMContext):
                 "Asosiy 2": averages['avg_asosiy2']
             }
             hardest_subject = min(subject_scores, key=subject_scores.get)
-            text += f"Eng qiyin fan (o'rtacha ball bo'yicha): **{hardest_subject}**"
+            text += f"Eng qiyin fan (o'rtacha ball bo'yicha): <b>{hardest_subject}</b>"
         else:
             text = "⚠️ Hozircha ma'lumotlar mavjud emas."
         await callback.message.edit_text(text, parse_mode="HTML")
     elif action == "class_ratings":
         ratings = get_class_ratings()
         if ratings:
-            text = "🏆 **Sinflar reytingi (o'rtacha ball bo'yicha):**\n\n"
+            text = "🏆 <b>Sinflar reytingi (o'rtacha ball bo'yicha):</b>\n\n"
             for i, r in enumerate(ratings, 1):
-                text += f"{i}. Sinf: **{r['sinf']}** - O'rtacha ball: **{round(r['avg_ball'], 2)}**\n"
+                text += f"{i}. Sinf: <b>{r['sinf']}</b> - O'rtacha ball: <b>{round(r['avg_ball'], 2)}</b>\n"
         else:
             text = "⚠️ Hozircha ma'lumotlar mavjud emas."
         await callback.message.edit_text(text, parse_mode="HTML")
@@ -412,10 +412,10 @@ async def excel_import_process(message: Message, state: FSMContext):
                             ball = ball_hisobla(majburiy, asosiy1, asosiy2)
                             await message.bot.send_message(
                                 user_id, 
-                                f"🔔 **Yangi test natijangiz tayyor!**\n\n"
-                                f"📊 Ball: **{ball}**\n"
+                                f"🔔 <b>Yangi test natijangiz tayyor!</b>\n\n"
+                                f"📊 Ball: <b>{ball}</b>\n"
                                 f"📅 Sana: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
-                                f"Batafsil ko'rish uchun **'📊 Mening natijalarim'** tugmasini bosing.",
+                                f"Batafsil ko'rish uchun <b>'📊 Mening natijalarim'</b> tugmasini bosing.",
                                 parse_mode="HTML"
                             )
                         except:

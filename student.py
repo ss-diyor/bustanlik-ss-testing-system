@@ -97,20 +97,20 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
 @router.message(F.text == "📊 Mening natijalarim")
 async def shaxsiy_kabinet_start(message: Message, state: FSMContext):
     await state.set_state(ShaxsiyKabinet.kod_kutish)
-    await message.answer("📊 **Shaxsiy kabinetingizga kirish uchun kodingizni kiriting:**\n(Masalan: 1001)", parse_mode="HTML")
+    await message.answer("📊 <b>Shaxsiy kabinetingizga kirish uchun kodingizni kiriting:</b>\n(Masalan: 1001)", parse_mode="HTML")
 
 @router.message(ShaxsiyKabinet.kod_kutish)
 async def shaxsiy_kabinet_view(message: Message, state: FSMContext):
     kod = message.text.strip().upper()
     talaba = talaba_topish(kod)
     if not talaba:
-        await message.answer(f"❌ **{kod}** kodi topilmadi.", parse_mode="HTML")
+        await message.answer(f"❌ <b>{kod}</b> kodi topilmadi.", parse_mode="HTML")
         await state.clear()
         return
 
     natijalar = talaba_barcha_natijalari(kod)
     if not natijalar:
-        await message.answer(f"👤 **{talaba['ismlar']}**\n\n⚠️ Siz uchun hali test natijalari kiritilmagan.", parse_mode="HTML")
+        await message.answer(f"👤 <b>{talaba['ismlar']}</b>\n\n⚠️ Siz uchun hali test natijalari kiritilmagan.", parse_mode="HTML")
         await state.clear()
         return
 
@@ -118,23 +118,24 @@ async def shaxsiy_kabinet_view(message: Message, state: FSMContext):
     foiz = round((songi['umumiy_ball'] / 189) * 100, 1)
 
     text = (
-        f"👤 **O'quvchi:** {talaba['ismlar']}\n"
-        f"🆔 **Kod:** {talaba['kod']}\n"
-        f"🏫 **Sinf:** {talaba['sinf']}\n"
-        f"🎯 **Yo'nalish:** {talaba['yonalish']}\n\n"
-        f"📊 **Oxirgi natija:**\n"
+        f"🎓 <b>Sizning natijangiz</b>\n\n"
+        f"👤 <b>O'quvchi:</b> {talaba['ismlar']}\n"
+        f"🆔 <b>Kod:</b> {talaba['kod']}\n"
+        f"🏫 <b>Sinf:</b> {talaba['sinf']}\n"
+        f"🎯 <b>Yo'nalish:</b> {talaba['yonalish']}\n\n"
+        f"📊 <b>Oxirgi natija:</b>\n"
         f"   Majburiy: {songi['majburiy']} ta\n"
         f"   Asosiy 1: {songi['asosiy_1']} ta\n"
         f"   Asosiy 2: {songi['asosiy_2']} ta\n"
-        f"🏆 **Umumiy ball: {songi['umumiy_ball']}**\n"
-        f"📈 **Foiz: {foiz}%**\n\n"
+        f"🏆 <b>Umumiy ball: {songi['umumiy_ball']}</b>\n"
+        f"📈 <b>Foiz: {foiz}%</b>\n\n"
     )
 
     # Tarix va Dinamika
     if len(natijalar) > 1:
-        text += "📜 **Natijalar tarixi:**\n"
+        text += "📜 <b>Natijalar tarixi:</b>\n"
         for n in reversed(natijalar[-5:]):
-            text += f"• {n['test_sanasi'][:10]}: **{n['umumiy_ball']}** ball\n"
+            text += f"• {n['test_sanasi'][:10]}: <b>{n['umumiy_ball']}</b> ball\n"
         
         # Dinamika grafigi
         try:
@@ -173,11 +174,11 @@ async def talaba_natija_quick(message: Message, state: FSMContext):
     kod = message.text.strip().upper()
     talaba = talaba_topish(kod)
     if not talaba:
-        await message.answer(f"❌ **{kod}** topilmadi.", parse_mode="HTML")
+        await message.answer(f"❌ <b>{kod}</b> topilmadi.", parse_mode="HTML")
         return
     natijalar = talaba_natijalari(kod)
     if not natijalar:
         await message.answer("⚠️ Natijalar topilmadi.", parse_mode="HTML")
         return
     songi = natijalar[0]
-    await message.answer(f"📊 **{talaba['ismlar']}**\n\nBall: **{songi['umumiy_ball']}**\nSana: {songi['test_sanasi']}", parse_mode="HTML")
+    await message.answer(f"📊 <b>{talaba['ismlar']}</b>\n\nBall: <b>{songi['umumiy_ball']}</b>\nSana: {songi['test_sanasi']}", parse_mode="HTML")
