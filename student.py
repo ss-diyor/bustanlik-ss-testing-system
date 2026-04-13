@@ -1,5 +1,7 @@
 import os
 import re
+import matplotlib
+matplotlib.use("Agg")  # GUI yo'q muhitda xatolikni oldini oladi
 import matplotlib.pyplot as plt
 from aiogram import Router, F
 from aiogram.types import Message, FSInputFile, CallbackQuery
@@ -78,8 +80,8 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
     for admin_id in ADMIN_IDS:
         try:
             await message.bot.send_message(
-                admin_id, 
-                murojaat_matni, 
+                admin_id,
+                murojaat_matni,
                 reply_markup=murojaat_javob_keyboard(message.from_user.id),
                 parse_mode="HTML"
             )
@@ -89,33 +91,38 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
 
     if sent_to_admin:
         await message.answer(
-            "✅ <b>Murojaatingiz adminga yuborildi!</b>\n\n"
-            "Tez orada javob olasiz.",
+            "✅ <b>Murojaatingiz adminga yuborildi!</b>\n\nTez orada javob olasiz.",
             parse_mode="HTML",
             reply_markup=user_menu_keyboard()
         )
     else:
         await message.answer(
-            "⚠️ <b>Xatolik yuz berdi!</b>\n\n"
-            "Hozirda adminlar bilan bog'lanish imkoni yo'q. Iltimos, keyinroq urinib ko'ring.",
+            "⚠️ <b>Xatolik yuz berdi!</b>\n\nHozirda adminlar bilan bog'lanish imkoni yo'q.",
             parse_mode="HTML",
             reply_markup=user_menu_keyboard()
         )
-    
+
     await state.clear()
 
 # ─────────────────────────────────────────
-# Javoblarni tekshirish (Xato ustida ishlash)
+# Javoblarni tekshirish
 # ─────────────────────────────────────────
 
-@router.message(F.text == "📊 Mening natijalarim")
-async def results_start(message: Message, state: FSMContext):
-    await state.set_state(ResultCheckState.kod_kutish)
-    await message.answer("📝 Natijangizni ko'rish uchun shaxsiy <b>kodingizni</b> yuboring:", parse_mode="HTML")
-
 @router.message(F.text == "✅ Javoblarni tekshirish")
-async def check_start(message: Message):
-    kb = test_tanlash_keyboard()
+async def check_start(message: Message, state: FSMContext):
+    # Talabaning yo'nalishini aniqlaymiz (agar ULASH_ qilingan bo'lsa)
+    yonalish = None
+    # Foydalanuvchi user_id si bo'yicha talabani topamiz
+    from database import get_connection
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT yonalish FROM talabalar WHERE user_id = ?", (message.from_user.id,)
+    ).fetchone()
+    conn.close()
+    if row:
+        yonalish = row["yonalish"]
+
+    kb = test_tanlash_keyboard(yonalish=yonalish)
     if not kb:
         await message.answer("⚠️ Hozirda tekshirish uchun ochiq testlar mavjud emas.")
         return
@@ -124,7 +131,7 @@ async def check_start(message: Message):
 
 @router.callback_query(F.data.startswith("check_test:"))
 async def check_test_selected(callback: CallbackQuery, state: FSMContext):
-    test_nomi = callback.data.split(":")[1]
+    test_nomi = callback.data.split(":", 1)[1]
     await state.update_data(check_test_nomi=test_nomi)
     await state.set_state(TestCheckState.javob_kutish)
     await callback.message.edit_text(
@@ -145,7 +152,7 @@ async def process_answers(message: Message, state: FSMContext):
     user_input = message.text.strip().upper()
     data = await state.get_data()
     test_nomi = data.get("check_test_nomi")
-    
+
     test_info = kalit_ol(test_nomi)
     if not test_info:
         await message.answer("❌ Xatolik: Test ma'lumotlari topilmadi.")
@@ -153,11 +160,12 @@ async def process_answers(message: Message, state: FSMContext):
         return
 
     original_kalitlar = test_info['kalitlar']
-    
+
     def parse_keys(text):
         if any(char.isdigit() for char in text):
             found = re.findall(r'\d+([A-Z])', text)
-            if found: return "".join(found)
+            if found:
+                return "".join(found)
         return "".join(re.findall(r'[A-Z]', text))
 
     clean_kalit = parse_keys(original_kalitlar)
@@ -169,22 +177,24 @@ async def process_answers(message: Message, state: FSMContext):
 
     correct_count = 0
     wrong_answers = []
-    
+
     total_questions = len(clean_kalit)
     user_len = len(clean_user)
-    
+
     for i in range(min(total_questions, user_len)):
         if clean_kalit[i] == clean_user[i]:
             correct_count += 1
         else:
-            wrong_answers.append(f"<b>{i+1}</b>-savol: Siz: <code>{clean_user[i]}</code> | To'g'ri: <code>{clean_kalit[i]}</code>")
+            wrong_answers.append(
+                f"<b>{i+1}</b>-savol: Siz: <code>{clean_user[i]}</code> | To'g'ri: <code>{clean_kalit[i]}</code>"
+            )
 
     result_text = (
         f"📊 <b>Test natijangiz: {test_nomi}</b>\n\n"
         f"✅ To'g'ri javoblar: <b>{correct_count}</b> ta\n"
         f"❌ Xato javoblar: <b>{user_len - correct_count}</b> ta\n"
         f"🏁 Jami savollar: <b>{total_questions}</b> ta\n"
-        f"📈 Foiz: <b>{round((correct_count/total_questions)*100, 1) if total_questions > 0 else 0}%</b>\n\n"
+        f"📈 Foiz: <b>{round((correct_count / total_questions) * 100, 1) if total_questions > 0 else 0}%</b>\n\n"
     )
 
     if wrong_answers:
@@ -192,7 +202,7 @@ async def process_answers(message: Message, state: FSMContext):
         for wa in wrong_answers[:20]:
             result_text += f"• {wa}\n"
         if len(wrong_answers) > 20:
-            result_text += f"\n<i>...va yana {len(wrong_answers)-20} ta xato.</i>"
+            result_text += f"\n<i>...va yana {len(wrong_answers) - 20} ta xato.</i>"
     else:
         result_text += "🎉 <b>Ajoyib! Hech qanday xato qilmadingiz!</b>"
 
@@ -200,18 +210,45 @@ async def process_answers(message: Message, state: FSMContext):
     await state.clear()
 
 # ─────────────────────────────────────────
-# Natijani ko'rish
+# Natijani ko'rish — TUZATILDI (2 ta handler birlashtirildi)
 # ─────────────────────────────────────────
 
+@router.message(F.text == "📊 Mening natijalarim")
+async def results_start(message: Message, state: FSMContext):
+    await state.set_state(ResultCheckState.kod_kutish)
+    await message.answer(
+        "📝 Natijangizni ko'rish uchun shaxsiy <b>kodingizni</b> yuboring:",
+        parse_mode="HTML"
+    )
+
+
 @router.message(ResultCheckState.kod_kutish)
-@router.message(F.text & ~F.text.startswith("/"))
-async def talaba_natija(message: Message, state: FSMContext):
+async def results_kod_olingan(message: Message, state: FSMContext):
+    """Faqat ResultCheckState holatida kodni kutadi."""
     if message.text in ADMIN_TUGMALAR:
         await state.clear()
         return
-
-    kod = message.text.strip().upper()
     await state.clear()
+    await _natija_yuborish(message, message.text.strip().upper())
+
+
+@router.message(F.text & ~F.text.startswith("/"))
+async def talaba_natija_umumiy(message: Message, state: FSMContext):
+    """
+    Har qanday matn — kod sifatida tekshiriladi.
+    FSM holati bo'lmagan holda ishlaydi.
+    """
+    if message.text in ADMIN_TUGMALAR:
+        return
+    current_state = await state.get_state()
+    if current_state is not None:
+        # FSM ishlamoqda — bu handlerga tegishli emas
+        return
+    await _natija_yuborish(message, message.text.strip().upper())
+
+
+async def _natija_yuborish(message: Message, kod: str):
+    """Natijani yuborish — umumiy yordamchi funksiya."""
     talaba = talaba_topish(kod)
 
     if not talaba:
@@ -225,7 +262,10 @@ async def talaba_natija(message: Message, state: FSMContext):
 
     natijalar = talaba_natijalari(kod)
     if not natijalar:
-        await message.answer(f"👤 <b>{talaba['ismlar']}</b>\n\n⚠️ Siz uchun hali test natijalari kiritilmagan.", parse_mode="HTML")
+        await message.answer(
+            f"👤 <b>{talaba['ismlar']}</b>\n\n⚠️ Siz uchun hali test natijalari kiritilmagan.",
+            parse_mode="HTML"
+        )
         return
 
     songi = natijalar[0]
@@ -251,12 +291,12 @@ async def talaba_natija(message: Message, state: FSMContext):
         text += "📜 <b>Oldingi natijalar:</b>\n"
         for n in natijalar[1:6]:
             text += f"• {n['test_sanasi'][:10]}: <b>{n['umumiy_ball']}</b> ball\n"
-        
+
+        plot_path = f"plot_{kod}.png"
         try:
-            plot_path = f"plot_{kod}.png"
             dates = [n['test_sanasi'][:10] for n in reversed(natijalar[:10])]
             scores = [n['umumiy_ball'] for n in reversed(natijalar[:10])]
-            
+
             plt.figure(figsize=(8, 4))
             plt.plot(dates, scores, marker='o', linestyle='-', color='b')
             plt.title(f"{talaba['ismlar']} - Natijalar Dinamikasi")
@@ -267,11 +307,14 @@ async def talaba_natija(message: Message, state: FSMContext):
             plt.tight_layout()
             plt.savefig(plot_path)
             plt.close()
-            
+
             await message.answer_photo(FSInputFile(plot_path), caption=text, parse_mode="HTML")
-            os.remove(plot_path)
             return
-        except:
+        except Exception:
             pass
+        finally:
+            # Grafik fayli har doim o'chiriladi (xato bo'lsa ham)
+            if os.path.exists(plot_path):
+                os.remove(plot_path)
 
     await message.answer(text, parse_mode="HTML")
