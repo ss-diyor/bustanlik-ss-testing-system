@@ -13,8 +13,8 @@ def get_connection():
 
 def init_db():
     conn = get_connection()
-    
-    # 1. Talabalar jadvali
+
+    # 1. Talabalar jadvali — user_id ustuni qo'shildi
     conn.execute("""
         CREATE TABLE IF NOT EXISTS talabalar (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,6 +22,7 @@ def init_db():
             yonalish TEXT NOT NULL,
             sinf TEXT,
             ismlar TEXT,
+            user_id INTEGER DEFAULT NULL,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -68,16 +69,28 @@ def init_db():
         )
     """)
 
-    # 6. Test Kalitlari jadvali
+    # 6. Test Kalitlari jadvali — yonalish ustuni qo'shildi
     conn.execute("""
         CREATE TABLE IF NOT EXISTS test_kalitlari (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             test_nomi TEXT UNIQUE NOT NULL,
+            yonalish TEXT DEFAULT NULL,
             kalitlar TEXT NOT NULL,
             holat TEXT DEFAULT 'ochiq',
             yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    # Mavjud jadvalga ustun qo'shish (migration — eski DB uchun)
+    try:
+        conn.execute("ALTER TABLE talabalar ADD COLUMN user_id INTEGER DEFAULT NULL")
+    except Exception:
+        pass  # Ustun allaqachon mavjud
+
+    try:
+        conn.execute("ALTER TABLE test_kalitlari ADD COLUMN yonalish TEXT DEFAULT NULL")
+    except Exception:
+        pass  # Ustun allaqachon mavjud
 
     # Boshlang'ich yo'nalishlar
     count_yonalish = conn.execute("SELECT COUNT(*) FROM yonalishlar").fetchone()[0]
@@ -90,7 +103,7 @@ def init_db():
         ]
         conn.executemany("INSERT INTO yonalishlar (nomi) VALUES (?)",
                          [(y,) for y in boshlangich_yonalish])
-    
+
     # Boshlang'ich sinflar
     count_sinflar = conn.execute("SELECT COUNT(*) FROM sinflar").fetchone()[0]
     if count_sinflar == 0:
@@ -151,22 +164,32 @@ def sinf_ochir(nomi: str):
 
 # --- Test Kalitlari funksiyalari ---
 
-def kalit_qosh(test_nomi: str, kalitlar: str) -> bool:
+def kalit_qosh(test_nomi: str, kalitlar: str, yonalish: str = None) -> bool:
     try:
         conn = get_connection()
-        conn.execute("INSERT INTO test_kalitlari (test_nomi, kalitlar) VALUES (?, ?)", (test_nomi, kalitlar.upper()))
+        conn.execute(
+            "INSERT INTO test_kalitlari (test_nomi, yonalish, kalitlar) VALUES (?, ?, ?)",
+            (test_nomi, yonalish, kalitlar.upper())
+        )
         conn.commit()
         conn.close()
         return True
     except sqlite3.IntegrityError:
         return False
 
-def kalit_ol(test_nomi: str = None):
+def kalit_ol(test_nomi: str = None, yonalish: str = None):
     conn = get_connection()
     if test_nomi:
         row = conn.execute("SELECT * FROM test_kalitlari WHERE test_nomi = ?", (test_nomi,)).fetchone()
         conn.close()
         return dict(row) if row else None
+    elif yonalish:
+        rows = conn.execute(
+            "SELECT * FROM test_kalitlari WHERE yonalish = ? OR yonalish IS NULL ORDER BY yaratilgan_sana DESC",
+            (yonalish,)
+        ).fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
     else:
         rows = conn.execute("SELECT * FROM test_kalitlari ORDER BY yaratilgan_sana DESC").fetchall()
         conn.close()
@@ -174,7 +197,8 @@ def kalit_ol(test_nomi: str = None):
 
 def kalit_tahrirla(test_nomi: str, yangi_kalitlar: str):
     conn = get_connection()
-    conn.execute("UPDATE test_kalitlari SET kalitlar = ? WHERE test_nomi = ?", (yangi_kalitlar.upper(), test_nomi))
+    conn.execute("UPDATE test_kalitlari SET kalitlar = ? WHERE test_nomi = ?",
+                 (yangi_kalitlar.upper(), test_nomi))
     conn.commit()
     conn.close()
 
@@ -238,8 +262,8 @@ def talaba_topish(kod: str):
 def talaba_natijalari(kod: str):
     conn = get_connection()
     rows = conn.execute("""
-        SELECT * FROM test_natijalari 
-        WHERE talaba_kod=? 
+        SELECT * FROM test_natijalari
+        WHERE talaba_kod=?
         ORDER BY test_sanasi DESC
     """, (kod.upper(),)).fetchall()
     conn.close()
@@ -248,43 +272,61 @@ def talaba_natijalari(kod: str):
 def talaba_songi_natija(kod: str):
     conn = get_connection()
     row = conn.execute("""
-        SELECT * FROM test_natijalari 
-        WHERE talaba_kod=? 
+        SELECT * FROM test_natijalari
+        WHERE talaba_kod=?
         ORDER BY test_sanasi DESC LIMIT 1
     """, (kod.upper(),)).fetchone()
     conn.close()
     return dict(row) if row else None
 
+def talaba_user_id_ol(kod: str):
+    """Talabaning Telegram user_id sini qaytaradi."""
+    conn = get_connection()
+    row = conn.execute("SELECT user_id FROM talabalar WHERE kod=?", (kod.upper(),)).fetchone()
+    conn.close()
+    return row["user_id"] if row else None
+
 
 # --- Statistika va Ro'yxat ---
 
 def get_all_students_for_excel():
+    """
+    Har bir talabaning oxirgi natijasini qaytaradi.
+    Subquery orqali to'g'ri LEFT JOIN — takrorlanish yo'q.
+    """
     conn = get_connection()
     rows = conn.execute("""
         SELECT t.kod, t.sinf, t.yonalish, t.ismlar,
                n.majburiy, n.asosiy_1, n.asosiy_2, n.umumiy_ball, n.test_sanasi
         FROM talabalar t
-        LEFT JOIN (
-            SELECT talaba_kod, majburiy, asosiy_1, asosiy_2, umumiy_ball, test_sanasi,
-                   MAX(test_sanasi) OVER(PARTITION BY talaba_kod) as max_date
-            FROM test_natijalari
-        ) n ON t.kod = n.talaba_kod AND n.test_sanasi = n.max_date
-        ORDER BY t.sinf ASC, n.umumiy_ball DESC
+        LEFT JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        ORDER BY t.sinf ASC, n.umumiy_ball DESC NULLS LAST
     """).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 def talaba_hammasi():
+    """
+    Har bir talabaning oxirgi ballini qaytaradi.
+    Subquery orqali to'g'ri LEFT JOIN — takrorlanish yo'q.
+    """
     conn = get_connection()
     rows = conn.execute("""
-        SELECT t.*, n.umumiy_ball
+        SELECT t.*,
+               n.umumiy_ball
         FROM talabalar t
-        LEFT JOIN (
-            SELECT talaba_kod, umumiy_ball,
-                   MAX(test_sanasi) OVER(PARTITION BY talaba_kod) as max_date
-            FROM test_natijalari
-        ) n ON t.kod = n.talaba_kod
-        ORDER BY t.sinf ASC, n.umumiy_ball DESC
+        LEFT JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        ORDER BY t.sinf ASC, n.umumiy_ball DESC NULLS LAST
     """).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -294,8 +336,10 @@ def talaba_hammasi():
 
 def add_user(user_id: int, username: str = None, first_name: str = None, last_name: str = None):
     conn = get_connection()
-    conn.execute("INSERT OR IGNORE INTO users (user_id, username, first_name, last_name) VALUES (?, ?, ?, ?)",
-                 (user_id, username, first_name, last_name))
+    conn.execute(
+        "INSERT OR IGNORE INTO users (user_id, username, first_name, last_name) VALUES (?, ?, ?, ?)",
+        (user_id, username, first_name, last_name)
+    )
     conn.commit()
     conn.close()
 
