@@ -21,14 +21,15 @@ class CertificateGenerator:
         pdf.set_font("Helvetica", "B", 40)
         pdf.cell(0, 40, "SERTIFIKAT", ln=True, align='C')
         
+        # Updated Header (Ushbu sertifikat bilan -> O'quvchining ismi va familyasi)
         pdf.set_font("Helvetica", "", 20)
-        pdf.cell(0, 10, "Ushbu sertifikat bilan", ln=True, align='C')
+        pdf.cell(0, 10, "O'quvchining ismi va familyasi", ln=True, align='C')
         
         # Name
         pdf.set_font("Helvetica", "B", 35)
         pdf.cell(0, 30, full_name, ln=True, align='C')
         
-        # Main Text (Updated)
+        # Main Text
         pdf.set_font("Helvetica", "", 16)
         text = "Bo'stonliq tumani ixtisoslashtirilgan maktabining"
         pdf.cell(0, 10, text, ln=True, align='C')
@@ -39,17 +40,13 @@ class CertificateGenerator:
         pdf.set_font("Helvetica", "B", 25)
         pdf.cell(0, 20, f"{score} BALL", ln=True, align='C')
         
-        # Footer text
-        pdf.set_font("Helvetica", "", 18)
-        pdf.cell(0, 10, "to'plaganligi uchun taqdirlanadi.", ln=True, align='C')
+        # Removed "to'plaganligi uchun taqdirlanadi."
         
-        # Footer (Date and Personal Code - centered more)
+        # Footer (Date and Personal Code)
         pdf.set_y(165)
         pdf.set_font("Helvetica", "I", 12)
         
-        # Center Footer Elements
-        # Total width is 297mm (A4 landscape), usable is ~277mm inside borders
-        # We place them at 50mm and 180mm to bring them closer to center than margins
+        # Footer Elements
         pdf.set_x(60)
         pdf.cell(80, 10, f"Sana: {date}", ln=0, align='L')
         
