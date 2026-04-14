@@ -427,3 +427,33 @@ def statistika():
         "eng_yuqori": stat["eng_yuqori"] if stat["eng_yuqori"] else 0,
         "eng_past": stat["eng_past"] if stat["eng_past"] else 0,
     }
+
+def talaba_filtrlangan(sinf: str = None, yonalish: str = None):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    query = """
+        SELECT t.*, n.umumiy_ball, n.majburiy, n.asosiy_1, n.asosiy_2, n.test_sanasi
+        FROM talabalar t
+        LEFT JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        WHERE 1=1
+    """
+    params = []
+    if sinf:
+        query += " AND t.sinf = %s"
+        params.append(sinf)
+    if yonalish:
+        query += " AND t.yonalish = %s"
+        params.append(yonalish)
+    
+    query += " ORDER BY t.sinf ASC, n.umumiy_ball DESC NULLS LAST"
+    
+    cur.execute(query, tuple(params))
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]

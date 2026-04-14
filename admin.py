@@ -12,7 +12,7 @@ from database import (
     talaba_qosh, natija_qosh, talaba_topish, statistika, ball_hisobla,
     yonalish_ol, yonalish_qosh, yonalish_ochir, talaba_hammasi, get_all_students_for_excel,
     delete_all_data, get_all_user_ids,
-    sinf_ol, sinf_qosh, sinf_ochir, talaba_songi_natija,
+    sinf_ol, sinf_qosh, sinf_ochir, talaba_songi_natija, talaba_filtrlangan,
     kalit_qosh, kalit_ol, kalit_tahrirla, kalit_holat_ozgartir, kalit_ochir,
     talaba_user_id_ol
 )
@@ -20,7 +20,8 @@ from keyboards import (
     admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard,
     yonalish_boshqarish_keyboard, yonalish_ochirish_keyboard,
     sinf_keyboard, sinf_boshqarish_keyboard, sinf_ochirish_keyboard,
-    kalit_boshqarish_keyboard, kalit_actions_keyboard, kalit_yonalish_tanlash_keyboard
+    kalit_boshqarish_keyboard, kalit_actions_keyboard, kalit_yonalish_tanlash_keyboard,
+    oquvchilar_filtrlash_keyboard, sinf_tanlash_keyboard, yonalish_tanlash_keyboard, filter_actions_keyboard
 )
 
 router = Router()
@@ -675,19 +676,92 @@ async def admin_statistika(message: Message, state: FSMContext):
 @router.message(F.text == "📋 O'quvchilar ro'yxati")
 async def students_list(message: Message, state: FSMContext):
     if not await admin_tekshir(state): return
-    talabalar = talaba_hammasi()
+    await message.answer("📋 O'quvchilar ro'yxatini ko'rish usulini tanlang:", reply_markup=oquvchilar_filtrlash_keyboard())
+
+@router.callback_query(F.data.startswith("filter_type:"))
+async def filter_type_process(callback: CallbackQuery, state: FSMContext):
+    action = callback.data.split(":")[1]
+    
+    if action == "sinf":
+        await callback.message.edit_text("🏫 Sinfni tanlang:", reply_markup=sinf_tanlash_keyboard())
+    elif action == "yonalish":
+        await callback.message.edit_text("🎯 Yo'nalishni tanlang:", reply_markup=yonalish_tanlash_keyboard())
+    elif action == "hammasi":
+        talabalar = talaba_hammasi()
+        if not talabalar:
+            await callback.answer("⚠️ O'quvchilar topilmadi.")
+            return
+        text = "📋 <b>Barcha o'quvchilar:</b>\n\n"
+        for i, t in enumerate(talabalar[:50], 1):
+            text += f"{i}. {t['kod']} | {t['ismlar']} | {t['sinf']} | <b>{t['umumiy_ball'] or 0}</b>\n"
+        if len(talabalar) > 50:
+            text += f"\n<i>...va yana {len(talabalar)-50} ta o'quvchi.</i>"
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=filter_actions_keyboard("all", "all"))
+    elif action == "back":
+        await callback.message.edit_text("📋 O'quvchilar ro'yxatini ko'rish usulini tanlang:", reply_markup=oquvchilar_filtrlash_keyboard())
+    elif action == "orqaga":
+        await callback.message.delete()
+
+@router.callback_query(F.data.startswith("filter_sinf:"))
+async def filter_sinf_process(callback: CallbackQuery):
+    sinf = callback.data.split(":")[1]
+    talabalar = talaba_filtrlangan(sinf=sinf)
     if not talabalar:
-        await message.answer("⚠️ O'quvchilar topilmadi.")
+        await callback.answer(f"⚠️ {sinf} sinfida o'quvchilar yo'q.")
+        return
+    text = f"📋 <b>{sinf} sinfi o'quvchilari:</b>\n\n"
+    for i, t in enumerate(talabalar[:50], 1):
+        text += f"{i}. {t['kod']} | {t['ismlar']} | <b>{t['umumiy_ball'] or 0}</b>\n"
+    if len(talabalar) > 50:
+        text += f"\n<i>...va yana {len(talabalar)-50} ta o'quvchi.</i>"
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=filter_actions_keyboard("sinf", sinf))
+
+@router.callback_query(F.data.startswith("filter_yon:"))
+async def filter_yon_process(callback: CallbackQuery):
+    yonalish = callback.data.split(":")[1]
+    talabalar = talaba_filtrlangan(yonalish=yonalish)
+    if not talabalar:
+        await callback.answer(f"⚠️ Bu yo'nalishda o'quvchilar yo'q.")
+        return
+    text = f"🎯 <b>{yonalish} yo'nalishi:</b>\n\n"
+    for i, t in enumerate(talabalar[:50], 1):
+        text += f"{i}. {t['kod']} | {t['ismlar']} | {t['sinf']} | <b>{t['umumiy_ball'] or 0}</b>\n"
+    if len(talabalar) > 50:
+        text += f"\n<i>...va yana {len(talabalar)-50} ta o'quvchi.</i>"
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=filter_actions_keyboard("yonalish", yonalish))
+
+@router.callback_query(F.data.startswith("filter_excel:"))
+async def filter_excel_process(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    f_type = parts[1]
+    f_val = parts[2]
+    
+    if f_type == "all":
+        data = talaba_hammasi()
+        caption = "📊 Barcha o'quvchilar natijalari"
+    elif f_type == "sinf":
+        data = talaba_filtrlangan(sinf=f_val)
+        caption = f"📊 {f_val} sinfi natijalari"
+    elif f_type == "yonalish":
+        data = talaba_filtrlangan(yonalish=f_val)
+        caption = f"📊 {f_val} yo'nalishi natijalari"
+    
+    if not data:
+        await callback.answer("⚠️ Ma'lumotlar yo'q.")
         return
     
-    text = "📋 <b>O'quvchilar ro'yxati (Sinf bo'yicha):</b>\n\n"
-    for i, t in enumerate(talabalar[:50], 1): # Faqat birinchi 50 tasini chiqaramiz
-        text += f"{i}. {t['kod']} | {t['ismlar']} | {t['sinf']} | <b>{t['umumiy_ball'] or 0}</b>\n"
+    df = pd.DataFrame(data)
+    # Keraksiz ustunlarni o'chirish yoki tartiblash (ixtiyoriy)
+    cols = ['kod', 'ismlar', 'sinf', 'yonalish', 'majburiy', 'asosiy_1', 'asosiy_2', 'umumiy_ball', 'test_sanasi']
+    df = df[[c for c in cols if c in df.columns]]
     
-    if len(talabalar) > 50:
-        text += f"\n<i>...va yana {len(talabalar)-50} ta o'quvchi. To'liq ro'yxat uchun Excelga yuklang.</i>"
-        
-    await message.answer(text, parse_mode="HTML")
+    path = f"students_{f_type}_{f_val}.xlsx".replace(" ", "_")
+    df.to_excel(path, index=False)
+    
+    await callback.message.answer_document(FSInputFile(path), caption=caption)
+    if os.path.exists(path):
+        os.remove(path)
+    await callback.answer()
 
 
 @router.message(F.text == "📥 Excelga yuklash")

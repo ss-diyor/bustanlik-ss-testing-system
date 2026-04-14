@@ -183,3 +183,37 @@ def murojaat_javob_keyboard(user_id):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"murojaat_javob:{user_id}")]
     ])
+
+def oquvchilar_filtrlash_keyboard():
+    """O'quvchilar ro'yxatini filtrlash menyusi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🏫 Sinf bo'yicha", callback_data="filter_type:sinf")],
+        [InlineKeyboardButton(text="🎯 Yo'nalish bo'yicha", callback_data="filter_type:yonalish")],
+        [InlineKeyboardButton(text="📋 Hammasi", callback_data="filter_type:hammasi")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:orqaga")],
+    ])
+
+def sinf_tanlash_keyboard(action_prefix="filter_sinf"):
+    """Sinf tanlash uchun inline tugmalar."""
+    buttons = []
+    sinflar = sinf_ol()
+    for s in sinflar:
+        buttons.append([InlineKeyboardButton(text=s, callback_data=f"{action_prefix}:{s}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def yonalish_tanlash_keyboard(action_prefix="filter_yon"):
+    """Yo'nalish tanlash uchun inline tugmalar."""
+    buttons = []
+    yonalishlar = yonalish_ol()
+    for y in yonalishlar:
+        buttons.append([InlineKeyboardButton(text=y, callback_data=f"{action_prefix}:{y[:40]}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def filter_actions_keyboard(filter_type, filter_value):
+    """Filtrlangan ro'yxat uchun amallar (Excel yuklash)."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📥 Excelga yuklash", callback_data=f"filter_excel:{filter_type}:{filter_value}")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")],
+    ])
