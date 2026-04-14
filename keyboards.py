@@ -137,8 +137,8 @@ def user_menu_keyboard():
     """Foydalanuvchi asosiy menyusi."""
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📊 Mening natijalarim")],
-            [KeyboardButton(text="✅ Javoblarni tekshirish")],
+            [KeyboardButton(text="📊 Mening natijalarim"), KeyboardButton(text="🏆 Reyting")],
+            [KeyboardButton(text="✅ Javoblarni tekshirish"), KeyboardButton(text="📈 Statistika")],
             [KeyboardButton(text="✍️ Admin bilan bog'lanish")],
         ],
         resize_keyboard=True
@@ -182,6 +182,22 @@ def murojaat_javob_keyboard(user_id):
     """Admin uchun murojaatga javob berish tugmasi."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"murojaat_javob:{user_id}")]
+    ])
+
+def ranking_keyboard():
+    """Reyting menyusi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔝 Sinf Top 10", callback_data="ranking:class_top10")],
+        [InlineKeyboardButton(text="🌍 Umumiy Top 50", callback_data="ranking:overall_top50")],
+        [InlineKeyboardButton(text="👤 Mening o'rnim", callback_data="ranking:my_rank")],
+    ])
+
+def stats_keyboard():
+    """Statistika menyusi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎯 Yo'nalishlar bo'yicha", callback_data="stats:direction")],
+        [InlineKeyboardButton(text="🏫 Sinflar bo'yicha", callback_data="stats:class")],
+        [InlineKeyboardButton(text="🚀 Eng ko'p o'sganlar", callback_data="stats:improved")],
     ])
 
 def oquvchilar_filtrlash_keyboard():

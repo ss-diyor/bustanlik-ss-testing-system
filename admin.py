@@ -107,7 +107,25 @@ async def bildirishnoma_yuborish(bot: Bot, talaba_kod: str, natija: dict, talaba
     if not user_id:
         return  # Talaba profilini ulamagan — bildirishnoma yo'q
 
+    from database import get_student_rank, get_score_difference
+    ranks = get_student_rank(talaba_kod)
+    diff = get_score_difference(talaba_kod)
+    
     foiz = round((natija['umumiy_ball'] / 189) * 100, 1)
+    
+    status_text = ""
+    if ranks['class']:
+        status_text = f"📍 Siz sinfda <b>{ranks['class']}-o'rindasiz</b>."
+    
+    diff_text = ""
+    if diff is not None:
+        if diff > 0:
+            diff_text = f"\n📈 Natijangiz <b>+{diff} ballga</b> yaxshilandi! Tabriklaymiz! 🎉"
+        elif diff < 0:
+            diff_text = f"\n📉 Natijangiz <b>{diff} ballga</b> o'zgardi. Keyingi safar yanada yaxshiroq bo'ladi! 💪"
+        else:
+            diff_text = "\n⏺ Natijangiz o'zgarmadi."
+
     matn = (
         f"🔔 <b>Yangi test natijangiz kiritildi!</b>\n\n"
         f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
@@ -119,6 +137,7 @@ async def bildirishnoma_yuborish(bot: Bot, talaba_kod: str, natija: dict, talaba
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"🏆 <b>Umumiy ball: {natija['umumiy_ball']} / 189</b>\n"
         f"📈 Foiz: <b>{foiz}%</b>\n\n"
+        f"{status_text}{diff_text}\n\n"
         f"📜 Quyida sizning natijangiz aks etgan sertifikat biriktirilgan."
     )
     

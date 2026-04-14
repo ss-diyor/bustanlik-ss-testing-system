@@ -457,3 +457,171 @@ def talaba_filtrlangan(sinf: str = None, yonalish: str = None):
     cur.close()
     release_connection(conn)
     return [dict(r) for r in rows]
+
+
+def get_top_10_in_class(sinf: str):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT t.kod, t.ismlar, n.umumiy_ball
+        FROM talabalar t
+        JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        WHERE t.sinf = %s
+        ORDER BY n.umumiy_ball DESC
+        LIMIT 10
+    """, (sinf,))
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def get_overall_ranking():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT t.kod, t.ismlar, t.sinf, n.umumiy_ball
+        FROM talabalar t
+        JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        ORDER BY n.umumiy_ball DESC
+        LIMIT 50
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def get_student_rank(kod: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    # Umumiy reytingdagi o'rni
+    cur.execute("""
+        WITH current_scores AS (
+            SELECT talaba_kod, umumiy_ball,
+                   RANK() OVER (ORDER BY umumiy_ball DESC) as rank
+            FROM test_natijalari n1
+            WHERE id = (
+                SELECT id FROM test_natijalari n2
+                WHERE n2.talaba_kod = n1.talaba_kod
+                ORDER BY test_sanasi DESC
+                LIMIT 1
+            )
+        )
+        SELECT rank FROM current_scores WHERE talaba_kod = %s
+    """, (kod.upper(),))
+    overall_rank = cur.fetchone()
+    
+    # Sinfdagi o'rni
+    cur.execute("""
+        WITH current_scores AS (
+            SELECT t.kod, n.umumiy_ball, t.sinf,
+                   RANK() OVER (PARTITION BY t.sinf ORDER BY n.umumiy_ball DESC) as rank
+            FROM talabalar t
+            JOIN test_natijalari n ON n.id = (
+                SELECT id FROM test_natijalari
+                WHERE talaba_kod = t.kod
+                ORDER BY test_sanasi DESC
+                LIMIT 1
+            )
+        )
+        SELECT rank FROM current_scores WHERE kod = %s
+    """, (kod.upper(),))
+    class_rank = cur.fetchone()
+    
+    cur.close()
+    release_connection(conn)
+    return {
+        "overall": overall_rank[0] if overall_rank else None,
+        "class": class_rank[0] if class_rank else None
+    }
+
+def get_avg_score_by_direction():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT t.yonalish, ROUND(AVG(n.umumiy_ball)::numeric, 2) as avg_score
+        FROM talabalar t
+        JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        GROUP BY t.yonalish
+        ORDER BY avg_score DESC
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def get_class_comparison():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT t.sinf, ROUND(AVG(n.umumiy_ball)::numeric, 2) as avg_score
+        FROM talabalar t
+        JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        GROUP BY t.sinf
+        ORDER BY avg_score DESC
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def get_most_improved_students():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        WITH student_diffs AS (
+            SELECT talaba_kod,
+                   (SELECT umumiy_ball FROM test_natijalari WHERE talaba_kod = t1.talaba_kod ORDER BY test_sanasi DESC LIMIT 1) -
+                   (SELECT umumiy_ball FROM test_natijalari WHERE talaba_kod = t1.talaba_kod ORDER BY test_sanasi DESC OFFSET 1 LIMIT 1) as diff
+            FROM (SELECT DISTINCT talaba_kod FROM test_natijalari) t1
+        )
+        SELECT t.kod, t.ismlar, t.sinf, sd.diff
+        FROM student_diffs sd
+        JOIN talabalar t ON t.kod = sd.talaba_kod
+        WHERE sd.diff IS NOT NULL AND sd.diff > 0
+        ORDER BY sd.diff DESC
+        LIMIT 10
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def get_score_difference(kod: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT umumiy_ball FROM test_natijalari
+        WHERE talaba_kod = %s
+        ORDER BY test_sanasi DESC
+        LIMIT 2
+    """, (kod.upper(),))
+    results = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    
+    if len(results) < 2:
+        return None
+    
+    current = float(results[0][0])
+    previous = float(results[1][0])
+    return round(current - previous, 2)
