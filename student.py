@@ -247,10 +247,19 @@ async def results_kod_olingan(message: Message, state: FSMContext):
 async def talaba_natija_umumiy(message: Message, state: FSMContext):
     if message.text in ADMIN_TUGMALAR:
         return
+    
+    # Yangi qo'shilgan tugmalarni o'tkazib yuboramiz
+    if message.text in ["🏆 Reyting", "📈 Statistika"]:
+        return
+
     current_state = await state.get_state()
     if current_state is not None:
         return
-    await _natija_yuborish(message, message.text.strip().upper())
+    
+    # Faqat kodga o'xshash matnlarni tekshiramiz (masalan, A-001 yoki 52B)
+    text = message.text.strip().upper()
+    if re.match(r'^[A-Z0-9-]{2,10}$', text):
+        await _natija_yuborish(message, text)
 
 
 def _generate_plot(dates, scores, plot_path, ismlar):

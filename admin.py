@@ -108,8 +108,13 @@ async def bildirishnoma_yuborish(bot: Bot, talaba_kod: str, natija: dict, talaba
         return  # Talaba profilini ulamagan — bildirishnoma yo'q
 
     from database import get_student_rank, get_score_difference
-    ranks = get_student_rank(talaba_kod)
-    diff = get_score_difference(talaba_kod)
+    try:
+        ranks = get_student_rank(talaba_kod)
+        diff = get_score_difference(talaba_kod)
+    except Exception as e:
+        print(f"Rank/Diff error: {e}")
+        ranks = {'class': None, 'overall': None}
+        diff = None
     
     foiz = round((natija['umumiy_ball'] / 189) * 100, 1)
     
