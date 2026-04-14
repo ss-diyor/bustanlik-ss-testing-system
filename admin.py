@@ -7,6 +7,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from config import ADMIN_PASSWORD, MAX_SAVOL
 import pandas as pd
+from certificate import CertificateGenerator
 from database import (
     talaba_qosh, natija_qosh, talaba_topish, statistika, ball_hisobla,
     yonalish_ol, yonalish_qosh, yonalish_ochir, talaba_hammasi, get_all_students_for_excel,
@@ -95,6 +96,7 @@ def _son_tekshir(text: str):
 async def bildirishnoma_yuborish(bot: Bot, talaba_kod: str, natija: dict, talaba: dict):
     """
     Talabaning Telegram user_id si bo'lsa, yangi natija haqida xabar yuboradi.
+    Sertifikat ham generatsiya qilinadi.
     """
     user_id = talaba_user_id_ol(talaba_kod)
     if not user_id:
@@ -111,12 +113,31 @@ async def bildirishnoma_yuborish(bot: Bot, talaba_kod: str, natija: dict, talaba
         f"  📙 2-asosiy: {natija['asosiy_2']}/30 → <b>{natija['asosiy_2'] * 2.1:.1f}</b> ball\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"🏆 <b>Umumiy ball: {natija['umumiy_ball']} / 189</b>\n"
-        f"📈 Foiz: <b>{foiz}%</b>"
+        f"📈 Foiz: <b>{foiz}%</b>\n\n"
+        f"📜 Quyida sizning natijangiz aks etgan sertifikat biriktirilgan."
     )
+    
+    # Sertifikat yaratish
     try:
-        await bot.send_message(user_id, matn, parse_mode="HTML")
-    except Exception:
-        pass  # Foydalanuvchi botni bloklagan bo'lishi mumkin
+        cert_gen = CertificateGenerator()
+        sana = str(natija.get('test_sanasi', 'Noaniq'))[:10]
+        cert_path = cert_gen.generate(talaba['ismlar'], natija['umumiy_ball'], sana, talaba['kod'])
+        
+        await bot.send_document(
+            user_id, 
+            FSInputFile(cert_path), 
+            caption=matn, 
+            parse_mode="HTML"
+        )
+        # Sertifikatni yuborgandan keyin o'chirib tashlaymiz
+        if os.path.exists(cert_path):
+            os.remove(cert_path)
+    except Exception as e:
+        # Agar sertifikatda xato bo'lsa, faqat matnni yuboramiz
+        try:
+            await bot.send_message(user_id, matn, parse_mode="HTML")
+        except Exception:
+            pass
 
 # ─────────────────────────────────────────
 # /admin va Kirish

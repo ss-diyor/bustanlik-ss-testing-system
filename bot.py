@@ -7,7 +7,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
-from database import init_db, add_user, talaba_topish, get_connection
+from database import init_db, add_user, talaba_topish, talaba_user_id_yangila
 from aiogram import F
 from keyboards import user_menu_keyboard
 import admin
@@ -51,10 +51,7 @@ async def bind_user_to_kod(message: Message):
     kod = message.text.replace("ULASH_", "").strip().upper()
     talaba = talaba_topish(kod)
     if talaba:
-        conn = get_connection()
-        conn.execute("UPDATE talabalar SET user_id = ? WHERE kod = ?", (message.from_user.id, kod))
-        conn.commit()
-        conn.close()
+        talaba_user_id_yangila(kod, message.from_user.id)
         await message.answer(f"✅ Tabriklaymiz! Sizning profilingiz <b>{kod}</b> kodiga muvaffaqiyatli ulandi. Endi yangi natijalar haqida avtomatik xabar olasiz.", parse_mode="HTML")
     else:
         await message.answer("❌ Bunday kod topilmadi.")

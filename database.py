@@ -306,6 +306,15 @@ def talaba_user_id_ol(kod: str):
     return row["user_id"] if row else None
 
 
+def talaba_user_id_yangila(kod: str, user_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE talabalar SET user_id = %s WHERE kod = %s", (user_id, kod.upper()))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 def get_all_students_for_excel():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)

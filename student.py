@@ -114,10 +114,12 @@ async def check_start(message: Message, state: FSMContext):
     yonalish = None
     # Foydalanuvchi user_id si bo'yicha talabani topamiz
     from database import get_connection
+    import psycopg2.extras
     conn = get_connection()
-    row = conn.execute(
-        "SELECT yonalish FROM talabalar WHERE user_id = ?", (message.from_user.id,)
-    ).fetchone()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT yonalish FROM talabalar WHERE user_id = %s", (message.from_user.id,))
+    row = cur.fetchone()
+    cur.close()
     conn.close()
     if row:
         yonalish = row["yonalish"]
