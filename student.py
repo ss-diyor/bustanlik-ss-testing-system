@@ -1,5 +1,6 @@
 import os
 import re
+import asyncio
 import matplotlib
 matplotlib.use("Agg")  # GUI yo'q muhitda xatolikni oldini oladi
 import matplotlib.pyplot as plt
@@ -113,14 +114,14 @@ async def check_start(message: Message, state: FSMContext):
     # Talabaning yo'nalishini aniqlaymiz (agar ULASH_ qilingan bo'lsa)
     yonalish = None
     # Foydalanuvchi user_id si bo'yicha talabani topamiz
-    from database import get_connection
+    from database import get_connection, release_connection
     import psycopg2.extras
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT yonalish FROM talabalar WHERE user_id = %s", (message.from_user.id,))
     row = cur.fetchone()
     cur.close()
-    conn.close()
+    release_connection(conn)
     if row:
         yonalish = row["yonalish"]
 
@@ -212,7 +213,7 @@ async def process_answers(message: Message, state: FSMContext):
     await state.clear()
 
 # ─────────────────────────────────────────
-# Natijani ko'rish — TUZATILDI (2 ta handler birlashtirildi)
+# Natijani ko'rish
 # ─────────────────────────────────────────
 
 @router.message(F.text == "📊 Mening natijalarim")
@@ -226,7 +227,6 @@ async def results_start(message: Message, state: FSMContext):
 
 @router.message(ResultCheckState.kod_kutish)
 async def results_kod_olingan(message: Message, state: FSMContext):
-    """Faqat ResultCheckState holatida kodni kutadi."""
     if message.text in ADMIN_TUGMALAR:
         await state.clear()
         return
@@ -236,21 +236,28 @@ async def results_kod_olingan(message: Message, state: FSMContext):
 
 @router.message(F.text & ~F.text.startswith("/"))
 async def talaba_natija_umumiy(message: Message, state: FSMContext):
-    """
-    Har qanday matn — kod sifatida tekshiriladi.
-    FSM holati bo'lmagan holda ishlaydi.
-    """
     if message.text in ADMIN_TUGMALAR:
         return
     current_state = await state.get_state()
     if current_state is not None:
-        # FSM ishlamoqda — bu handlerga tegishli emas
         return
     await _natija_yuborish(message, message.text.strip().upper())
 
 
+def _generate_plot(dates, scores, plot_path, ismlar):
+    """Grafikni alohida thread/process'da yaratish uchun (blocking emas)."""
+    plt.figure(figsize=(8, 4))
+    plt.plot(dates, scores, marker='o', linestyle='-', color='b')
+    plt.title(f"{ismlar} - Natijalar Dinamikasi")
+    plt.xlabel("Sana")
+    plt.ylabel("Ball")
+    plt.grid(True)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig(plot_path)
+    plt.close()
+
 async def _natija_yuborish(message: Message, kod: str):
-    """Natijani yuborish — umumiy yordamchi funksiya."""
     talaba = talaba_topish(kod)
 
     if not talaba:
@@ -262,7 +269,8 @@ async def _natija_yuborish(message: Message, kod: str):
         )
         return
 
-    natijalar = talaba_natijalari(kod)
+    # Faqat oxirgi 10 ta natijani olamiz (tezlik uchun)
+    natijalar = talaba_natijalari(kod, limit=10)
     if not natijalar:
         await message.answer(
             f"👤 <b>{talaba['ismlar']}</b>\n\n⚠️ Siz uchun hali test natijalari kiritilmagan.",
@@ -292,31 +300,24 @@ async def _natija_yuborish(message: Message, kod: str):
     if len(natijalar) > 1:
         text += "📜 <b>Oldingi natijalar:</b>\n"
         for n in natijalar[1:6]:
-            text += f"• {n['test_sanasi'][:10]}: <b>{n['umumiy_ball']}</b> ball\n"
+            text += f"• {str(n['test_sanasi'])[:10]}: <b>{n['umumiy_ball']}</b> ball\n"
 
         plot_path = f"plot_{kod}.png"
         try:
-            dates = [n['test_sanasi'][:10] for n in reversed(natijalar[:10])]
-            scores = [n['umumiy_ball'] for n in reversed(natijalar[:10])]
+            dates = [str(n['test_sanasi'])[:10] for n in reversed(natijalar)]
+            scores = [n['umumiy_ball'] for n in reversed(natijalar)]
 
-            plt.figure(figsize=(8, 4))
-            plt.plot(dates, scores, marker='o', linestyle='-', color='b')
-            plt.title(f"{talaba['ismlar']} - Natijalar Dinamikasi")
-            plt.xlabel("Sana")
-            plt.ylabel("Ball")
-            plt.grid(True)
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            plt.savefig(plot_path)
-            plt.close()
+            # Matplotlib blocking bo'lgani uchun uni executor'da bajaramiz
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _generate_plot, dates, scores, plot_path, talaba['ismlar'])
 
             await message.answer_photo(FSInputFile(plot_path), caption=text, parse_mode="HTML")
-            return
-        except Exception:
-            pass
-        finally:
-            # Grafik fayli har doim o'chiriladi (xato bo'lsa ham)
+            # Faylni yuborgandan keyin o'chirish
             if os.path.exists(plot_path):
                 os.remove(plot_path)
+            return
+        except Exception as e:
+            print(f"Grafik chizishda xato: {e}")
+            pass
 
     await message.answer(text, parse_mode="HTML")

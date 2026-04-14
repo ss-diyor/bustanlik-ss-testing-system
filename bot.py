@@ -31,6 +31,7 @@ dp.include_router(student.router)
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     """/start buyrug'i"""
+    # add_user endi pool orqali tezroq ishlaydi
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
     await message.answer(
         "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabi DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
@@ -61,13 +62,18 @@ async def main():
     """Botni ishga tushiradi."""
     # Bazani ishga tushiradi
     init_db()
-    logging.info("Ma'lumotlar bazasi tayyor.")
+    logging.info("Ma'lumotlar bazasi tayyor va indekslar tekshirildi.")
 
     # Botni polling rejimida ishga tushiradi
     await bot.delete_webhook(drop_pending_updates=True)
     logging.info("Bot ishga tushdi!")
-    await dp.start_polling(bot)
+    
+    # Fast polling config
+    await dp.start_polling(bot, handle_signals=False)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("Bot to'xtatildi!")

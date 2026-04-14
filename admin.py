@@ -93,6 +93,10 @@ def _son_tekshir(text: str):
         pass
     return None
 
+def _generate_certificate_file(cert_gen, ismlar, ball, sana, kod):
+    """Sertifikatni alohida executor'da generatsiya qilish uchun."""
+    return cert_gen.generate(ismlar, ball, sana, kod)
+
 async def bildirishnoma_yuborish(bot: Bot, talaba_kod: str, natija: dict, talaba: dict):
     """
     Talabaning Telegram user_id si bo'lsa, yangi natija haqida xabar yuboradi.
@@ -117,11 +121,13 @@ async def bildirishnoma_yuborish(bot: Bot, talaba_kod: str, natija: dict, talaba
         f"📜 Quyida sizning natijangiz aks etgan sertifikat biriktirilgan."
     )
     
-    # Sertifikat yaratish
+    # Sertifikat yaratish (Blocking bo'lgani uchun executor ishlatamiz)
     try:
         cert_gen = CertificateGenerator()
         sana = str(natija.get('test_sanasi', 'Noaniq'))[:10]
-        cert_path = cert_gen.generate(talaba['ismlar'], natija['umumiy_ball'], sana, talaba['kod'])
+        
+        loop = asyncio.get_event_loop()
+        cert_path = await loop.run_in_executor(None, _generate_certificate_file, cert_gen, talaba['ismlar'], natija['umumiy_ball'], sana, talaba['kod'])
         
         await bot.send_document(
             user_id, 
@@ -283,7 +289,7 @@ async def sinf_ochir_tasdiq(callback: CallbackQuery):
                                      reply_markup=sinf_ochirish_keyboard())
 
 # ─────────────────────────────────────────
-# Test Kalitlarini Boshqarish (Yo'nalishga bog'liq)
+# Test kalitlarini boshqarish
 # ─────────────────────────────────────────
 
 @router.message(F.text == "🔑 Test kalitlarini boshqarish")
@@ -299,152 +305,79 @@ async def kalit_boshqar_actions(callback: CallbackQuery, state: FSMContext):
     if action == "ro'yxat":
         kalitlar = kalit_ol()
         if not kalitlar:
-            await callback.message.edit_text("⚠️ Hozircha kalitlar yo'q.", reply_markup=kalit_boshqarish_keyboard())
+            await callback.message.edit_text("⚠️ Hozircha test kalitlari yo'q.", reply_markup=kalit_boshqarish_keyboard())
         else:
-            text = "📋 <b>Mavjud test kalitlari:</b>\n\nTanlang:"
-            buttons = []
+            text = "📋 <b>Mavjud test kalitlari:</b>\n\n"
             for k in kalitlar:
-                status = "🟢" if k['holat'] == 'ochiq' else "🔴"
-                yon_label = f" [{k['yonalish']}]" if k.get('yonalish') else " [Umumiy]"
-                buttons.append([InlineKeyboardButton(
-                    text=f"{status} {k['test_nomi']}{yon_label}",
-                    callback_data=f"kalit_view:{k['test_nomi']}"
-                )])
-            buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga")])
-            await callback.message.edit_text(text, parse_mode="HTML",
-                                             reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+                text += f"📌 {k['test_nomi']} ({k['holat']})\n"
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kalit_boshqarish_keyboard())
 
     elif action == "qosh":
-        # Umumiy kalit (yo'nalishsiz)
         await state.set_state(KalitBoshqar.nomi_kutish)
-        await callback.message.edit_text("📝 Test nomini kiriting (masalan: 15-may test):")
+        await callback.message.edit_text("📝 Yangi test nomini kiriting:")
 
     elif action == "yonalish_qosh":
-        # Yo'nalishga bog'liq kalit — avval yo'nalish tanlanadi
-        await callback.message.edit_text(
-            "🎯 Qaysi yo'nalish uchun kalit qo'shmoqchisiz?\nYo'nalishni tanlang:",
-            reply_markup=kalit_yonalish_tanlash_keyboard()
-        )
+        await state.set_state(KalitBoshqar.yonalish_nomi_kutish)
+        await callback.message.edit_text("📝 Yo'nalishga tegishli test nomini kiriting:")
+
+    elif action == "ochir":
+        kalitlar = kalit_ol()
+        if not kalitlar:
+            await callback.answer("O'chirish uchun testlar yo'q")
+            return
+        
+        kb = InlineKeyboardMarkup(inline_keyboard=[])
+        for k in kalitlar:
+            kb.inline_keyboard.append([InlineKeyboardButton(text=f"❌ {k['test_nomi']}", callback_data=f"kalit_del:{k['test_nomi']}")])
+        kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="kalit_boshqar:orqaga")])
+        
+        await callback.message.edit_text("O'chirmoqchi bo'lgan testni tanlang:", reply_markup=kb)
 
     elif action == "orqaga":
         await state.set_state(None)
-        await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
+        await callback.message.edit_text("Test kalitlarini boshqarish menyusi:", reply_markup=kalit_boshqarish_keyboard())
 
 
-# Yo'nalish tanlandi — test nomini so'raymiz
-@router.callback_query(F.data.startswith("kalit_yon:"))
-async def kalit_yonalish_tanlandi(callback: CallbackQuery, state: FSMContext):
-    yonalish = callback.data.split(":", 1)[1]
-    # To'liq yo'nalish nomini topamiz (truncate bo'lishi mumkin)
-    barcha = yonalish_ol()
-    mos = next((y for y in barcha if y.startswith(yonalish)), yonalish)
-    await state.update_data(kalit_yonalish=mos)
-    await state.set_state(KalitBoshqar.yonalish_nomi_kutish)
-    await callback.message.edit_text(
-        f"🎯 Yo'nalish: <b>{mos}</b>\n\n📝 Test nomini kiriting (masalan: 15-may test):",
-        parse_mode="HTML"
-    )
-
-
-@router.message(KalitBoshqar.yonalish_nomi_kutish)
-async def kalit_yonalish_nomi_kutish(message: Message, state: FSMContext):
-    nomi = message.text.strip()
-    await state.update_data(test_nomi=nomi)
-    await state.set_state(KalitBoshqar.yonalish_kalit_kutish)
-    data = await state.get_data()
-    await message.answer(
-        f"✅ Test nomi: <b>{nomi}</b>\n"
-        f"🎯 Yo'nalish: <b>{data.get('kalit_yonalish')}</b>\n\n"
-        f"Endi kalitlarni kiriting (Format: 1A2B3C... yoki ABCDE...):",
-        parse_mode="HTML"
-    )
-
-
-@router.message(KalitBoshqar.yonalish_kalit_kutish)
-async def kalit_yonalish_saqla(message: Message, state: FSMContext):
-    kalitlar = message.text.strip().upper()
-    data = await state.get_data()
-    if kalit_qosh(data['test_nomi'], kalitlar, yonalish=data.get('kalit_yonalish')):
-        await message.answer(
-            f"✅ <b>{data['test_nomi']}</b> kaliti saqlandi!\n"
-            f"🎯 Yo'nalish: <b>{data.get('kalit_yonalish')}</b>",
-            parse_mode="HTML", reply_markup=admin_menu_keyboard()
-        )
-    else:
-        await message.answer("❌ Bu nomli test allaqachon mavjud.")
-    await state.set_state(None)
-
-
-# Umumiy kalit (yo'nalishsiz)
 @router.message(KalitBoshqar.nomi_kutish)
-async def kalit_nomi_kutish(message: Message, state: FSMContext):
-    nomi = message.text.strip()
-    await state.update_data(test_nomi=nomi, kalit_yonalish=None)
+async def kalit_nomi_saqla(message: Message, state: FSMContext):
+    await state.update_data(test_nomi=message.text.strip())
     await state.set_state(KalitBoshqar.kalit_kutish)
-    await message.answer(
-        f"✅ Test nomi: <b>{nomi}</b>\n\nKalitlarni kiriting (Format: 1A2B3C... yoki ABCDE...):",
-        parse_mode="HTML"
-    )
+    await message.answer("📝 Test kalitlarini kiriting (Masalan: ABCD...):")
 
 
 @router.message(KalitBoshqar.kalit_kutish)
-async def kalit_saqla(message: Message, state: FSMContext):
-    kalitlar = message.text.strip().upper()
+async def kalit_matni_saqla(message: Message, state: FSMContext):
     data = await state.get_data()
-    if kalit_qosh(data['test_nomi'], kalitlar, yonalish=None):
-        await message.answer(
-            f"✅ <b>{data['test_nomi']}</b> uchun umumiy kalit saqlandi!",
-            parse_mode="HTML", reply_markup=admin_menu_keyboard()
-        )
+    if kalit_qosh(data['test_nomi'], message.text.strip()):
+        await message.answer(f"✅ {data['test_nomi']} kalitlari saqlandi!", reply_markup=admin_menu_keyboard())
     else:
-        await message.answer("❌ Bu nomli test allaqachon mavjud.")
+        await message.answer("❌ Xatolik yuz berdi yoki bu test nomi allaqachon mavjud.")
     await state.set_state(None)
 
 
-@router.callback_query(F.data.startswith("kalit_view:"))
-async def kalit_view(callback: CallbackQuery):
-    test_nomi = callback.data.split(":", 1)[1]
-    k = kalit_ol(test_nomi)
-    if not k:
-        await callback.answer("❌ Kalit topilmadi.")
-        return
-    yon_text = k.get('yonalish') or "Umumiy (barcha yo'nalishlar)"
-    text = (
-        f"📋 <b>Test:</b> {k['test_nomi']}\n"
-        f"🎯 <b>Yo'nalish:</b> {yon_text}\n"
-        f"🔑 <b>Kalitlar:</b> <code>{k['kalitlar']}</code>\n"
-        f"📊 <b>Holat:</b> {k['holat'].upper()}"
-    )
-    await callback.message.edit_text(text, parse_mode="HTML",
-                                     reply_markup=kalit_actions_keyboard(test_nomi, k['holat']))
+@router.message(KalitBoshqar.yonalish_nomi_kutish)
+async def kalit_yonalish_nomi(message: Message, state: FSMContext):
+    await state.update_data(test_nomi=message.text.strip())
+    await state.set_state(KalitBoshqar.yonalish_kalit_kutish)
+    await message.answer("📝 Test kalitlarini kiriting:")
 
 
-@router.callback_query(F.data.startswith("kalit_status:"))
-async def kalit_status_change(callback: CallbackQuery):
-    test_nomi = callback.data.split(":", 1)[1]
-    k = kalit_ol(test_nomi)
-    yangi_holat = "yopiq" if k['holat'] == "ochiq" else "ochiq"
-    kalit_holat_ozgartir(test_nomi, yangi_holat)
-    await callback.answer(f"✅ Holat {yangi_holat}ga o'zgartirildi")
-    await kalit_view(callback)
+@router.message(KalitBoshqar.yonalish_kalit_kutish)
+async def kalit_yonalish_kalit(message: Message, state: FSMContext):
+    await state.update_data(kalitlar=message.text.strip())
+    await message.answer("🎯 Bu test qaysi yo'nalish uchun?", reply_markup=kalit_yonalish_tanlash_keyboard())
 
 
-@router.callback_query(F.data.startswith("kalit_edit:"))
-async def kalit_edit_start(callback: CallbackQuery, state: FSMContext):
-    test_nomi = callback.data.split(":", 1)[1]
-    await state.update_data(edit_test_nomi=test_nomi)
-    await state.set_state(KalitBoshqar.edit_kalit_kutish)
-    await callback.message.answer(f"📝 <b>{test_nomi}</b> uchun yangi kalitlarni kiriting:", parse_mode="HTML")
-    await callback.answer()
-
-
-@router.message(KalitBoshqar.edit_kalit_kutish)
-async def kalit_edit_save(message: Message, state: FSMContext):
-    yangi_kalitlar = message.text.strip().upper()
+@router.callback_query(F.data.startswith("kalit_yonalish:"))
+async def kalit_yonalish_final(callback: CallbackQuery, state: FSMContext):
+    yonalish = callback.data.split(":")[1]
+    if yonalish == "null": yonalish = None
+    
     data = await state.get_data()
-    kalit_tahrirla(data['edit_test_nomi'], yangi_kalitlar)
-    await message.answer(f"✅ <b>{data['edit_test_nomi']}</b> kalitlari yangilandi!",
-                         parse_mode="HTML", reply_markup=admin_menu_keyboard())
+    if kalit_qosh(data['test_nomi'], data['kalitlar'], yonalish):
+        await callback.message.edit_text(f"✅ {data['test_nomi']} ({yonalish or 'Umumiy'}) saqlandi!")
+    else:
+        await callback.message.edit_text("❌ Xatolik yuz berdi.")
     await state.set_state(None)
 
 
@@ -564,8 +497,10 @@ async def talaba_tasdiq(callback: CallbackQuery, state: FSMContext):
         talaba = talaba_topish(data["kod"])
         from database import talaba_songi_natija
         yangi_natija = talaba_songi_natija(data["kod"])
+        
+        # Bildirishnomani async fon rejimida yuboramiz, admin javobini kutib qolmasligi uchun
         if talaba and yangi_natija:
-            await bildirishnoma_yuborish(callback.bot, data["kod"], yangi_natija, talaba)
+            asyncio.create_task(bildirishnoma_yuborish(callback.bot, data["kod"], yangi_natija, talaba))
 
         await callback.message.edit_text(f"✅ {data['kod']} natijasi saqlandi!")
     else:
@@ -637,7 +572,7 @@ async def natija_tahrirlash_asosiy2(message: Message, state: FSMContext):
     from database import talaba_songi_natija
     yangi_natija = talaba_songi_natija(data["tahrir_kod"])
     if talaba and yangi_natija:
-        await bildirishnoma_yuborish(message.bot, data["tahrir_kod"], yangi_natija, talaba)
+        asyncio.create_task(bildirishnoma_yuborish(message.bot, data["tahrir_kod"], yangi_natija, talaba))
 
     ball = ball_hisobla(data["t_majburiy"], data["t_asosiy1"], son)
     await message.answer(
@@ -694,7 +629,7 @@ async def excel_import_process(message: Message, state: FSMContext):
                     from database import talaba_songi_natija
                     yangi_natija = talaba_songi_natija(kod)
                     if talaba and yangi_natija:
-                        await bildirishnoma_yuborish(message.bot, kod, yangi_natija, talaba)
+                        asyncio.create_task(bildirishnoma_yuborish(message.bot, kod, yangi_natija, talaba))
                     await asyncio.sleep(0.05)  # Telegram rate limit
                 else:
                     errors += 1
@@ -724,91 +659,92 @@ async def admin_statistika(message: Message, state: FSMContext):
     if not await admin_tekshir(state): return
     s = statistika()
     if not s:
-        await message.answer("⚠️ Ma'lumotlar mavjud emas.")
+        await message.answer("⚠️ Ma'lumotlar yetarli emas.")
         return
+    
     text = (
-        "📊 <b>Umumiy statistika:</b>\n\n"
-        f"👥 O'quvchilar soni: <b>{s['jami']} ta</b>\n"
+        f"📊 <b>Umumiy statistika:</b>\n\n"
+        f"👥 Jami o'quvchilar: <b>{s['jami']}</b>\n"
         f"📈 O'rtacha ball: <b>{s['ortacha']}</b>\n"
-        f"🏆 Eng yuqori ball: <b>{s['eng_yuqori']}</b>\n"
-        f"📉 Eng past ball: <b>{s['eng_past']}</b>"
+        f"🔝 Eng yuqori ball: <b>{s['eng_yuqori']}</b>\n"
+        f"🔻 Eng past ball: <b>{s['eng_past']}</b>"
     )
     await message.answer(text, parse_mode="HTML")
 
-# ─────────────────────────────────────────
-# O'quvchilar ro'yxati
-# ─────────────────────────────────────────
 
 @router.message(F.text == "📋 O'quvchilar ro'yxati")
-async def admin_list(message: Message, state: FSMContext):
+async def students_list(message: Message, state: FSMContext):
     if not await admin_tekshir(state): return
     talabalar = talaba_hammasi()
     if not talabalar:
-        await message.answer("⚠️ Ro'yxat bo'sh.")
+        await message.answer("⚠️ O'quvchilar topilmadi.")
         return
-    text = "📋 <b>O'quvchilar ro'yxati:</b>\n\n"
-    for i, t in enumerate(talabalar, 1):
-        text += f"{i}. {t['kod']} | {t['sinf']} | {t['umumiy_ball'] if t['umumiy_ball'] else 0} ball\n"
-        if i % 50 == 0:
-            await message.answer(text, parse_mode="HTML")
-            text = ""
-    if text:
-        await message.answer(text, parse_mode="HTML")
+    
+    text = "📋 <b>O'quvchilar ro'yxati (Sinf bo'yicha):</b>\n\n"
+    for i, t in enumerate(talabalar[:50], 1): # Faqat birinchi 50 tasini chiqaramiz
+        text += f"{i}. {t['kod']} | {t['ismlar']} | {t['sinf']} | <b>{t['umumiy_ball'] or 0}</b>\n"
+    
+    if len(talabalar) > 50:
+        text += f"\n<i>...va yana {len(talabalar)-50} ta o'quvchi. To'liq ro'yxat uchun Excelga yuklang.</i>"
+        
+    await message.answer(text, parse_mode="HTML")
 
-# ─────────────────────────────────────────
-# Excelga yuklash
-# ─────────────────────────────────────────
 
 @router.message(F.text == "📥 Excelga yuklash")
-async def admin_excel(message: Message, state: FSMContext):
+async def export_excel(message: Message, state: FSMContext):
     if not await admin_tekshir(state): return
     data = get_all_students_for_excel()
     if not data:
         await message.answer("⚠️ Ma'lumotlar yo'q.")
         return
+    
     df = pd.DataFrame(data)
-    df.columns = ["Kod", "Sinf", "Yo'nalish", "Ism", "Majburiy", "Asosiy-1", "Asosiy-2", "Umumiy Ball", "Vaqt"]
-    file_path = "dtm_natijalar.xlsx"
-    df.to_excel(file_path, index=False)
-    await message.answer_document(FSInputFile(file_path), caption="📊 Barcha natijalar Excel formatida.")
+    path = "students_results.xlsx"
+    df.to_excel(path, index=False)
+    
+    await message.answer_document(FSInputFile(path), caption="📊 Barcha o'quvchilar natijalari")
+    if os.path.exists(path):
+        os.remove(path)
 
-# ─────────────────────────────────────────
-# Bazani tozalash
-# ─────────────────────────────────────────
 
-@router.message(F.text == "🧹 Bazani tozalash")
-async def clear_db_start(message: Message, state: FSMContext):
+@router.message(F.text == "🔍 Kod bo'yicha qidirish")
+async def search_kod_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state): return
-    await state.set_state(ConfirmDelete.tasdiqlash_kutish)
-    await message.answer(
-        "⚠️ <b>DIQQAT!</b>\nBarcha o'quvchi va natijalarni o'chirib tashlamoqchimisiz?\n\n"
-        "Tasdiqlash uchun <b>HA</b> deb yozing:",
-        parse_mode="HTML"
-    )
+    await state.set_state(KodQidirish.kod_kutish)
+    await message.answer("🔍 Qidirilayotgan o'quvchi <b>kodini</b> kiriting:", parse_mode="HTML")
 
 
-@router.message(ConfirmDelete.tasdiqlash_kutish)
-async def clear_db_confirm(message: Message, state: FSMContext):
-    if message.text.strip().upper() == "HA":
-        delete_all_data()
-        await message.answer("✅ Baza tozalandi.")
+@router.message(KodQidirish.kod_kutish)
+async def search_kod_process(message: Message, state: FSMContext):
+    kod = message.text.strip().upper()
+    talaba = talaba_topish(kod)
+    if not talaba:
+        await message.answer(f"❌ <b>{kod}</b> topilmadi.", parse_mode="HTML")
     else:
-        await message.answer("❌ Bekor qilindi.")
+        from database import talaba_natijalari
+        n = talaba_natijalari(kod, limit=1)
+        ball = n[0]['umumiy_ball'] if n else 0
+        text = (
+            f"👤 <b>Ma'lumotlar:</b>\n"
+            f"Kod: <b>{talaba['kod']}</b>\n"
+            f"Ism: <b>{talaba['ismlar']}</b>\n"
+            f"Sinf: <b>{talaba['sinf']}</b>\n"
+            f"Yo'nalish: <b>{talaba['yonalish']}</b>\n"
+            f"Oxirgi ball: <b>{ball}</b>"
+        )
+        await message.answer(text, parse_mode="HTML")
     await state.set_state(None)
 
-# ─────────────────────────────────────────
-# Xabar yuborish (Broadcast)
-# ─────────────────────────────────────────
 
 @router.message(F.text == "📢 Xabar yuborish")
 async def broadcast_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state): return
     await state.set_state(Broadcast.xabar_kutish)
-    await message.answer("📢 Barcha foydalanuvchilarga yuboriladigan xabarni kiriting:")
+    await message.answer("📢 Barcha foydalanuvchilarga yuboriladigan xabarni yozing:")
 
 
 @router.message(Broadcast.xabar_kutish)
-async def broadcast_send(message: Message, state: FSMContext):
+async def broadcast_process(message: Message, state: FSMContext):
     user_ids = get_all_user_ids()
     count = 0
     for uid in user_ids:
@@ -817,53 +753,34 @@ async def broadcast_send(message: Message, state: FSMContext):
             count += 1
             await asyncio.sleep(0.05)
         except Exception:
-            pass
-    await message.answer(f"✅ Xabar {count} ta foydalanuvchiga yuborildi.")
+            continue
+    await message.answer(f"✅ Xabar <b>{count}</b> ta foydalanuvchiga yuborildi.", parse_mode="HTML")
     await state.set_state(None)
 
-# ─────────────────────────────────────────
-# Kod bo'yicha qidirish
-# ─────────────────────────────────────────
 
-@router.message(F.text == "🔍 Kod bo'yicha qidirish")
-async def search_start(message: Message, state: FSMContext):
+@router.message(F.text == "🧹 Bazani tozalash")
+async def clear_db_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state): return
-    await state.set_state(KodQidirish.kod_kutish)
-    await message.answer("🔍 Qidirilayotgan o'quvchi kodini kiriting:")
+    await state.set_state(ConfirmDelete.tasdiqlash_kutish)
+    await message.answer("⚠️ <b>DIQQAT!</b> Barcha o'quvchilar va natijalar o'chib ketadi. Tasdiqlaysizmi? (HA deb yozing)")
 
 
-@router.message(KodQidirish.kod_kutish)
-async def search_kod(message: Message, state: FSMContext):
-    kod = message.text.strip().upper()
-    talaba = talaba_topish(kod)
-    if not talaba:
-        await message.answer(f"❌ {kod} topilmadi.")
+@router.message(ConfirmDelete.tasdiqlash_kutish)
+async def clear_db_process(message: Message, state: FSMContext):
+    if message.text.upper() == "HA":
+        delete_all_data()
+        await message.answer("✅ Barcha ma'lumotlar o'chirildi.")
     else:
-        natija = talaba_songi_natija(kod)
-        ball_text = natija['umumiy_ball'] if natija else "Natija yo'q"
-        ulangan_text = "Ha" if talaba.get('user_id') else "Yo'q"
-        text = (
-            f"🔍 <b>Ma'lumot topildi:</b>\n\n"
-            f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
-            f"🆔 Kod: <b>{talaba['kod']}</b>\n"
-            f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
-            f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n"
-            f"📊 Ball: <b>{ball_text}</b>\n"
-            f"🔗 Ulangan: <b>{ulangan_text}</b>"
-        )
-        await message.answer(text, parse_mode="HTML")
+        await message.answer("❌ Bekor qilindi.")
     await state.set_state(None)
 
-# ─────────────────────────────────────────
-# Murojaatga javob berish
-# ─────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("murojaat_javob:"))
 async def murojaat_javob_start(callback: CallbackQuery, state: FSMContext):
     user_id = callback.data.split(":")[1]
     await state.update_data(reply_to=user_id)
     await state.set_state(MurojaatJavob.javob_kutish)
-    await callback.message.answer(f"✍️ Foydalanuvchi (ID: {user_id}) uchun javobingizni yozing:")
+    await callback.message.answer(f"📝 Foydalanuvchiga (ID: {user_id}) javobingizni yozing:")
     await callback.answer()
 
 
@@ -871,13 +788,13 @@ async def murojaat_javob_start(callback: CallbackQuery, state: FSMContext):
 async def murojaat_javob_send(message: Message, state: FSMContext):
     data = await state.get_data()
     user_id = data.get("reply_to")
-    javob_matni = (
-        f"📩 <b>Admin sizning murojaatingizga javob berdi:</b>\n\n"
-        f"{message.html_text}"
-    )
     try:
-        await message.bot.send_message(user_id, javob_matni, parse_mode="HTML")
+        await message.bot.send_message(
+            user_id,
+            f"📩 <b>Admin javobi:</b>\n\n{message.html_text}",
+            parse_mode="HTML"
+        )
         await message.answer("✅ Javob yuborildi.")
     except Exception as e:
-        await message.answer(f"❌ Yuborishda xatolik: {e}")
+        await message.answer(f"❌ Yuborishda xato: {e}")
     await state.set_state(None)

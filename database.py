@@ -1,15 +1,29 @@
 import psycopg2
 import psycopg2.extras
+from psycopg2 import pool
 import os
 from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Connection pool yaratish (minimal 1, maksimal 10 ta ulanish)
+# Bu har safar yangi ulanish ochishdagi vaqtni tejaydi
+try:
+    connection_pool = pool.SimpleConnectionPool(1, 10, DATABASE_URL)
+except Exception as e:
+    print(f"Pool yaratishda xato: {e}")
+    connection_pool = None
 
 def get_connection():
-    conn = psycopg2.connect(DATABASE_URL)
-    return conn
+    if connection_pool:
+        return connection_pool.getconn()
+    return psycopg2.connect(DATABASE_URL)
 
+def release_connection(conn):
+    if connection_pool:
+        connection_pool.putconn(conn)
+    else:
+        conn.close()
 
 def init_db():
     conn = get_connection()
@@ -26,6 +40,9 @@ def init_db():
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Index qo'shish (qidiruvni tezlashtirish uchun)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_talabalar_kod ON talabalar(kod)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_talabalar_user_id ON talabalar(user_id)")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS test_natijalari (
@@ -39,6 +56,7 @@ def init_db():
             FOREIGN KEY (talaba_kod) REFERENCES talabalar (kod)
         )
     """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_test_natijalari_kod ON test_natijalari(talaba_kod)")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -95,7 +113,7 @@ def init_db():
 
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
 
 
 def yonalish_ol():
@@ -104,7 +122,7 @@ def yonalish_ol():
     cur.execute("SELECT nomi FROM yonalishlar ORDER BY nomi ASC")
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [r["nomi"] for r in rows]
 
 def yonalish_qosh(nomi: str) -> bool:
@@ -114,7 +132,7 @@ def yonalish_qosh(nomi: str) -> bool:
         cur.execute("INSERT INTO yonalishlar (nomi) VALUES (%s)", (nomi,))
         conn.commit()
         cur.close()
-        conn.close()
+        release_connection(conn)
         return True
     except Exception:
         return False
@@ -125,7 +143,7 @@ def yonalish_ochir(nomi: str):
     cur.execute("DELETE FROM yonalishlar WHERE nomi = %s", (nomi,))
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
 
 def sinf_ol():
     conn = get_connection()
@@ -133,7 +151,7 @@ def sinf_ol():
     cur.execute("SELECT nomi FROM sinflar ORDER BY nomi ASC")
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [r["nomi"] for r in rows]
 
 def sinf_qosh(nomi: str) -> bool:
@@ -143,7 +161,7 @@ def sinf_qosh(nomi: str) -> bool:
         cur.execute("INSERT INTO sinflar (nomi) VALUES (%s)", (nomi,))
         conn.commit()
         cur.close()
-        conn.close()
+        release_connection(conn)
         return True
     except Exception:
         return False
@@ -154,7 +172,7 @@ def sinf_ochir(nomi: str):
     cur.execute("DELETE FROM sinflar WHERE nomi = %s", (nomi,))
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
 
 
 def kalit_qosh(test_nomi: str, kalitlar: str, yonalish: str = None) -> bool:
@@ -167,7 +185,7 @@ def kalit_qosh(test_nomi: str, kalitlar: str, yonalish: str = None) -> bool:
         )
         conn.commit()
         cur.close()
-        conn.close()
+        release_connection(conn)
         return True
     except Exception:
         return False
@@ -179,7 +197,7 @@ def kalit_ol(test_nomi: str = None, yonalish: str = None):
         cur.execute("SELECT * FROM test_kalitlari WHERE test_nomi = %s", (test_nomi,))
         row = cur.fetchone()
         cur.close()
-        conn.close()
+        release_connection(conn)
         return dict(row) if row else None
     elif yonalish:
         cur.execute(
@@ -188,13 +206,13 @@ def kalit_ol(test_nomi: str = None, yonalish: str = None):
         )
         rows = cur.fetchall()
         cur.close()
-        conn.close()
+        release_connection(conn)
         return [dict(r) for r in rows]
     else:
         cur.execute("SELECT * FROM test_kalitlari ORDER BY yaratilgan_sana DESC")
         rows = cur.fetchall()
         cur.close()
-        conn.close()
+        release_connection(conn)
         return [dict(r) for r in rows]
 
 def kalit_tahrirla(test_nomi: str, yangi_kalitlar: str):
@@ -204,7 +222,7 @@ def kalit_tahrirla(test_nomi: str, yangi_kalitlar: str):
                 (yangi_kalitlar.upper(), test_nomi))
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
 
 def kalit_holat_ozgartir(test_nomi: str, holat: str):
     conn = get_connection()
@@ -212,7 +230,7 @@ def kalit_holat_ozgartir(test_nomi: str, holat: str):
     cur.execute("UPDATE test_kalitlari SET holat = %s WHERE test_nomi = %s", (holat, test_nomi))
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
 
 def kalit_ochir(test_nomi: str):
     conn = get_connection()
@@ -220,7 +238,7 @@ def kalit_ochir(test_nomi: str):
     cur.execute("DELETE FROM test_kalitlari WHERE test_nomi = %s", (test_nomi,))
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
 
 
 def ball_hisobla(majburiy: int, asosiy_1: int, asosiy_2: int) -> float:
@@ -240,7 +258,7 @@ def talaba_qosh(kod: str, yonalish: str, sinf: str = None, ismlar: str = None) -
         """, (kod.upper(), yonalish, sinf, ismlar))
         conn.commit()
         cur.close()
-        conn.close()
+        release_connection(conn)
         return True
     except Exception:
         return False
@@ -256,7 +274,7 @@ def natija_qosh(talaba_kod: str, majburiy: int, asosiy_1: int, asosiy_2: int) ->
         """, (talaba_kod.upper(), majburiy, asosiy_1, asosiy_2, ball))
         conn.commit()
         cur.close()
-        conn.close()
+        release_connection(conn)
         return True
     except Exception:
         return False
@@ -267,20 +285,19 @@ def talaba_topish(kod: str):
     cur.execute("SELECT * FROM talabalar WHERE kod = %s", (kod.upper(),))
     row = cur.fetchone()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return dict(row) if row else None
 
-def talaba_natijalari(kod: str):
+def talaba_natijalari(kod: str, limit: int = None):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
-        SELECT * FROM test_natijalari
-        WHERE talaba_kod = %s
-        ORDER BY test_sanasi DESC
-    """, (kod.upper(),))
+    query = "SELECT * FROM test_natijalari WHERE talaba_kod = %s ORDER BY test_sanasi DESC"
+    if limit:
+        query += f" LIMIT {limit}"
+    cur.execute(query, (kod.upper(),))
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [dict(r) for r in rows]
 
 def talaba_songi_natija(kod: str):
@@ -293,7 +310,7 @@ def talaba_songi_natija(kod: str):
     """, (kod.upper(),))
     row = cur.fetchone()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return dict(row) if row else None
 
 def talaba_user_id_ol(kod: str):
@@ -302,7 +319,7 @@ def talaba_user_id_ol(kod: str):
     cur.execute("SELECT user_id FROM talabalar WHERE kod = %s", (kod.upper(),))
     row = cur.fetchone()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return row["user_id"] if row else None
 
 
@@ -312,7 +329,7 @@ def talaba_user_id_yangila(kod: str, user_id: int):
     cur.execute("UPDATE talabalar SET user_id = %s WHERE kod = %s", (user_id, kod.upper()))
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
 
 
 def get_all_students_for_excel():
@@ -332,7 +349,7 @@ def get_all_students_for_excel():
     """)
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [dict(r) for r in rows]
 
 def talaba_hammasi():
@@ -351,7 +368,7 @@ def talaba_hammasi():
     """)
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [dict(r) for r in rows]
 
 
@@ -365,7 +382,7 @@ def add_user(user_id: int, username: str = None, first_name: str = None, last_na
     """, (user_id, username, first_name, last_name))
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
 
 def get_all_user_ids():
     conn = get_connection()
@@ -373,7 +390,7 @@ def get_all_user_ids():
     cur.execute("SELECT user_id FROM users")
     rows = cur.fetchall()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return [r["user_id"] for r in rows]
 
 
@@ -384,7 +401,7 @@ def delete_all_data():
     cur.execute("DELETE FROM talabalar")
     conn.commit()
     cur.close()
-    conn.close()
+    release_connection(conn)
 
 def statistika():
     conn = get_connection()
@@ -393,7 +410,7 @@ def statistika():
     jami = cur.fetchone()["jami"]
     if jami == 0:
         cur.close()
-        conn.close()
+        release_connection(conn)
         return None
     cur.execute("""
         SELECT AVG(umumiy_ball) as ortacha,
@@ -403,7 +420,7 @@ def statistika():
     """)
     stat = cur.fetchone()
     cur.close()
-    conn.close()
+    release_connection(conn)
     return {
         "jami": jami,
         "ortacha": round(float(stat["ortacha"]), 2) if stat["ortacha"] else 0,
