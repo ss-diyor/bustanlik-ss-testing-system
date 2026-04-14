@@ -12,6 +12,7 @@ from aiogram.fsm.state import State, StatesGroup
 from database import talaba_topish, talaba_natijalari, get_all_user_ids, kalit_ol
 from keyboards import user_menu_keyboard, murojaat_bekor_qilish_keyboard, murojaat_javob_keyboard, test_tanlash_keyboard
 from config import ADMIN_IDS
+from certificate import CertificateGenerator
 
 router = Router()
 
@@ -257,6 +258,11 @@ def _generate_plot(dates, scores, plot_path, ismlar):
     plt.savefig(plot_path)
     plt.close()
 
+def _generate_cert_internal(full_name, score, date, kod):
+    """Sertifikatni executor'da yaratish uchun."""
+    cert_gen = CertificateGenerator()
+    return cert_gen.generate(full_name, score, date, kod)
+
 async def _natija_yuborish(message: Message, kod: str):
     talaba = talaba_topish(kod)
 
@@ -280,6 +286,7 @@ async def _natija_yuborish(message: Message, kod: str):
 
     songi = natijalar[0]
     foiz = round((songi['umumiy_ball'] / 189) * 100, 1)
+    sana_str = str(songi['test_sanasi'])[:10]
 
     text = (
         f"🎓 <b>Sizning natijangiz (Oxirgi test)</b>\n\n"
@@ -294,30 +301,50 @@ async def _natija_yuborish(message: Message, kod: str):
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"🏆 <b>Umumiy ball: {songi['umumiy_ball']} / 189</b>\n"
         f"📈 Foiz: <b>{foiz}%</b>\n"
-        f"📅 Sana: {songi['test_sanasi']}\n\n"
+        f"📅 Sana: {sana_str}\n\n"
     )
 
+    loop = asyncio.get_event_loop()
+    
+    # 1. Sertifikat yaratish
+    cert_path = None
+    try:
+        cert_path = await loop.run_in_executor(None, _generate_cert_internal, talaba['ismlar'], songi['umumiy_ball'], sana_str, talaba['kod'])
+    except Exception as e:
+        print(f"Sertifikat yaratishda xato: {e}")
+
+    # 2. Grafik yaratish (agar natijalar 1 tadan ko'p bo'lsa)
+    plot_path = f"plot_{kod}.png"
+    has_plot = False
     if len(natijalar) > 1:
         text += "📜 <b>Oldingi natijalar:</b>\n"
         for n in natijalar[1:6]:
             text += f"• {str(n['test_sanasi'])[:10]}: <b>{n['umumiy_ball']}</b> ball\n"
 
-        plot_path = f"plot_{kod}.png"
         try:
             dates = [str(n['test_sanasi'])[:10] for n in reversed(natijalar)]
             scores = [n['umumiy_ball'] for n in reversed(natijalar)]
-
-            # Matplotlib blocking bo'lgani uchun uni executor'da bajaramiz
-            loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, _generate_plot, dates, scores, plot_path, talaba['ismlar'])
-
-            await message.answer_photo(FSInputFile(plot_path), caption=text, parse_mode="HTML")
-            # Faylni yuborgandan keyin o'chirish
-            if os.path.exists(plot_path):
-                os.remove(plot_path)
-            return
+            has_plot = True
         except Exception as e:
             print(f"Grafik chizishda xato: {e}")
-            pass
 
-    await message.answer(text, parse_mode="HTML")
+    # 3. Yuborish
+    try:
+        if cert_path and os.path.exists(cert_path):
+            # Sertifikatni hujjat sifatida yuboramiz
+            await message.answer_document(FSInputFile(cert_path), caption="📜 Sizning natijangiz aks etgan sertifikat.")
+            if os.path.exists(cert_path): os.remove(cert_path)
+        
+        if has_plot and os.path.exists(plot_path):
+            # Grafikni rasm sifatida matn bilan yuboramiz
+            await message.answer_photo(FSInputFile(plot_path), caption=text, parse_mode="HTML")
+            if os.path.exists(plot_path): os.remove(plot_path)
+        else:
+            # Grafik bo'lmasa, faqat matnni yuboramiz
+            await message.answer(text, parse_mode="HTML")
+            
+    except Exception as e:
+        print(f"Yuborishda xato: {e}")
+        # Xatolik bo'lsa hech bo'lmasa matnni yuboramiz
+        await message.answer(text, parse_mode="HTML")
