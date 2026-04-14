@@ -75,6 +75,7 @@ def kalit_boshqarish_keyboard():
         [InlineKeyboardButton(text="📋 Mavjud kalitlar", callback_data="kalit_boshqar:ro'yxat")],
         [InlineKeyboardButton(text="➕ Umumiy kalit qo'shish", callback_data="kalit_boshqar:qosh")],
         [InlineKeyboardButton(text="🎯 Yo'nalishga kalit qo'shish", callback_data="kalit_boshqar:yonalish_qosh")],
+        [InlineKeyboardButton(text="❌ Mavjud kalitlarni o'chirish", callback_data="kalit_boshqar:ochir")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga")],
     ])
 
