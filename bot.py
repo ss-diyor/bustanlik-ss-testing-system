@@ -123,17 +123,24 @@ async def reminder_scheduler():
         await asyncio.sleep(60)
 
 async def group_ranking_scheduler():
-    """Guruhlarga har kuni soat 20:00 da reyting yuborish."""
-    from database import guruhlar_ol, get_overall_ranking
+    """Guruhlarga har kuni soat 20:00 da barcha sinflar bo'yicha Top-10 reyting yuborish."""
+    from database import guruhlar_ol, sinf_ol, get_all_in_class
     while True:
         now = datetime.now()
         if now.hour == 20 and now.minute == 0:
             guruhlar = guruhlar_ol()
-            ranking = get_overall_ranking()
-            if ranking:
-                text = "🏆 <b>Bugungi Top-3 reytingi:</b>\n\n"
-                for i, r in enumerate(ranking[:3], 1):
-                    text += f"{i}. {r['ismlar']} — {r['umumiy_ball']} ball\n"
+            sinflar = sinf_ol()
+            
+            if sinflar:
+                text = "🏆 <b>Bugungi Top-10 reytingi (Sinflar kesimida):</b>\n\n"
+                for s in sinflar:
+                    talabalar = get_all_in_class(s)
+                    if talabalar:
+                        text += f"📍 <b>{s} sinf:</b>\n"
+                        for i, t in enumerate(talabalar[:10], 1):
+                            text += f"  {i}. {t['ismlar']} — {t['umumiy_ball']} ball\n"
+                        text += "\n"
+                
                 for g in guruhlar:
                     try:
                         await bot.send_message(g['chat_id'], text, parse_mode="HTML")

@@ -384,5 +384,6 @@ def guruh_boshqarish_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📋 Guruhlar ro'yxati", callback_data="guruh:ro'yxat")],
         [InlineKeyboardButton(text="📊 Guruhda reyting e'lon qilish", callback_data="guruh:ranking")],
+        [InlineKeyboardButton(text="💾 Guruhga Backup yuborish", callback_data="guruh:backup")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")],
     ])

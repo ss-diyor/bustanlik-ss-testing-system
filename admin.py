@@ -131,6 +131,28 @@ def _generate_certificate_file(cert_gen, ismlar, ball, sana, kod):
     """Sertifikatni alohida executor'da generatsiya qilish uchun."""
     return cert_gen.generate(ismlar, ball, sana, kod)
 
+async def guruhlarga_yangi_oquvchi_yuborish(bot: Bot, talaba: dict, natija: dict = None):
+    """Guruhlarga yangi qo'shilgan o'quvchi ma'lumotlarini yuboradi."""
+    from database import guruhlar_ol
+    guruhlar = guruhlar_ol()
+    if not guruhlar: return
+
+    text = (
+        f"🆕 <b>Yangi o'quvchi qo'shildi!</b>\n\n"
+        f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
+        f"🆔 Kod: <b>{talaba['kod']}</b>\n"
+        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>"
+    )
+    if natija:
+        text += f"\n📊 Birinchi natija: <b>{natija['umumiy_ball']} ball</b>"
+
+    for g in guruhlar:
+        try:
+            await bot.send_message(g['chat_id'], text, parse_mode="HTML")
+        except Exception:
+            pass
+
 async def bildirishnoma_yuborish(bot: Bot, talaba_kod: str, natija: dict, talaba: dict):
     """
     Talabaning Telegram user_id si bo'lsa, yangi natija haqida xabar yuboradi.
@@ -559,6 +581,8 @@ async def talaba_tasdiq(callback: CallbackQuery, state: FSMContext):
         # Bildirishnomani async fon rejimida yuboramiz, admin javobini kutib qolmasligi uchun
         if talaba and yangi_natija:
             asyncio.create_task(bildirishnoma_yuborish(callback.bot, data["kod"], yangi_natija, talaba))
+            # Guruhga yuborish
+            asyncio.create_task(guruhlarga_yangi_oquvchi_yuborish(callback.bot, talaba, yangi_natija))
 
         await callback.message.edit_text(f"✅ {data['kod']} natijasi saqlandi!")
     else:
@@ -688,6 +712,7 @@ async def excel_import_process(message: Message, state: FSMContext):
                     yangi_natija = talaba_songi_natija(kod)
                     if talaba and yangi_natija:
                         asyncio.create_task(bildirishnoma_yuborish(message.bot, kod, yangi_natija, talaba))
+                        asyncio.create_task(guruhlarga_yangi_oquvchi_yuborish(message.bot, talaba, yangi_natija))
                     await asyncio.sleep(0.05)  # Telegram rate limit
                 else:
                     errors += 1
@@ -1391,17 +1416,64 @@ async def guruh_ranking_manual(call: CallbackQuery):
         await call.answer("⚠️ Hozircha reyting ma'lumotlari yo'q.", show_alert=True)
         return
         
-    text = "🏆 <b>Hozirgi Top-3 reytingi:</b>\n\n"
-    for i, r in enumerate(ranking[:3], 1):
-        text += f"{i}. {r['ismlar']} — {r['umumiy_ball']} ball\n"
+    from database import sinf_ol, get_all_in_class
+    sinflar = sinf_ol()
+    
+    text = "🏆 <b>Sinflar bo'yicha Top-10 reytingi:</b>\n\n"
+    for s in sinflar:
+        talabalar = get_all_in_class(s)
+        if talabalar:
+            text += f"📍 <b>{s} sinf:</b>\n"
+            for i, t in enumerate(talabalar[:10], 1):
+                text += f"  {i}. {t['ismlar']} — {t['umumiy_ball']} ball\n"
+            text += "\n"
     
     success_count = 0
     for g in guruhlar:
         try:
+            # Xabar uzunligi limitidan oshib ketmasligi uchun tekshirish kerak bo'lishi mumkin, 
+            # lekin 10-15 ta sinf uchun 4096 belgi yetarli.
             await call.bot.send_message(g['chat_id'], text, parse_mode="HTML")
             success_count += 1
         except Exception:
             continue
     
-    await call.answer(f"✅ Reyting {success_count} ta guruhga yuborildi.", show_alert=True)
+    await call.answer(f"✅ Top-10 reyting {success_count} ta guruhga yuborildi.", show_alert=True)
+    await call.answer()
+
+@router.callback_query(F.data == "guruh:backup")
+async def guruh_backup_manual(call: CallbackQuery):
+    guruhlar = guruhlar_ol()
+    if not guruhlar:
+        await call.answer("❌ Ulangan guruhlar yo'q.", show_alert=True)
+        return
+
+    from database import get_all_students_for_excel
+    import pandas as pd
+    from datetime import datetime
+    
+    data = get_all_students_for_excel()
+    if not data:
+        await call.answer("⚠️ Ma'lumotlar yo'q.", show_alert=True)
+        return
+    
+    df = pd.DataFrame(data)
+    filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    df.to_excel(filename, index=False)
+    
+    success_count = 0
+    from aiogram.types import FSInputFile
+    for g in guruhlar:
+        try:
+            await call.bot.send_document(
+                g['chat_id'], 
+                FSInputFile(filename), 
+                caption=f"📅 Kundalik zaxira nusxa (Backup)\nSana: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+            )
+            success_count += 1
+        except Exception:
+            continue
+    
+    if os.path.exists(filename): os.remove(filename)
+    await call.answer(f"✅ Backup {success_count} ta guruhga yuborildi.", show_alert=True)
     await call.answer()
