@@ -15,6 +15,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="✏️ Natijani tahrirlash")],
             [KeyboardButton(text="⚙️ Yo'nalishlarni boshqarish")],
             [KeyboardButton(text="🏫 Sinflarni boshqarish")],
+            [KeyboardButton(text="👨‍🏫 O'qituvchilarni boshqarish")],
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🏆 Reyting")],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
             [KeyboardButton(text="🔔 So'rovlar"), KeyboardButton(text="⚙️ Sozlamalar")],
@@ -26,6 +27,19 @@ def admin_menu_keyboard():
         ],
         resize_keyboard=True,
         one_time_keyboard=False,
+    )
+
+def oqituvchi_menu_keyboard():
+    """O'qituvchi (cheklangan admin) menyusi."""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📊 Mening sinfim statistikasi")],
+            [KeyboardButton(text="🏆 Mening sinfim reytingi")],
+            [KeyboardButton(text="📋 Sinfim o'quvchilari")],
+            [KeyboardButton(text="📥 Sinfim natijalari (Excel)")],
+            [KeyboardButton(text="🚪 Chiqish")],
+        ],
+        resize_keyboard=True
     )
 
 
@@ -139,7 +153,7 @@ def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
     keyboard = []
     
     # Birinchi qator
-    row1 = [KeyboardButton(text="📊 Mening natijalarim")]
+    row1 = [KeyboardButton(text="📊 Mening natijalarim"), KeyboardButton(text="👤 Shaxsiy kabinet")]
     if ranking_enabled == 'True':
         row1.append(KeyboardButton(text="🏆 Reyting"))
     keyboard.append(row1)
@@ -286,3 +300,19 @@ def request_actions_keyboard(request_id, user_id=None):
     if user_id:
         buttons.append([InlineKeyboardButton(text="🚫 Ruxsatni qaytarib olish", callback_data=f"request_action:revoke:{user_id}")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def profile_keyboard():
+    """Shaxsiy kabinet uchun inline tugmalar."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📜 Testlar tarixi", callback_data="profile:history")],
+        [InlineKeyboardButton(text="🔄 Yangilash", callback_data="profile:refresh")],
+        [InlineKeyboardButton(text="📤 Natijani ulashish", switch_inline_query="my_result")]
+    ])
+
+def oqituvchi_boshqarish_keyboard():
+    """O'qituvchilarni boshqarish menyusi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 O'qituvchilar ro'yxati", callback_data="oqituvchi_boshqar:ro'yxat")],
+        [InlineKeyboardButton(text="➕ Yangi o'qituvchi qo'shish", callback_data="oqituvchi_boshqar:qosh")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="oqituvchi_boshqar:orqaga")],
+    ])

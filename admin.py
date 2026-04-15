@@ -15,7 +15,8 @@ from database import (
     sinf_ol, sinf_qosh, sinf_ochir, talaba_songi_natija, talaba_filtrlangan,
     kalit_qosh, kalit_ol, kalit_tahrirla, kalit_holat_ozgartir, kalit_ochir,
     talaba_user_id_ol, get_setting, set_setting, get_pending_requests, update_request_status,
-    get_overall_ranking
+    get_overall_ranking, oqituvchi_qosh, oqituvchi_ol, oqituvchilar_hammasi, oqituvchi_ochir,
+    get_all_in_class
 )
 from keyboards import (
     admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard,
@@ -23,7 +24,8 @@ from keyboards import (
     sinf_keyboard, sinf_boshqarish_keyboard, sinf_ochirish_keyboard,
     kalit_boshqarish_keyboard, kalit_actions_keyboard, kalit_yonalish_tanlash_keyboard,
     oquvchilar_filtrlash_keyboard, sinf_tanlash_keyboard, yonalish_tanlash_keyboard, filter_actions_keyboard,
-    settings_keyboard, request_actions_keyboard, ranking_keyboard, sinf_tanlash_ranking_keyboard
+    settings_keyboard, request_actions_keyboard, ranking_keyboard, sinf_tanlash_ranking_keyboard,
+    oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard
 )
 
 router = Router()
@@ -72,6 +74,11 @@ class MurojaatJavob(StatesGroup):
 
 class ConfirmDelete(StatesGroup):
     tasdiqlash_kutish = State()
+
+class OqituvchiQosh(StatesGroup):
+    user_id_kutish = State()
+    ismlar_kutish = State()
+    sinf_kutish = State()
 
 class NatijaTahrirlash(StatesGroup):
     kod_kutish = State()
@@ -955,9 +962,119 @@ async def export_excel(message: Message, state: FSMContext):
         os.remove(path)
 
 
+@router.message(F.text == "👨‍🏫 O'qituvchilarni boshqarish", is_admin)
+async def teachers_management(message: Message, state: FSMContext):
+    await message.answer("👨‍🏫 <b>O'qituvchilarni boshqarish bo'limi:</b>", parse_mode="HTML", reply_markup=oqituvchi_boshqarish_keyboard())
+
+@router.callback_query(F.data.startswith("oqituvchi_boshqar:"), is_admin)
+async def oqituvchi_boshqar_process(callback: CallbackQuery, state: FSMContext):
+    action = callback.data.split(":")[1]
+    
+    if action == "ro'yxat":
+        oqituvchilar = oqituvchilar_hammasi()
+        if not oqituvchilar:
+            await callback.answer("⚠️ O'qituvchilar ro'yxati bo'sh.")
+            return
+        text = "📋 <b>O'qituvchilar ro'yxati:</b>\n\n"
+        for o in oqituvchilar:
+            text += f"👤 {o['ismlar']} | 🏫 {o['sinf']} | ID: <code>{o['user_id']}</code>\n"
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=oqituvchi_boshqarish_keyboard())
+    
+    elif action == "qosh":
+        await state.set_state(OqituvchiQosh.user_id_kutish)
+        await callback.message.answer("🆔 O'qituvchining Telegram ID raqamini kiriting:")
+        await callback.answer()
+    
+    elif action == "orqaga":
+        await callback.message.delete()
+
+@router.message(OqituvchiQosh.user_id_kutish, is_admin)
+async def oqituvchi_id_get(message: Message, state: FSMContext):
+    try:
+        user_id = int(message.text)
+        await state.update_data(teacher_id=user_id)
+        await state.set_state(OqituvchiQosh.ismlar_kutish)
+        await message.answer("👤 O'qituvchining ism-familiyasini kiriting:")
+    except ValueError:
+        await message.answer("❌ Faqat raqam kiriting!")
+
+@router.message(OqituvchiQosh.ismlar_kutish, is_admin)
+async def oqituvchi_ism_get(message: Message, state: FSMContext):
+    await state.update_data(teacher_name=message.text)
+    await state.set_state(OqituvchiQosh.sinf_kutish)
+    await message.answer("🏫 O'qituvchi mas'ul bo'lgan sinfni kiriting (masalan: 11-A):", reply_markup=sinf_keyboard())
+
+@router.callback_query(F.data.startswith("sinf:"), OqituvchiQosh.sinf_kutish)
+async def oqituvchi_sinf_get(callback: CallbackQuery, state: FSMContext):
+    sinf = callback.data.split(":")[1]
+    data = await state.get_data()
+    if oqituvchi_qosh(data['teacher_id'], data['teacher_name'], sinf):
+        await callback.message.answer(f"✅ O'qituvchi {data['teacher_name']} ({sinf}) muvaffaqiyatli qo'shildi!")
+    else:
+        await callback.message.answer("❌ Xatolik yuz berdi.")
+    await state.clear()
+    await callback.answer()
+
+# O'qituvchi uchun handlerlar
+@router.message(F.text == "📊 Mening sinfim statistikasi")
+async def teacher_stats(message: Message):
+    teacher = oqituvchi_ol(message.from_user.id)
+    if not teacher: return
+    talabalar = talaba_filtrlangan(sinf=teacher['sinf'])
+    if not talabalar:
+        await message.answer("⚠️ Sinfingizda o'quvchilar yo'q.")
+        return
+    
+    ballar = [t['umumiy_ball'] for t in talabalar if t['umumiy_ball'] is not None]
+    avg = round(sum(ballar)/len(ballar), 2) if ballar else 0
+    text = (
+        f"🏫 <b>{teacher['sinf']} sinf statistikasi:</b>\n\n"
+        f"👥 O'quvchilar soni: <b>{len(talabalar)} ta</b>\n"
+        f"📈 O'rtacha ball: <b>{avg} ball</b>\n"
+        f"🏆 Eng yuqori ball: <b>{max(ballar) if ballar else 0} ball</b>"
+    )
+    await message.answer(text, parse_mode="HTML")
+
+@router.message(F.text == "🏆 Mening sinfim reytingi")
+async def teacher_ranking(message: Message):
+    teacher = oqituvchi_ol(message.from_user.id)
+    if not teacher: return
+    talabalar = get_all_in_class(teacher['sinf'])
+    if not talabalar:
+        await message.answer("⚠️ Natijalar yo'q.")
+        return
+    text = f"🏆 <b>{teacher['sinf']} sinf reytingi:</b>\n\n"
+    for i, t in enumerate(talabalar, 1):
+        text += f"{i}. {t['ismlar']} — <b>{t['umumiy_ball']}</b>\n"
+    await message.answer(text, parse_mode="HTML")
+
+@router.message(F.text == "📋 Sinfim o'quvchilari")
+async def teacher_students(message: Message):
+    teacher = oqituvchi_ol(message.from_user.id)
+    if not teacher: return
+    talabalar = talaba_filtrlangan(sinf=teacher['sinf'])
+    text = f"📋 <b>{teacher['sinf']} sinf o'quvchilari:</b>\n\n"
+    for i, t in enumerate(talabalar, 1):
+        text += f"{i}. {t['kod']} | {t['ismlar']}\n"
+    await message.answer(text, parse_mode="HTML")
+
+@router.message(F.text == "📥 Sinfim natijalari (Excel)")
+async def teacher_excel(message: Message):
+    teacher = oqituvchi_ol(message.from_user.id)
+    if not teacher: return
+    data = talaba_filtrlangan(sinf=teacher['sinf'])
+    if not data:
+        await message.answer("⚠️ Ma'lumotlar yo'q.")
+        return
+    df = pd.DataFrame(data)
+    path = f"results_{teacher['sinf']}.xlsx"
+    df.to_excel(path, index=False)
+    await message.answer_document(FSInputFile(path), caption=f"📊 {teacher['sinf']} sinfi natijalari")
+    if os.path.exists(path): os.remove(path)
+
 @router.message(F.text == "🔍 Kod bo'yicha qidirish")
 async def search_kod_start(message: Message, state: FSMContext):
-    if not await admin_tekshir(state): return
+    if not await admin_tekshir(state) and not oqituvchi_ol(message.from_user.id): return
     await state.set_state(KodQidirish.kod_kutish)
     await message.answer("🔍 Qidirilayotgan o'quvchi <b>kodini</b> kiriting:", parse_mode="HTML")
 

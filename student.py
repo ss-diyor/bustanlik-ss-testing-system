@@ -5,7 +5,10 @@ import matplotlib
 matplotlib.use("Agg")  # GUI yo'q muhitda xatolikni oldini oladi
 import matplotlib.pyplot as plt
 from aiogram import Router, F, Bot
-from aiogram.types import Message, FSInputFile, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    Message, FSInputFile, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
+    InlineQuery, InlineQueryResultArticle, InputTextMessageContent
+)
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
@@ -18,7 +21,7 @@ from database import (
 )
 from keyboards import (
     user_menu_keyboard, murojaat_bekor_qilish_keyboard, murojaat_javob_keyboard,
-    test_tanlash_keyboard, ranking_keyboard, stats_keyboard
+    test_tanlash_keyboard, ranking_keyboard, stats_keyboard, profile_keyboard
 )
 from config import ADMIN_IDS
 from certificate import CertificateGenerator
@@ -510,20 +513,57 @@ async def stats_process(callback: CallbackQuery):
         if not stats:
             await callback.answer("⚠️ Ma'lumotlar yo'q.", show_alert=True)
             return
+        
+        # Grafik yaratish
+        labels = [s['yonalish'][:15] + "..." if len(s['yonalish']) > 15 else s['yonalish'] for s in stats]
+        values = [s['avg_score'] for s in stats]
+        
+        plt.figure(figsize=(10, 6))
+        plt.bar(labels, values, color='skyblue')
+        plt.title("Yo'nalishlar bo'yicha o'rtacha ballar")
+        plt.ylabel("O'rtacha ball")
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        
+        path = "stats_direction.png"
+        plt.savefig(path)
+        plt.close()
+        
         text = "🎯 <b>Yo'nalishlar bo'yicha o'rtacha ballar:</b>\n\n"
         for s in stats:
             text += f"• {s['yonalish']}: <b>{s['avg_score']}</b>\n"
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=stats_keyboard())
+        
+        await callback.message.answer_photo(FSInputFile(path), caption=text, parse_mode="HTML")
+        if os.path.exists(path): os.remove(path)
+        await callback.message.delete()
         
     elif action == "class":
         stats = get_class_comparison()
         if not stats:
             await callback.answer("⚠️ Ma'lumotlar yo'q.", show_alert=True)
             return
+            
+        # Grafik yaratish
+        labels = [s['sinf'] for s in stats]
+        values = [s['avg_score'] for s in stats]
+        
+        plt.figure(figsize=(10, 6))
+        plt.bar(labels, values, color='lightgreen')
+        plt.title("Sinflar bo'yicha o'rtacha ballar")
+        plt.ylabel("O'rtacha ball")
+        plt.tight_layout()
+        
+        path = "stats_class.png"
+        plt.savefig(path)
+        plt.close()
+        
         text = "🏫 <b>Sinflar bo'yicha o'rtacha ballar:</b>\n\n"
         for s in stats:
             text += f"• {s['sinf']}: <b>{s['avg_score']}</b>\n"
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=stats_keyboard())
+            
+        await callback.message.answer_photo(FSInputFile(path), caption=text, parse_mode="HTML")
+        if os.path.exists(path): os.remove(path)
+        await callback.message.delete()
         
     elif action == "improved":
         students = get_most_improved_students()
@@ -575,3 +615,112 @@ async def process_result_code(message: Message, state: FSMContext):
 
     await state.clear()
     await send_full_results(message, kod)
+
+# ─────────────────────────────────────────
+# Shaxsiy kabinet va Inline rejim
+# ─────────────────────────────────────────
+
+@router.message(F.text == "👤 Shaxsiy kabinet")
+async def student_profile(message: Message):
+    from database import get_connection, release_connection
+    import psycopg2.extras
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (message.from_user.id,))
+    talaba = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+
+    if not talaba:
+        await message.answer("⚠️ Avval profilingizni ulashing (Masalan: ULASH_A-001)")
+        return
+
+    natijalar = talaba_natijalari(talaba['kod'], limit=5)
+    oxirgi_ball = natijalar[0]['umumiy_ball'] if natijalar else 0
+    jami_test = len(talaba_natijalari(talaba['kod'], limit=1000))
+    
+    text = (
+        f"👤 <b>Shaxsiy kabinet</b>\n\n"
+        f"🆔 Kod: <code>{talaba['kod']}</code>\n"
+        f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
+        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n\n"
+        f"📊 Statistika:\n"
+        f"✅ Jami topshirilgan testlar: <b>{jami_test} ta</b>\n"
+        f"📈 Oxirgi natija: <b>{oxirgi_ball} ball</b>\n"
+    )
+    
+    await message.answer(text, parse_mode="HTML", reply_markup=profile_keyboard())
+
+@router.callback_query(F.data.startswith("profile:"))
+async def profile_callback(callback: CallbackQuery):
+    action = callback.data.split(":")[1]
+    
+    from database import get_connection, release_connection
+    import psycopg2.extras
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (callback.from_user.id,))
+    talaba = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+
+    if not talaba:
+        await callback.answer("⚠️ Xato: Talaba topilmadi.", show_alert=True)
+        return
+
+    if action == "history":
+        history = talaba_natijalari(talaba['kod'], limit=10)
+        if not history:
+            await callback.answer("📜 Hozircha testlar tarixi mavjud emas.", show_alert=True)
+            return
+        
+        text = f"📜 <b>Oxirgi 10 ta test natijalari:</b>\n\n"
+        for i, res in enumerate(history, 1):
+            sana = res['test_sanasi'].strftime("%d.%m.%Y")
+            text += f"{i}. {sana} — <b>{res['umumiy_ball']} ball</b>\n"
+        
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=profile_keyboard())
+    
+    elif action == "refresh":
+        await callback.message.delete()
+        await student_profile(callback.message)
+    
+    await callback.answer()
+
+@router.inline_query(F.query == "my_result")
+async def inline_result_handler(inline_query: InlineQuery):
+    from database import get_connection, release_connection
+    import psycopg2.extras
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (inline_query.from_user.id,))
+    talaba = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+
+    if not talaba:
+        return
+
+    res = talaba_songi_natija(talaba['kod'])
+    if not res:
+        return
+
+    text = (
+        f"📊 <b>Mening test natijam!</b>\n\n"
+        f"👤 O'quvchi: <b>{talaba['ismlar']}</b>\n"
+        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"📈 Umumiy ball: <b>{res['umumiy_ball']}</b>\n"
+        f"📅 Sana: <b>{res['test_sanasi'].strftime('%d.%m.%Y')}</b>\n\n"
+        f"🤖 @{(await inline_query.bot.get_me()).username}"
+    )
+
+    results = [
+        InlineQueryResultArticle(
+            id="my_res",
+            title="Mening natijamni ulashish",
+            description=f"Oxirgi ball: {res['umumiy_ball']}",
+            input_message_content=InputTextMessageContent(message_text=text, parse_mode="HTML")
+        )
+    ]
+    await inline_query.answer(results, is_personal=True, cache_time=5)

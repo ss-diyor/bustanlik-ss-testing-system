@@ -122,6 +122,16 @@ def init_db():
         )
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS oqituvchilar (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT UNIQUE NOT NULL,
+            ismlar TEXT,
+            sinf TEXT,
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     cur.execute("SELECT COUNT(*) FROM yonalishlar")
     if cur.fetchone()[0] == 0:
         boshlangich_yonalish = [
@@ -315,6 +325,62 @@ def talaba_topish(kod: str):
     cur.close()
     release_connection(conn)
     return dict(row) if row else None
+
+def talaba_natijalari(kod: str, limit: int = 10):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT * FROM test_natijalari 
+        WHERE talaba_kod = %s 
+        ORDER BY test_sanasi DESC 
+        LIMIT %s
+    """, (kod.upper(), limit))
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def oqituvchi_qosh(user_id: int, ismlar: str, sinf: str):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO oqituvchilar (user_id, ismlar, sinf) 
+            VALUES (%s, %s, %s) 
+            ON CONFLICT (user_id) DO UPDATE SET ismlar = EXCLUDED.ismlar, sinf = EXCLUDED.sinf
+        """, (user_id, ismlar, sinf))
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+        return True
+    except Exception:
+        return False
+
+def oqituvchi_ol(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM oqituvchilar WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return dict(row) if row else None
+
+def oqituvchilar_hammasi():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM oqituvchilar ORDER BY yaratilgan_sana DESC")
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def oqituvchi_ochir(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM oqituvchilar WHERE user_id = %s", (user_id,))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
 
 def talaba_songi_natija(kod: str):
     conn = get_connection()
