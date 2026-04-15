@@ -338,23 +338,26 @@ async def process_answers(message: Message, state: FSMContext):
 # ─────────────────────────────────────────
 
 @router.message(F.text == "🏆 Mening o'rnim")
-async def ranking_menu(message: Message):
+async def ranking_menu(event):
+    # event Message yoki CallbackQuery bo'lishi mumkin
+    user_id = event.from_user.id
+    message = event.message if isinstance(event, CallbackQuery) else event
+
     from admin import is_admin_id
-    if is_admin_id(message.from_user.id):
+    if is_admin_id(user_id):
         return
+        
     ranking_enabled = get_setting('ranking_enabled', 'True')
     if ranking_enabled == 'False':
-        # Agar o'chirilgan bo'lsa, menyuni yangilab qo'yamiz
         stats_enabled = get_setting('stats_enabled', 'True')
         await message.answer("⚠️ Reyting tizimi vaqtincha o'chirib qo'yilgan.", reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled))
         return
     
-    # Talabani user_id orqali topish
     from database import get_connection, release_connection
     import psycopg2.extras
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (message.from_user.id,))
+    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (user_id,))
     talaba = cur.fetchone()
     cur.close()
     release_connection(conn)
@@ -363,26 +366,28 @@ async def ranking_menu(message: Message):
         await message.answer("⚠️ Avval profilingizni ulashing (Masalan: <code>ULASH_A-001</code>)", parse_mode="HTML")
         return
 
-    ranks = get_student_rank(talaba['kod'])
-    last_results = talaba_natijalari(talaba['kod'], limit=1)
-    score = last_results[0]['umumiy_ball'] if last_results else 0
-    
-    class_rank = f"{ranks['class']}-o'rin" if ranks.get('class') else "Noma'lum"
-    overall_rank = f"{ranks['overall']}-o'rin" if ranks.get('overall') else "Noma'lum"
+    try:
+        ranks = get_student_rank(talaba['kod'])
+        last_results = talaba_natijalari(talaba['kod'], limit=1)
+        score = last_results[0]['umumiy_ball'] if last_results else 0
+        
+        class_rank = f"{ranks['class']}-o'rin" if ranks.get('class') else "Noma'lum"
+        overall_rank = f"{ranks['overall']}-o'rin" if ranks.get('overall') else "Noma'lum"
 
-    text = (
-        f"👤 <b>Sizning o'rningiz:</b>\n\n"
-        f"🏫 Sinfda: <b>{class_rank}</b>\n"
-        f"🌍 Umumiy: <b>{overall_rank}</b>\n\n"
-        f"📈 Oxirgi ball: <b>{score}</b>\n\n"
-        f"<i>Barcha sinflar orasidagi Top 50 talikni ko'rish uchun quyidagi tugmani bosing:</i>"
-    )
-    
-    # Xabar turiga qarab (Message yoki CallbackQuery.message)
-    if hasattr(message, 'edit_text'):
-        await message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
-    else:
-        await message.answer(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+        text = (
+            f"👤 <b>Sizning o'rningiz:</b>\n\n"
+            f"🏫 Sinfda: <b>{class_rank}</b>\n"
+            f"🌍 Umumiy: <b>{overall_rank}</b>\n\n"
+            f"📈 Oxirgi ball: <b>{score}</b>\n\n"
+            f"<i>Barcha sinflar orasidagi Top 50 talikni ko'rish uchun quyidagi tugmani bosing:</i>"
+        )
+        
+        if isinstance(event, CallbackQuery):
+            await event.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+        else:
+            await event.answer(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+    except Exception as e:
+        await message.answer(f"❌ Reytingni yuklashda xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.")
 
 @router.callback_query(F.data.startswith("ranking:"))
 async def ranking_process(callback: CallbackQuery):
@@ -443,7 +448,7 @@ async def ranking_process(callback: CallbackQuery):
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
 
     elif action == "back":
-        await ranking_menu(callback.message)
+        await ranking_menu(callback)
     
     await callback.answer()
 
