@@ -34,9 +34,9 @@ async def start_handler(message: Message):
     # add_user endi pool orqali tezroq ishlaydi
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
     await message.answer(
-        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabi DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
+        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
         "📌 <b>O'quvchilar uchun:</b>\n"
-        "Shaxsiy kodingizni yuboring — natijangiz darhol yuboriladi.\n"
+        "Shaxsiy kodingizni yuboring — natijangiz darhol taqdim etiladi.\n"
         "<i>Masalan: A-007 yoki 52B</i>\n\n"
         "🔗 <b>Profilingizni ulash:</b>\n"
         "Avtomatik xabarnoma olish uchun <code>ULASH_KODINGIZ</code> deb yozing.\n"
