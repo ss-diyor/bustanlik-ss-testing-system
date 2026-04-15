@@ -215,14 +215,17 @@ def murojaat_javob_keyboard(user_id):
 
 def ranking_keyboard(is_admin=False):
     """Reyting menyusi."""
-    buttons = [
-        [InlineKeyboardButton(text="🔝 Sinf Top 10", callback_data="ranking:class_top10")],
-        [InlineKeyboardButton(text="🌍 Umumiy Top 50", callback_data="ranking:overall_top50")],
-    ]
     if is_admin:
-        buttons.insert(0, [InlineKeyboardButton(text="🏫 Tanlangan sinf reytingi", callback_data="ranking:select_class")])
+        buttons = [
+            [InlineKeyboardButton(text="🏫 Tanlangan sinf reytingi", callback_data="ranking:select_class")],
+            [InlineKeyboardButton(text="📊 Sinflar bo'yicha Top", callback_data="ranking:top_by_classes")],
+        ]
     else:
-        buttons.append([InlineKeyboardButton(text="👤 Mening o'rnim", callback_data="ranking:my_rank")])
+        buttons = [
+            [InlineKeyboardButton(text="🔝 Sinf Top 10", callback_data="ranking:class_top10")],
+            [InlineKeyboardButton(text="🌍 Umumiy Top 50", callback_data="ranking:overall_top50")],
+            [InlineKeyboardButton(text="👤 Mening o'rnim", callback_data="ranking:my_rank")],
+        ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def sinf_tanlash_ranking_keyboard():
@@ -231,6 +234,19 @@ def sinf_tanlash_ranking_keyboard():
     sinflar = sinf_ol()
     for s in sinflar:
         buttons.append([InlineKeyboardButton(text=s, callback_data=f"ranking:view_class:{s}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back_admin")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def sinf_prefix_tanlash_keyboard():
+    """Admin uchun sinf prefikslarini (9, 10, 11) tanlash."""
+    buttons = []
+    sinflar = sinf_ol()
+    import re
+    prefixes = sorted(list(set([re.match(r'(\d+)', s).group(1) for s in sinflar if re.match(r'(\d+)', s)])))
+    
+    for p in prefixes:
+        buttons.append([InlineKeyboardButton(text=f"{p}-sinflar", callback_data=f"ranking:top_prefix:{p}")])
+    
     buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back_admin")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 

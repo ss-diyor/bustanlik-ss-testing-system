@@ -345,7 +345,7 @@ async def ranking_menu(message: Message):
         stats_enabled = get_setting('stats_enabled', 'True')
         await message.answer("⚠️ Reyting tizimi vaqtincha o'chirib qo'yilgan.", reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled))
         return
-    await message.answer("🏆 <b>Reyting tizimi:</b>\n\nQuyidagilardan birini tanlang:", parse_mode="HTML", reply_markup=ranking_keyboard())
+    await message.answer("🏆 <b>Reyting tizimi:</b>\n\nQuyidagilardan birini tanlang:", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
 
 @router.callback_query(F.data.startswith("ranking:"))
 async def ranking_process(callback: CallbackQuery):
@@ -392,7 +392,7 @@ async def ranking_process(callback: CallbackQuery):
                 ismlar = t['ismlar'] if t['kod'] == talaba['kod'] else f"O'quvchi"
                 text += f"{i}. {ismlar} — <b>{t['umumiy_ball']}</b> ball\n"
         
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=is_admin))
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
 
     elif action == "overall_top50":
         if not is_admin and not check_access(callback.from_user.id):
@@ -432,7 +432,7 @@ async def ranking_process(callback: CallbackQuery):
             emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
             text += f"{emoji} {t['ismlar']} ({t['sinf']}) — <b>{t['umumiy_ball']}</b> ball\n"
         
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=is_admin))
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
 
     elif action == "my_rank":
         if not talaba:
@@ -446,7 +446,7 @@ async def ranking_process(callback: CallbackQuery):
             f"🌍 Umumiy: <b>{ranks['overall']}-o'rin</b>\n\n"
             f"📈 Ball: <b>{talaba_natijalari(talaba['kod'], limit=1)[0]['umumiy_ball'] if talaba_natijalari(talaba['kod'], limit=1) else 0}</b>"
         )
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard())
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
 
     elif action == "back":
         await ranking_menu(callback.message)

@@ -715,11 +715,34 @@ async def admin_statistika(message: Message, state: FSMContext):
 
 @router.message(F.text == "🏆 Reyting")
 async def admin_ranking(message: Message, state: FSMContext):
-    await message.answer("🏆 <b>Reyting bo'limi (Admin):</b>", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=True))
+    await message.answer("🏆 <b>Reyting bo'limi:</b>", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=True))
 
 @router.callback_query(F.data == "ranking:select_class")
 async def admin_ranking_select_class(callback: CallbackQuery):
     await callback.message.edit_text("🏫 Reytingni ko'rish uchun sinfni tanlang:", reply_markup=sinf_tanlash_ranking_keyboard())
+
+@router.callback_query(F.data == "ranking:top_by_classes")
+async def admin_ranking_top_by_classes(callback: CallbackQuery):
+    from keyboards import sinf_prefix_tanlash_keyboard
+    await callback.message.edit_text("📊 Qaysi sinflar bo'yicha Top reytingni ko'rmoqchisiz?", reply_markup=sinf_prefix_tanlash_keyboard())
+
+@router.callback_query(F.data.startswith("ranking:top_prefix:"))
+async def admin_ranking_view_prefix(callback: CallbackQuery):
+    prefix = callback.data.split(":")[2]
+    from database import get_overall_ranking
+    top50 = get_overall_ranking(sinf_prefix=prefix)
+    
+    if not top50:
+        await callback.answer(f"⚠️ {prefix}-sinflarda natijalar yo'q.")
+        return
+        
+    text = f"🏆 <b>{prefix}-sinflar bo'yicha Top 50:</b>\n\n"
+    for i, t in enumerate(top50, 1):
+        emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+        text += f"{emoji} {t['ismlar']} ({t['sinf']}) — <b>{t['umumiy_ball']}</b>\n"
+    
+    from keyboards import sinf_prefix_tanlash_keyboard
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=sinf_prefix_tanlash_keyboard())
 
 @router.callback_query(F.data.startswith("ranking:view_class:"))
 async def admin_ranking_view_class(callback: CallbackQuery):
@@ -739,7 +762,7 @@ async def admin_ranking_view_class(callback: CallbackQuery):
 
 @router.callback_query(F.data == "ranking:back_admin")
 async def admin_ranking_back(callback: CallbackQuery):
-    await callback.message.edit_text("🏆 <b>Reyting bo'limi (Admin):</b>", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=True))
+    await callback.message.edit_text("🏆 <b>Reyting bo'limi:</b>", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=True))
 
 @router.message(F.text == "⚙️ Sozlamalar")
 async def admin_settings(message: Message, state: FSMContext):
