@@ -367,10 +367,13 @@ async def ranking_menu(message: Message):
     last_results = talaba_natijalari(talaba['kod'], limit=1)
     score = last_results[0]['umumiy_ball'] if last_results else 0
     
+    class_rank = f"{ranks['class']}-o'rin" if ranks.get('class') else "Noma'lum"
+    overall_rank = f"{ranks['overall']}-o'rin" if ranks.get('overall') else "Noma'lum"
+
     text = (
         f"👤 <b>Sizning o'rningiz:</b>\n\n"
-        f"🏫 Sinfda: <b>{ranks['class']}-o'rin</b>\n"
-        f"🌍 Umumiy: <b>{ranks['overall']}-o'rin</b>\n\n"
+        f"🏫 Sinfda: <b>{class_rank}</b>\n"
+        f"🌍 Umumiy: <b>{overall_rank}</b>\n\n"
         f"📈 Oxirgi ball: <b>{score}</b>\n\n"
         f"<i>Barcha sinflar orasidagi Top 50 talikni ko'rish uchun quyidagi tugmani bosing:</i>"
     )

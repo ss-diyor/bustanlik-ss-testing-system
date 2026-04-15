@@ -686,10 +686,16 @@ def get_student_rank(kod: str):
     
     cur.close()
     release_connection(conn)
-    return {
-        "overall": overall_rank['rank'] if overall_rank else None,
-        "class": class_rank['rank'] if class_rank else None
-    }
+    
+    res = {"overall": None, "class": None}
+    if overall_rank:
+        res["overall"] = overall_rank.get('rank')
+    if class_rank:
+        res["class"] = class_rank.get('rank')
+    
+    return res
+    
+
 
 def get_avg_score_by_direction():
     conn = get_connection()
