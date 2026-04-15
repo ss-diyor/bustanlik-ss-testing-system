@@ -227,8 +227,11 @@ async def process_answers(message: Message, state: FSMContext):
 
 @router.message(F.text == "🏆 Reyting")
 async def ranking_menu(message: Message):
-    if get_setting('ranking_enabled', 'True') == 'False':
-        await message.answer("⚠️ Reyting tizimi vaqtincha o'chirib qo'yilgan.")
+    ranking_enabled = get_setting('ranking_enabled', 'True')
+    if ranking_enabled == 'False':
+        # Agar o'chirilgan bo'lsa, menyuni yangilab qo'yamiz
+        stats_enabled = get_setting('stats_enabled', 'True')
+        await message.answer("⚠️ Reyting tizimi vaqtincha o'chirib qo'yilgan.", reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled))
         return
     await message.answer("🏆 <b>Reyting tizimi:</b>\n\nQuyidagilardan birini tanlang:", parse_mode="HTML", reply_markup=ranking_keyboard())
 
@@ -362,8 +365,11 @@ async def request_overall_access_handler(callback: CallbackQuery):
 
 @router.message(F.text == "📈 Statistika")
 async def stats_menu(message: Message):
-    if get_setting('stats_enabled', 'True') == 'False':
-        await message.answer("⚠️ Statistika bo'limi vaqtincha o'chirib qo'yilgan.")
+    stats_enabled = get_setting('stats_enabled', 'True')
+    if stats_enabled == 'False':
+        # Agar o'chirilgan bo'lsa, menyuni yangilab qo'yamiz
+        ranking_enabled = get_setting('ranking_enabled', 'True')
+        await message.answer("⚠️ Statistika bo'limi vaqtincha o'chirib qo'yilgan.", reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled))
         return
     await message.answer("📈 <b>Statistika bo'limi:</b>\n\nQuyidagilardan birini tanlang:", parse_mode="HTML", reply_markup=stats_keyboard())
 

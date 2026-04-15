@@ -724,7 +724,12 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
     ranking_enabled = get_setting('ranking_enabled', 'True')
     stats_enabled = get_setting('stats_enabled', 'True')
     await callback.message.edit_reply_markup(reply_markup=settings_keyboard(ranking_enabled, stats_enabled))
-    await callback.answer("✅ Sozlama o'zgartirildi")
+    
+    # O'zgarishni tasdiqlash uchun xabar yuboramiz va yangi menyuni taqdim etamiz
+    status = "yoqildi" if new_value == "True" else "o'chirildi"
+    setting_name = "Reyting" if key == "ranking_enabled" else "Statistika"
+    await callback.message.answer(f"✅ {setting_name} funksiyasi {status}.")
+    await callback.answer()
 
 @router.message(F.text == "🔔 So'rovlar")
 async def admin_requests(message: Message, state: FSMContext):

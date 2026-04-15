@@ -134,14 +134,27 @@ def tasdiqlash_keyboard():
     ])
 
 
-def user_menu_keyboard():
-    """Foydalanuvchi asosiy menyusi."""
+def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
+    """Foydalanuvchi asosiy menyusi (Dinamik)."""
+    keyboard = []
+    
+    # Birinchi qator
+    row1 = [KeyboardButton(text="📊 Mening natijalarim")]
+    if ranking_enabled == 'True':
+        row1.append(KeyboardButton(text="🏆 Reyting"))
+    keyboard.append(row1)
+    
+    # Ikkinchi qator
+    row2 = [KeyboardButton(text="✅ Javoblarni tekshirish")]
+    if stats_enabled == 'True':
+        row2.append(KeyboardButton(text="📈 Statistika"))
+    keyboard.append(row2)
+    
+    # Uchinchi qator
+    keyboard.append([KeyboardButton(text="✍️ Admin bilan bog'lanish")])
+    
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📊 Mening natijalarim"), KeyboardButton(text="🏆 Reyting")],
-            [KeyboardButton(text="✅ Javoblarni tekshirish"), KeyboardButton(text="📈 Statistika")],
-            [KeyboardButton(text="✍️ Admin bilan bog'lanish")],
-        ],
+        keyboard=keyboard,
         resize_keyboard=True
     )
 

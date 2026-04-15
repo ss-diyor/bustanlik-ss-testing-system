@@ -7,7 +7,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
-from database import init_db, add_user, talaba_topish, talaba_user_id_yangila
+from database import init_db, add_user, talaba_topish, talaba_user_id_yangila, get_setting
 from aiogram import F
 from keyboards import user_menu_keyboard
 import admin
@@ -33,6 +33,10 @@ async def start_handler(message: Message):
     """/start buyrug'i"""
     # add_user endi pool orqali tezroq ishlaydi
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
+    
+    ranking_enabled = get_setting('ranking_enabled', 'True')
+    stats_enabled = get_setting('stats_enabled', 'True')
+    
     await message.answer(
         "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
         "📌 <b>O'quvchilar uchun:</b>\n"
@@ -44,7 +48,7 @@ async def start_handler(message: Message):
         "🔑 <b>Admin uchun:</b>\n"
         "/admin buyrug'ini yozing.",
         parse_mode="HTML",
-        reply_markup=user_menu_keyboard()
+        reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled)
     )
 
 @dp.message(F.text.startswith("ULASH_"))
