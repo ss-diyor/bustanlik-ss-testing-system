@@ -128,9 +128,47 @@ def init_db():
             user_id BIGINT UNIQUE NOT NULL,
             ismlar TEXT,
             sinf TEXT,
+            maktab_id INTEGER DEFAULT 1,
             yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS maktablar (
+            id SERIAL PRIMARY KEY,
+            nomi TEXT UNIQUE NOT NULL,
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cur.execute("INSERT INTO maktablar (nomi) VALUES ('Asosiy maktab') ON CONFLICT DO NOTHING")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS reminders (
+            id SERIAL PRIMARY KEY,
+            xabar TEXT NOT NULL,
+            yuborish_vaqti TIMESTAMP NOT NULL,
+            holat TEXT DEFAULT 'kutilmoqda',
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS guruhlar (
+            id SERIAL PRIMARY KEY,
+            chat_id BIGINT UNIQUE NOT NULL,
+            nomi TEXT,
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Mavjud jadvallarga maktab_id qo'shish
+    tables_to_update = ['talabalar', 'yonalishlar', 'sinflar', 'test_kalitlari']
+    for table in tables_to_update:
+        try:
+            cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS maktab_id INTEGER DEFAULT 1")
+        except Exception:
+            pass
 
     cur.execute("SELECT COUNT(*) FROM yonalishlar")
     if cur.fetchone()[0] == 0:
@@ -912,6 +950,81 @@ def oqituvchilar_hammasi():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT * FROM oqituvchilar ORDER BY ismlar ASC")
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+# ─────────────────────────────────────────
+# Eslatma tizimi (Reminders)
+# ─────────────────────────────────────────
+
+def reminder_qosh(xabar: str, yuborish_vaqti: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO reminders (xabar, yuborish_vaqti) VALUES (%s, %s)", (xabar, yuborish_vaqti))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def kutilayotgan_reminders_ol():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM reminders WHERE holat = 'kutilmoqda' AND yuborish_vaqti <= CURRENT_TIMESTAMP")
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def reminder_holat_yangila(reminder_id: int, holat: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE reminders SET holat = %s WHERE id = %s", (holat, reminder_id))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+# ─────────────────────────────────────────
+# Ko'p maktab rejimi (Schools)
+# ─────────────────────────────────────────
+
+def maktab_qosh(nomi: str):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO maktablar (nomi) VALUES (%s)", (nomi,))
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+        return True
+    except Exception:
+        return False
+
+def maktablar_ol():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM maktablar ORDER BY nomi ASC")
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+# ─────────────────────────────────────────
+# Guruh rejimi (Groups)
+# ─────────────────────────────────────────
+
+def guruh_qosh(chat_id: BIGINT, nomi: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO guruhlar (chat_id, nomi) VALUES (%s, %s) ON CONFLICT (chat_id) DO UPDATE SET nomi = EXCLUDED.nomi", (chat_id, nomi))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def guruhlar_ol():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM guruhlar")
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)

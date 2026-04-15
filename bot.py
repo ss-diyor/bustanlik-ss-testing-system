@@ -9,7 +9,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
-from database import init_db, add_user, talaba_topish, talaba_user_id_yangila, get_setting
+from database import init_db, add_user, talaba_topish, talaba_user_id_yangila, get_setting, guruh_qosh
 from aiogram import F
 from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_keyboard
 import admin
@@ -66,6 +66,11 @@ async def start_handler(message: Message):
         reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled)
     )
 
+@dp.message(F.chat.type.in_({"group", "supergroup"}))
+async def handle_group_message(message: Message):
+    """Guruhga bot qo'shilganda yoki xabar yozilganda guruhni bazaga qo'shadi."""
+    guruh_qosh(message.chat.id, message.chat.title)
+
 @dp.message(F.text.startswith("ULASH_"))
 async def bind_user_to_kod(message: Message):
     kod = message.text.replace("ULASH_", "").strip().upper()
@@ -99,6 +104,41 @@ async def send_backup():
     
     if os.path.exists(filename): os.remove(filename)
 
+async def reminder_scheduler():
+    """Eslatmalarni tekshirib yuborish."""
+    from database import kutilayotgan_reminders_ol, reminder_holat_yangila, get_all_user_ids
+    while True:
+        reminders = kutilayotgan_reminders_ol()
+        for r in reminders:
+            user_ids = get_all_user_ids()
+            for uid in user_ids:
+                try:
+                    await bot.send_message(uid, f"⏰ <b>ESLATMA:</b>\n\n{r['xabar']}", parse_mode="HTML")
+                except Exception:
+                    pass
+            reminder_holat_yangila(r['id'], 'yuborildi')
+        await asyncio.sleep(60)
+
+async def group_ranking_scheduler():
+    """Guruhlarga har kuni soat 20:00 da reyting yuborish."""
+    from database import guruhlar_ol, get_overall_ranking
+    while True:
+        now = datetime.now()
+        if now.hour == 20 and now.minute == 0:
+            guruhlar = guruhlar_ol()
+            ranking = get_overall_ranking()
+            if ranking:
+                text = "🏆 <b>Bugungi Top-3 reytingi:</b>\n\n"
+                for i, r in enumerate(ranking[:3], 1):
+                    text += f"{i}. {r['ismlar']} — {r['umumiy_ball']} ball\n"
+                for g in guruhlar:
+                    try:
+                        await bot.send_message(g['chat_id'], text, parse_mode="HTML")
+                    except Exception:
+                        pass
+            await asyncio.sleep(61)
+        await asyncio.sleep(30)
+
 async def scheduler():
     """Har kuni soat 23:00 da backup yuborish."""
     while True:
@@ -117,6 +157,8 @@ async def main():
     
     # Scheduler ishga tushirish
     asyncio.create_task(scheduler())
+    asyncio.create_task(reminder_scheduler())
+    asyncio.create_task(group_ranking_scheduler())
     await bot.delete_webhook(drop_pending_updates=True)
     logging.info("Bot ishga tushdi!")
     

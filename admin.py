@@ -16,7 +16,10 @@ from database import (
     kalit_qosh, kalit_ol, kalit_tahrirla, kalit_holat_ozgartir, kalit_ochir,
     talaba_user_id_ol, get_setting, set_setting, get_pending_requests, update_request_status,
     get_overall_ranking, oqituvchi_qosh, oqituvchi_ol, oqituvchilar_hammasi, oqituvchi_ochir,
-    get_all_in_class
+    get_all_in_class,
+    reminder_qosh, kutilayotgan_reminders_ol, reminder_holat_yangila,
+    maktab_qosh, maktablar_ol,
+    guruh_qosh, guruhlar_ol
 )
 from keyboards import (
     admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard,
@@ -25,7 +28,8 @@ from keyboards import (
     kalit_boshqarish_keyboard, kalit_actions_keyboard, kalit_yonalish_tanlash_keyboard,
     oquvchilar_filtrlash_keyboard, sinf_tanlash_keyboard, yonalish_tanlash_keyboard, filter_actions_keyboard,
     settings_keyboard, request_actions_keyboard, ranking_keyboard, sinf_tanlash_ranking_keyboard,
-    oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard, oqituvchi_ochirish_keyboard
+    oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard, oqituvchi_ochirish_keyboard,
+    reminder_boshqarish_keyboard, maktab_boshqarish_keyboard, guruh_boshqarish_keyboard
 )
 
 router = Router()
@@ -85,6 +89,13 @@ class NatijaTahrirlash(StatesGroup):
     majburiy_kutish = State()
     asosiy1_kutish = State()
     asosiy2_kutish = State()
+
+class ReminderAdd(StatesGroup):
+    xabar_kutish = State()
+    vaqt_kutish = State()
+
+class MaktabAdd(StatesGroup):
+    nomi_kutish = State()
 
 # ─────────────────────────────────────────
 # Yordamchi funksiyalar
@@ -1200,3 +1211,82 @@ async def murojaat_javob_send(message: Message, state: FSMContext):
     except Exception as e:
         await message.answer(f"❌ Yuborishda xato: {e}")
     await state.set_state(None)
+
+# ─────────────────────────────────────────
+# Eslatma tizimi handlerlari
+# ─────────────────────────────────────────
+
+@router.message(F.text == "⏰ Eslatmalar")
+async def reminder_menu(message: Message, state: FSMContext):
+    if not await admin_tekshir(state): return
+    await message.answer("⏰ Eslatma tizimi bo'limi:", reply_markup=reminder_boshqarish_keyboard())
+
+@router.callback_query(F.data == "reminder:qosh")
+async def reminder_qosh_start(call: CallbackQuery, state: FSMContext):
+    await state.set_state(ReminderAdd.xabar_kutish)
+    await call.message.answer("📝 Eslatma xabarini kiriting:")
+    await call.answer()
+
+@router.message(ReminderAdd.xabar_kutish)
+async def reminder_xabar_save(message: Message, state: FSMContext):
+    await state.update_data(reminder_xabar=message.text)
+    await state.set_state(ReminderAdd.vaqt_kutish)
+    await message.answer("📅 Yuborish vaqtini kiriting (YYYY-MM-DD HH:MM formatida):\nMasalan: 2024-05-20 09:00")
+
+@router.message(ReminderAdd.vaqt_kutish)
+async def reminder_vaqt_save(message: Message, state: FSMContext):
+    try:
+        from datetime import datetime
+        vaqt = datetime.strptime(message.text, "%Y-%m-%d %H:%M")
+        data = await state.get_data()
+        reminder_qosh(data['reminder_xabar'], message.text)
+        await state.clear()
+        await state.update_data(admin=True)
+        await message.answer("✅ Eslatma muvaffaqiyatli saqlandi!", reply_markup=admin_menu_keyboard())
+    except ValueError:
+        await message.answer("❌ Vaqt formati noto'g'ri. Qaytadan kiriting (YYYY-MM-DD HH:MM):")
+
+# ─────────────────────────────────────────
+# Ko'p maktab rejimi handlerlari
+# ─────────────────────────────────────────
+
+@router.message(F.text == "🏫 Maktablarni boshqarish")
+async def maktab_menu(message: Message, state: FSMContext):
+    if not await admin_tekshir(state): return
+    await message.answer("🏫 Maktablarni boshqarish bo'limi:", reply_markup=maktab_boshqarish_keyboard())
+
+@router.callback_query(F.data == "maktab:qosh")
+async def maktab_qosh_start(call: CallbackQuery, state: FSMContext):
+    await state.set_state(MaktabAdd.nomi_kutish)
+    await call.message.answer("🏫 Yangi maktab nomini kiriting:")
+    await call.answer()
+
+@router.message(MaktabAdd.nomi_kutish)
+async def maktab_nomi_save(message: Message, state: FSMContext):
+    if maktab_qosh(message.text):
+        await message.answer(f"✅ Maktab '{message.text}' muvaffaqiyatli qo'shildi!", reply_markup=admin_menu_keyboard())
+    else:
+        await message.answer("❌ Xato: Bunday maktab allaqachon mavjud bo'lishi mumkin.")
+    await state.clear()
+    await state.update_data(admin=True)
+
+# ─────────────────────────────────────────
+# Guruh rejimi handlerlari
+# ─────────────────────────────────────────
+
+@router.message(F.text == "📢 Guruhlarni boshqarish")
+async def guruh_menu(message: Message, state: FSMContext):
+    if not await admin_tekshir(state): return
+    await message.answer("📢 Guruhlarni boshqarish bo'limi:", reply_markup=guruh_boshqarish_keyboard())
+
+@router.callback_query(F.data == "guruh:ro'yxat")
+async def guruh_list(call: CallbackQuery):
+    guruhlar = guruhlar_ol()
+    if not guruhlar:
+        await call.message.answer("❌ Hozircha guruhlar ulanmagan.")
+    else:
+        text = "📋 Ulangan guruhlar:\n\n"
+        for g in guruhlar:
+            text += f"🔹 {g['nomi']} (ID: {g['chat_id']})\n"
+        await call.message.answer(text)
+    await call.answer()

@@ -18,6 +18,8 @@ def admin_menu_keyboard():
             [KeyboardButton(text="👨‍🏫 O'qituvchilarni boshqarish")],
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🏆 Reyting")],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
+            [KeyboardButton(text="⏰ Eslatmalar"), KeyboardButton(text="🏫 Maktablarni boshqarish")],
+            [KeyboardButton(text="📢 Guruhlarni boshqarish")],
             [KeyboardButton(text="🔔 So'rovlar"), KeyboardButton(text="⚙️ Sozlamalar")],
             [KeyboardButton(text="📥 Excelga yuklash")],
             [KeyboardButton(text="🧹 Bazani tozalash")],
@@ -342,3 +344,24 @@ def oqituvchi_ochirish_keyboard():
         buttons.append([InlineKeyboardButton(text=f"❌ {o['ismlar']} ({o['sinf']})", callback_data=f"oqituvchi_ochir:{o['user_id']}")])
     buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="oqituvchi_boshqar:orqaga")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def reminder_boshqarish_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Yangi eslatma qo'shish", callback_data="reminder:qosh")],
+        [InlineKeyboardButton(text="📋 Kutilayotgan eslatmalar", callback_data="reminder:ro'yxat")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")],
+    ])
+
+def maktab_boshqarish_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Yangi maktab qo'shish", callback_data="maktab:qosh")],
+        [InlineKeyboardButton(text="📋 Maktablar ro'yxati", callback_data="maktab:ro'yxat")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")],
+    ])
+
+def guruh_boshqarish_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 Guruhlar ro'yxati", callback_data="guruh:ro'yxat")],
+        [InlineKeyboardButton(text="📊 Guruhda reyting e'lon qilish", callback_data="guruh:ranking")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")],
+    ])
