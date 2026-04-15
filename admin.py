@@ -873,7 +873,7 @@ async def request_action_handler(callback: CallbackQuery, state: FSMContext):
         reply_markup=request_actions_keyboard(target_id, user_id)
     )
     try:
-        await callback.bot.send_message(user_id, f"✅ Admin umumiy reytingni ko'rishga <b>{time_text}</b> ruxsat berdi! Endi '🏆 Reyting' menyusi orqali 'Umumiy Top' ni ko'rishingiz mumkin.", parse_mode="HTML")
+        await callback.bot.send_message(user_id, f"✅ Admin umumiy reytingni ko'rishga <b>{time_text}</b> ruxsat berdi! Endi '🏆 Mening o'rnim' menyusi orqali 'Umumiy Top' ni ko'rishingiz mumkin.", parse_mode="HTML")
     except Exception: pass
 
 
