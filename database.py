@@ -84,6 +84,28 @@ def init_db():
     """)
 
     cur.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS access_requests (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            talaba_kod TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (talaba_kod) REFERENCES talabalar (kod)
+        )
+    """)
+
+    # Default settings
+    cur.execute("INSERT INTO settings (key, value) VALUES ('ranking_enabled', 'True') ON CONFLICT DO NOTHING")
+    cur.execute("INSERT INTO settings (key, value) VALUES ('stats_enabled', 'True') ON CONFLICT DO NOTHING")
+
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS test_kalitlari (
             id SERIAL PRIMARY KEY,
             test_nomi TEXT UNIQUE NOT NULL,
@@ -625,3 +647,76 @@ def get_score_difference(kod: str):
     current = float(results[0][0])
     previous = float(results[1][0])
     return round(current - previous, 2)
+
+def get_setting(key: str, default: str = None):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM settings WHERE key = %s", (key,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return row[0] if row else default
+
+def set_setting(key: str, value: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO settings (key, value) 
+        VALUES (%s, %s) 
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+    """, (key, value))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def add_access_request(user_id: int, talaba_kod: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO access_requests (user_id, talaba_kod) 
+        VALUES (%s, %s)
+    """, (user_id, talaba_kod.upper()))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def get_pending_requests():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT ar.*, t.ismlar, t.sinf 
+        FROM access_requests ar
+        JOIN talabalar t ON ar.talaba_kod = t.kod
+        WHERE ar.status = 'pending'
+        ORDER BY ar.created_at ASC
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def update_request_status(request_id: int, status: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE access_requests SET status = %s WHERE id = %s", (status, request_id))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def check_access(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM access_requests WHERE user_id = %s AND status = 'approved'", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return True if row else False
+
+def get_request_by_user(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM access_requests WHERE user_id = %s ORDER BY created_at DESC LIMIT 1", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return dict(row) if row else None

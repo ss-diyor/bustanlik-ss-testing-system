@@ -14,14 +14,16 @@ from database import (
     delete_all_data, get_all_user_ids,
     sinf_ol, sinf_qosh, sinf_ochir, talaba_songi_natija, talaba_filtrlangan,
     kalit_qosh, kalit_ol, kalit_tahrirla, kalit_holat_ozgartir, kalit_ochir,
-    talaba_user_id_ol
+    talaba_user_id_ol, get_setting, set_setting, get_pending_requests, update_request_status,
+    get_overall_ranking
 )
 from keyboards import (
     admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard,
     yonalish_boshqarish_keyboard, yonalish_ochirish_keyboard,
     sinf_keyboard, sinf_boshqarish_keyboard, sinf_ochirish_keyboard,
     kalit_boshqarish_keyboard, kalit_actions_keyboard, kalit_yonalish_tanlash_keyboard,
-    oquvchilar_filtrlash_keyboard, sinf_tanlash_keyboard, yonalish_tanlash_keyboard, filter_actions_keyboard
+    oquvchilar_filtrlash_keyboard, sinf_tanlash_keyboard, yonalish_tanlash_keyboard, filter_actions_keyboard,
+    settings_keyboard, request_actions_keyboard, ranking_keyboard
 )
 
 router = Router()
@@ -694,7 +696,81 @@ async def admin_statistika(message: Message, state: FSMContext):
         f"🔝 Eng yuqori ball: <b>{s['eng_yuqori']}</b>\n"
         f"🔻 Eng past ball: <b>{s['eng_past']}</b>"
     )
-    await message.answer(text, parse_mode="HTML")
+    from student import stats_keyboard
+    await message.answer(text, parse_mode="HTML", reply_markup=stats_keyboard())
+
+@router.message(F.text == "🏆 Reyting")
+async def admin_ranking(message: Message, state: FSMContext):
+    if not await admin_tekshir(state): return
+    await message.answer("🏆 <b>Reyting bo'limi (Admin):</b>", parse_mode="HTML", reply_markup=ranking_keyboard())
+
+@router.message(F.text == "⚙️ Sozlamalar")
+async def admin_settings(message: Message, state: FSMContext):
+    if not await admin_tekshir(state): return
+    ranking_enabled = get_setting('ranking_enabled', 'True')
+    stats_enabled = get_setting('stats_enabled', 'True')
+    await message.answer("⚙️ <b>Bot sozlamalari:</b>\n\nO'quvchilar uchun funksiyalarni yoqish yoki o'chirish:", 
+                         parse_mode="HTML", 
+                         reply_markup=settings_keyboard(ranking_enabled, stats_enabled))
+
+@router.callback_query(F.data.startswith("toggle_setting:"))
+async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state): return
+    key = callback.data.split(":")[1]
+    current = get_setting(key, 'True')
+    new_value = 'False' if current == 'True' else 'True'
+    set_setting(key, new_value)
+    
+    ranking_enabled = get_setting('ranking_enabled', 'True')
+    stats_enabled = get_setting('stats_enabled', 'True')
+    await callback.message.edit_reply_markup(reply_markup=settings_keyboard(ranking_enabled, stats_enabled))
+    await callback.answer("✅ Sozlama o'zgartirildi")
+
+@router.message(F.text == "🔔 So'rovlar")
+async def admin_requests(message: Message, state: FSMContext):
+    if not await admin_tekshir(state): return
+    requests = get_pending_requests()
+    if not requests:
+        await message.answer("📭 Hozircha yangi so'rovlar yo'q.")
+        return
+    
+    for req in requests:
+        text = (
+            f"🔔 <b>Yangi kirish so'rovi!</b>\n\n"
+            f"👤 O'quvchi: <b>{req['ismlar']}</b>\n"
+            f"🏫 Sinf: <b>{req['sinf']}</b>\n"
+            f"🆔 Kod: <code>{req['talaba_kod']}</code>\n"
+            f"👤 Telegram ID: <code>{req['user_id']}</code>"
+        )
+        await message.answer(text, parse_mode="HTML", reply_markup=request_actions_keyboard(req['id']))
+
+@router.callback_query(F.data.startswith("request_action:"))
+async def request_action_handler(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state): return
+    _, action, req_id = callback.data.split(":")
+    status = 'approved' if action == 'approve' else 'rejected'
+    
+    # So'rovni yangilashdan oldin user_id ni olamiz (xabar yuborish uchun)
+    from database import get_connection, release_connection
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id FROM access_requests WHERE id = %s", (req_id,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    
+    update_request_status(int(req_id), status)
+    
+    if row:
+        user_id = row[0]
+        msg = "✅ Tabriklaymiz! Admin sizga barcha o'quvchilar reytingini ko'rish uchun ruxsat berdi." if action == 'approve' else "❌ Afsuski, admin sizning so'rovingizni rad etdi."
+        try:
+            await callback.bot.send_message(user_id, msg)
+        except:
+            pass
+            
+    await callback.message.edit_text(f"{callback.message.text}\n\n✅ <b>{status.capitalize()}</b>", parse_mode="HTML")
+    await callback.answer(f"So'rov {status}")
 
 
 @router.message(F.text == "📋 O'quvchilar ro'yxati")

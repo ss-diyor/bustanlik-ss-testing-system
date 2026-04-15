@@ -15,8 +15,9 @@ def admin_menu_keyboard():
             [KeyboardButton(text="✏️ Natijani tahrirlash")],
             [KeyboardButton(text="⚙️ Yo'nalishlarni boshqarish")],
             [KeyboardButton(text="🏫 Sinflarni boshqarish")],
-            [KeyboardButton(text="📊 Statistika")],
+            [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🏆 Reyting")],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
+            [KeyboardButton(text="🔔 So'rovlar"), KeyboardButton(text="⚙️ Sozlamalar")],
             [KeyboardButton(text="📥 Excelga yuklash")],
             [KeyboardButton(text="🧹 Bazani tozalash")],
             [KeyboardButton(text="📢 Xabar yuborish")],
@@ -232,4 +233,23 @@ def filter_actions_keyboard(filter_type, filter_value):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📥 Excelga yuklash", callback_data=f"filter_excel:{filter_type}:{filter_value}")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")],
+    ])
+
+def settings_keyboard(ranking_enabled, stats_enabled):
+    """Bot sozlamalari klaviaturasi."""
+    ranking_text = "✅ Reyting Yoqilgan" if ranking_enabled == 'True' else "❌ Reyting O'chirilgan"
+    stats_text = "✅ Statistika Yoqilgan" if stats_enabled == 'True' else "❌ Statistika O'chirilgan"
+    
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=ranking_text, callback_data="toggle_setting:ranking_enabled")],
+        [InlineKeyboardButton(text=stats_text, callback_data="toggle_setting:stats_enabled")],
+    ])
+
+def request_actions_keyboard(request_id):
+    """So'rovlar uchun amallar."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Ruxsat berish", callback_data=f"request_action:approve:{request_id}"),
+            InlineKeyboardButton(text="❌ Rad etish", callback_data=f"request_action:reject:{request_id}")
+        ]
     ])
