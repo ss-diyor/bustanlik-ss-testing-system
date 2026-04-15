@@ -970,11 +970,20 @@ def reminder_qosh(xabar: str, yuborish_vaqti: str):
 def kutilayotgan_reminders_ol():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM reminders WHERE holat = 'kutilmoqda' AND yuborish_vaqti <= CURRENT_TIMESTAMP")
+    # UTC vaqt muammosini oldini olish uchun vaqtni biroz kengroq tekshiramiz
+    cur.execute("SELECT * FROM reminders WHERE holat = 'kutilmoqda' AND yuborish_vaqti <= (CURRENT_TIMESTAMP + interval '5 hour')")
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)
     return [dict(r) for r in rows]
+
+def reminder_ochir(reminder_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM reminders WHERE id = %s", (reminder_id,))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
 
 def reminder_holat_yangila(reminder_id: int, holat: str):
     conn = get_connection()
@@ -1008,6 +1017,31 @@ def maktablar_ol():
     cur.close()
     release_connection(conn)
     return [dict(r) for r in rows]
+
+def maktab_ochir(maktab_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM maktablar WHERE id = %s", (maktab_id,))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def sinf_maktabga_bogla(sinf_nomi: str, maktab_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE sinflar SET maktab_id = %s WHERE nomi = %s", (maktab_id, sinf_nomi))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def maktab_sinflari_ol(maktab_id: int):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT nomi FROM sinflar WHERE maktab_id = %s ORDER BY nomi ASC", (maktab_id,))
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [r["nomi"] for r in rows]
 
 # ─────────────────────────────────────────
 # Guruh rejimi (Groups)

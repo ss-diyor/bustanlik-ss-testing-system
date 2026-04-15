@@ -108,15 +108,18 @@ async def reminder_scheduler():
     """Eslatmalarni tekshirib yuborish."""
     from database import kutilayotgan_reminders_ol, reminder_holat_yangila, get_all_user_ids
     while True:
-        reminders = kutilayotgan_reminders_ol()
-        for r in reminders:
-            user_ids = get_all_user_ids()
-            for uid in user_ids:
-                try:
-                    await bot.send_message(uid, f"⏰ <b>ESLATMA:</b>\n\n{r['xabar']}", parse_mode="HTML")
-                except Exception:
-                    pass
-            reminder_holat_yangila(r['id'], 'yuborildi')
+        try:
+            reminders = kutilayotgan_reminders_ol()
+            for r in reminders:
+                user_ids = get_all_user_ids()
+                for uid in user_ids:
+                    try:
+                        await bot.send_message(uid, f"⏰ <b>ESLATMA:</b>\n\n{r['xabar']}", parse_mode="HTML")
+                    except Exception:
+                        pass
+                reminder_holat_yangila(r['id'], 'yuborildi')
+        except Exception as e:
+            logging.error(f"Reminder scheduler error: {e}")
         await asyncio.sleep(60)
 
 async def group_ranking_scheduler():

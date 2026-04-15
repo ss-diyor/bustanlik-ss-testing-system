@@ -17,9 +17,9 @@ from database import (
     talaba_user_id_ol, get_setting, set_setting, get_pending_requests, update_request_status,
     get_overall_ranking, oqituvchi_qosh, oqituvchi_ol, oqituvchilar_hammasi, oqituvchi_ochir,
     get_all_in_class,
-    reminder_qosh, kutilayotgan_reminders_ol, reminder_holat_yangila,
-    maktab_qosh, maktablar_ol,
-    guruh_qosh, guruhlar_ol
+    reminder_qosh, kutilayotgan_reminders_ol, reminder_holat_yangila, reminder_ochir,
+    maktab_qosh, maktablar_ol, maktab_ochir, sinf_maktabga_bogla, maktab_sinflari_ol,
+    guruh_qosh, guruhlar_ol, get_overall_ranking
 )
 from keyboards import (
     admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard,
@@ -29,7 +29,8 @@ from keyboards import (
     oquvchilar_filtrlash_keyboard, sinf_tanlash_keyboard, yonalish_tanlash_keyboard, filter_actions_keyboard,
     settings_keyboard, request_actions_keyboard, ranking_keyboard, sinf_tanlash_ranking_keyboard,
     oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard, oqituvchi_ochirish_keyboard,
-    reminder_boshqarish_keyboard, maktab_boshqarish_keyboard, guruh_boshqarish_keyboard
+    reminder_boshqarish_keyboard, maktab_boshqarish_keyboard, guruh_boshqarish_keyboard,
+    reminder_list_keyboard, maktab_list_keyboard, maktab_detail_keyboard
 )
 
 router = Router()
@@ -96,6 +97,10 @@ class ReminderAdd(StatesGroup):
 
 class MaktabAdd(StatesGroup):
     nomi_kutish = State()
+
+class MaktabSinfAdd(StatesGroup):
+    maktab_id = State()
+    sinf_nomi = State()
 
 # ─────────────────────────────────────────
 # Yordamchi funksiyalar
@@ -1224,7 +1229,32 @@ async def reminder_menu(message: Message, state: FSMContext):
 @router.callback_query(F.data == "reminder:qosh")
 async def reminder_qosh_start(call: CallbackQuery, state: FSMContext):
     await state.set_state(ReminderAdd.xabar_kutish)
-    await call.message.answer("📝 Eslatma xabarini kiriting:")
+    await call.message.edit_text("📝 Eslatma xabarini kiriting:")
+    await call.answer()
+
+@router.callback_query(F.data == "reminder:ro'yxat")
+async def reminder_list_view(call: CallbackQuery):
+    reminders = kutilayotgan_reminders_ol()
+    if not reminders:
+        await call.answer("📋 Kutilayotgan eslatmalar yo'q.", show_alert=True)
+        return
+    await call.message.edit_text("📋 <b>Kutilayotgan eslatmalar:</b>\n\nO'chirish uchun ustiga bosing:", parse_mode="HTML", reply_markup=reminder_list_keyboard(reminders))
+    await call.answer()
+
+@router.callback_query(F.data.startswith("reminder_del:"))
+async def reminder_delete_process(call: CallbackQuery):
+    rid = int(call.data.split(":")[1])
+    reminder_ochir(rid)
+    await call.answer("✅ Eslatma o'chirildi")
+    reminders = kutilayotgan_reminders_ol()
+    if reminders:
+        await call.message.edit_reply_markup(reply_markup=reminder_list_keyboard(reminders))
+    else:
+        await call.message.edit_text("⏰ Eslatma tizimi bo'limi:", reply_markup=reminder_boshqarish_keyboard())
+
+@router.callback_query(F.data == "reminder:orqaga")
+async def reminder_back(call: CallbackQuery):
+    await call.message.edit_text("⏰ Eslatma tizimi bo'limi:", reply_markup=reminder_boshqarish_keyboard())
     await call.answer()
 
 @router.message(ReminderAdd.xabar_kutish)
@@ -1237,7 +1267,8 @@ async def reminder_xabar_save(message: Message, state: FSMContext):
 async def reminder_vaqt_save(message: Message, state: FSMContext):
     try:
         from datetime import datetime
-        vaqt = datetime.strptime(message.text, "%Y-%m-%d %H:%M")
+        # Foydalanuvchi kiritgan vaqtni tekshiramiz
+        datetime.strptime(message.text, "%Y-%m-%d %H:%M")
         data = await state.get_data()
         reminder_qosh(data['reminder_xabar'], message.text)
         await state.clear()
@@ -1258,7 +1289,64 @@ async def maktab_menu(message: Message, state: FSMContext):
 @router.callback_query(F.data == "maktab:qosh")
 async def maktab_qosh_start(call: CallbackQuery, state: FSMContext):
     await state.set_state(MaktabAdd.nomi_kutish)
-    await call.message.answer("🏫 Yangi maktab nomini kiriting:")
+    await call.message.edit_text("🏫 Yangi maktab nomini kiriting:")
+    await call.answer()
+
+@router.callback_query(F.data == "maktab:ro'yxat")
+async def maktab_list_view(call: CallbackQuery):
+    maktablar = maktablar_ol()
+    if not maktablar:
+        await call.answer("⚠️ Maktablar hali qo'shilmagan.", show_alert=True)
+        return
+    await call.message.edit_text("📋 <b>Maktablar ro'yxati:</b>", parse_mode="HTML", reply_markup=maktab_list_keyboard(maktablar))
+    await call.answer()
+
+@router.callback_query(F.data.startswith("maktab_view:"))
+async def maktab_view_detail(call: CallbackQuery):
+    mid = int(call.data.split(":")[1])
+    maktablar = maktablar_ol()
+    maktab = next((m for m in maktablar if m['id'] == mid), None)
+    if not maktab: return
+    
+    sinflar = maktab_sinflari_ol(mid)
+    text = f"🏫 <b>Maktab:</b> {maktab['nomi']}\n\n"
+    if sinflar:
+        text += "📚 <b>Sinflar:</b>\n" + "\n".join([f"🔹 {s}" for s in sinflar])
+    else:
+        text += "⚠️ Bu maktabga hali sinflar biriktirilmagan."
+    
+    await call.message.edit_text(text, parse_mode="HTML", reply_markup=maktab_detail_keyboard(mid))
+    await call.answer()
+
+@router.callback_query(F.data.startswith("maktab_sinf_add:"))
+async def maktab_sinf_add_start(call: CallbackQuery, state: FSMContext):
+    mid = int(call.data.split(":")[1])
+    await state.update_data(target_maktab_id=mid)
+    await state.set_state(MaktabSinfAdd.sinf_nomi)
+    await call.message.edit_text("📝 Maktabga biriktirmoqchi bo'lgan sinf nomini tanlang:", reply_markup=sinf_keyboard())
+    await call.answer()
+
+@router.callback_query(F.data.startswith("sinf:"), MaktabSinfAdd.sinf_nomi)
+async def maktab_sinf_add_final(call: CallbackQuery, state: FSMContext):
+    sinf_nomi = call.data.split(":")[1]
+    data = await state.get_data()
+    mid = data['target_maktab_id']
+    sinf_maktabga_bogla(sinf_nomi, mid)
+    await call.message.answer(f"✅ {sinf_nomi} sinfi maktabga muvaffaqiyatli biriktirildi!")
+    await state.clear()
+    await state.update_data(admin=True)
+    await call.answer()
+
+@router.callback_query(F.data.startswith("maktab_del:"))
+async def maktab_delete_process(call: CallbackQuery):
+    mid = int(call.data.split(":")[1])
+    maktab_ochir(mid)
+    await call.answer("✅ Maktab o'chirildi")
+    await maktab_list_view(call)
+
+@router.callback_query(F.data == "maktab:orqaga")
+async def maktab_back(call: CallbackQuery):
+    await call.message.edit_text("🏫 Maktablarni boshqarish bo'limi:", reply_markup=maktab_boshqarish_keyboard())
     await call.answer()
 
 @router.message(MaktabAdd.nomi_kutish)
@@ -1283,10 +1371,37 @@ async def guruh_menu(message: Message, state: FSMContext):
 async def guruh_list(call: CallbackQuery):
     guruhlar = guruhlar_ol()
     if not guruhlar:
-        await call.message.answer("❌ Hozircha guruhlar ulanmagan.")
+        await call.answer("❌ Hozircha guruhlar ulanmagan.", show_alert=True)
     else:
-        text = "📋 Ulangan guruhlar:\n\n"
+        text = "📋 <b>Ulangan guruhlar:</b>\n\n"
         for g in guruhlar:
-            text += f"🔹 {g['nomi']} (ID: {g['chat_id']})\n"
-        await call.message.answer(text)
+            text += f"🔹 {g['nomi']} (ID: <code>{g['chat_id']}</code>)\n"
+        await call.message.edit_text(text, parse_mode="HTML", reply_markup=guruh_boshqarish_keyboard())
+    await call.answer()
+
+@router.callback_query(F.data == "guruh:ranking")
+async def guruh_ranking_manual(call: CallbackQuery):
+    guruhlar = guruhlar_ol()
+    if not guruhlar:
+        await call.answer("❌ Ulangan guruhlar yo'q.", show_alert=True)
+        return
+    
+    ranking = get_overall_ranking()
+    if not ranking:
+        await call.answer("⚠️ Hozircha reyting ma'lumotlari yo'q.", show_alert=True)
+        return
+        
+    text = "🏆 <b>Hozirgi Top-3 reytingi:</b>\n\n"
+    for i, r in enumerate(ranking[:3], 1):
+        text += f"{i}. {r['ismlar']} — {r['umumiy_ball']} ball\n"
+    
+    success_count = 0
+    for g in guruhlar:
+        try:
+            await call.bot.send_message(g['chat_id'], text, parse_mode="HTML")
+            success_count += 1
+        except Exception:
+            continue
+    
+    await call.answer(f"✅ Reyting {success_count} ta guruhga yuborildi.", show_alert=True)
     await call.answer()

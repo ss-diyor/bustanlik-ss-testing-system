@@ -352,11 +352,32 @@ def reminder_boshqarish_keyboard():
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")],
     ])
 
+def reminder_list_keyboard(reminders):
+    buttons = []
+    for r in reminders:
+        buttons.append([InlineKeyboardButton(text=f"❌ {r['xabar'][:20]}...", callback_data=f"reminder_del:{r['id']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="reminder:orqaga")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 def maktab_boshqarish_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ Yangi maktab qo'shish", callback_data="maktab:qosh")],
         [InlineKeyboardButton(text="📋 Maktablar ro'yxati", callback_data="maktab:ro'yxat")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")],
+    ])
+
+def maktab_list_keyboard(maktablar):
+    buttons = []
+    for m in maktablar:
+        buttons.append([InlineKeyboardButton(text=f"🏫 {m['nomi']}", callback_data=f"maktab_view:{m['id']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="maktab:orqaga")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def maktab_detail_keyboard(maktab_id):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Sinfni maktabga bog'lash", callback_data=f"maktab_sinf_add:{maktab_id}")],
+        [InlineKeyboardButton(text="❌ Maktabni o'chirish", callback_data=f"maktab_del:{maktab_id}")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="maktab:ro'yxat")],
     ])
 
 def guruh_boshqarish_keyboard():
