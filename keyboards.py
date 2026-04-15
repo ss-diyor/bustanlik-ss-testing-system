@@ -152,10 +152,10 @@ def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
     """Foydalanuvchi asosiy menyusi (Dinamik)."""
     keyboard = []
     
-    # Birinchi qator: Mening natijalarim, Shaxsiy kabinet, Reyting
+    # Birinchi qator: Mening natijalarim, Shaxsiy kabinet, Mening o'rnim
     row1 = [KeyboardButton(text="📊 Mening natijalarim"), KeyboardButton(text="👤 Shaxsiy kabinet")]
     if ranking_enabled == 'True':
-        row1.append(KeyboardButton(text="🏆 Reyting"))
+        row1.append(KeyboardButton(text="🏆 Mening o'rnim"))
     keyboard.append(row1)
     
     # Ikkinchi qator: Javoblarni tekshirish
@@ -222,9 +222,8 @@ def ranking_keyboard(is_admin=False):
         ]
     else:
         buttons = [
-            [InlineKeyboardButton(text="🔝 Sinf Top 10", callback_data="ranking:class_top10")],
             [InlineKeyboardButton(text="🌍 Umumiy Top 50", callback_data="ranking:overall_top50")],
-            [InlineKeyboardButton(text="👤 Mening o'rnim", callback_data="ranking:my_rank")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back")],
         ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 

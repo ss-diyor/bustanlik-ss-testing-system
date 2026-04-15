@@ -337,7 +337,7 @@ async def process_answers(message: Message, state: FSMContext):
 # Reyting tizimi
 # ─────────────────────────────────────────
 
-@router.message(F.text == "🏆 Reyting")
+@router.message(F.text == "🏆 Mening o'rnim")
 async def ranking_menu(message: Message):
     from admin import is_admin_id
     if is_admin_id(message.from_user.id):
@@ -348,7 +348,38 @@ async def ranking_menu(message: Message):
         stats_enabled = get_setting('stats_enabled', 'True')
         await message.answer("⚠️ Reyting tizimi vaqtincha o'chirib qo'yilgan.", reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled))
         return
-    await message.answer("🏆 <b>Reyting tizimi:</b>\n\nQuyidagilardan birini tanlang:", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+    
+    # Talabani user_id orqali topish
+    from database import get_connection, release_connection
+    import psycopg2.extras
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (message.from_user.id,))
+    talaba = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+
+    if not talaba:
+        await message.answer("⚠️ Avval profilingizni ulashing (Masalan: <code>ULASH_A-001</code>)", parse_mode="HTML")
+        return
+
+    ranks = get_student_rank(talaba['kod'])
+    last_results = talaba_natijalari(talaba['kod'], limit=1)
+    score = last_results[0]['umumiy_ball'] if last_results else 0
+    
+    text = (
+        f"👤 <b>Sizning o'rningiz:</b>\n\n"
+        f"🏫 Sinfda: <b>{ranks['class']}-o'rin</b>\n"
+        f"🌍 Umumiy: <b>{ranks['overall']}-o'rin</b>\n\n"
+        f"📈 Oxirgi ball: <b>{score}</b>\n\n"
+        f"<i>Barcha sinflar orasidagi Top 50 talikni ko'rish uchun quyidagi tugmani bosing:</i>"
+    )
+    
+    # Xabar turiga qarab (Message yoki CallbackQuery.message)
+    if hasattr(message, 'edit_text'):
+        await message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+    else:
+        await message.answer(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
 
 @router.callback_query(F.data.startswith("ranking:"))
 async def ranking_process(callback: CallbackQuery):
@@ -368,36 +399,7 @@ async def ranking_process(callback: CallbackQuery):
     cur.close()
     release_connection(conn)
 
-    if action == "class_top10":
-        if not talaba or not talaba['sinf']:
-            await callback.answer("⚠️ Avval profilingizni ulashing (Masalan: ULASH_A-001)", show_alert=True)
-            return
-        
-        all_students = get_all_in_class(talaba['sinf'])
-        if not all_students:
-            await callback.answer("⚠️ Hozircha natijalar yo'q.", show_alert=True)
-            return
-        
-        text = f"🔝 <b>{talaba['sinf']} sinfining reytingi:</b>\n\n"
-        
-        # Top 10 talik
-        text += "<b>Top 10:</b>\n"
-        for i, t in enumerate(all_students[:10], 1):
-            emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-            # Anonimlik: Faqat o'zini ismini ko'radi, boshqalarni "O'quvchi" deb ko'radi
-            ismlar = t['ismlar'] if t['kod'] == talaba['kod'] else f"O'quvchi"
-            text += f"{emoji} {ismlar} — <b>{t['umumiy_ball']}</b> ball\n"
-        
-        # Top 10 dan keyingi o'quvchilar
-        if len(all_students) > 10:
-            text += "\n<b>Qolgan o'quvchilar:</b>\n"
-            for i, t in enumerate(all_students[10:], 11):
-                ismlar = t['ismlar'] if t['kod'] == talaba['kod'] else f"O'quvchi"
-                text += f"{i}. {ismlar} — <b>{t['umumiy_ball']}</b> ball\n"
-        
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
-
-    elif action == "overall_top50":
+    if action == "overall_top50":
         if not is_admin and not check_access(callback.from_user.id):
             # Ruxsat yo'q bo'lsa, so'rov yuborish tugmasini ko'rsatish
             req = get_request_by_user(callback.from_user.id)
@@ -435,20 +437,6 @@ async def ranking_process(callback: CallbackQuery):
             emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
             text += f"{emoji} {t['ismlar']} ({t['sinf']}) — <b>{t['umumiy_ball']}</b> ball\n"
         
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
-
-    elif action == "my_rank":
-        if not talaba:
-            await callback.answer("⚠️ Avval profilingizni ulashing (Masalan: ULASH_A-001)", show_alert=True)
-            return
-        
-        ranks = get_student_rank(talaba['kod'])
-        text = (
-            f"👤 <b>Sizning o'rningiz:</b>\n\n"
-            f"🏫 Sinfda: <b>{ranks['class']}-o'rin</b>\n"
-            f"🌍 Umumiy: <b>{ranks['overall']}-o'rin</b>\n\n"
-            f"📈 Ball: <b>{talaba_natijalari(talaba['kod'], limit=1)[0]['umumiy_ball'] if talaba_natijalari(talaba['kod'], limit=1) else 0}</b>"
-        )
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
 
     elif action == "back":
