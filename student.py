@@ -11,7 +11,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from database import (
     talaba_topish, talaba_natijalari, get_all_user_ids, kalit_ol,
-    get_top_10_in_class, get_overall_ranking, get_student_rank,
+    get_all_in_class, get_overall_ranking, get_student_rank,
     get_avg_score_by_direction, get_class_comparison, get_most_improved_students,
     get_score_difference, get_setting, check_access, add_access_request, get_request_by_user
 )
@@ -254,17 +254,27 @@ async def ranking_process(callback: CallbackQuery):
             await callback.answer("⚠️ Avval profilingizni ulashing (Masalan: ULASH_A-001)", show_alert=True)
             return
         
-        top10 = get_top_10_in_class(talaba['sinf'])
-        if not top10:
+        all_students = get_all_in_class(talaba['sinf'])
+        if not all_students:
             await callback.answer("⚠️ Hozircha natijalar yo'q.", show_alert=True)
             return
         
-        text = f"🔝 <b>{talaba['sinf']} sinfining Top 10 o'quvchilari:</b>\n\n"
-        for i, t in enumerate(top10, 1):
+        text = f"🔝 <b>{talaba['sinf']} sinfining reytingi:</b>\n\n"
+        
+        # Top 10 talik
+        text += "<b>Top 10:</b>\n"
+        for i, t in enumerate(all_students[:10], 1):
             emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
             # Anonimlik: Faqat o'zini ismini ko'radi, boshqalarni "O'quvchi" deb ko'radi
-            ismlar = t['ismlar'] if t['kod'] == talaba['kod'] else f"O'quvchi #{t['kod'][-3:]}"
+            ismlar = t['ismlar'] if t['kod'] == talaba['kod'] else f"O'quvchi"
             text += f"{emoji} {ismlar} — <b>{t['umumiy_ball']}</b> ball\n"
+        
+        # Top 10 dan keyingi o'quvchilar
+        if len(all_students) > 10:
+            text += "\n<b>Qolgan o'quvchilar:</b>\n"
+            for i, t in enumerate(all_students[10:], 11):
+                ismlar = t['ismlar'] if t['kod'] == talaba['kod'] else f"O'quvchi"
+                text += f"{i}. {ismlar} — <b>{t['umumiy_ball']}</b> ball\n"
         
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard())
 
@@ -277,21 +287,33 @@ async def ranking_process(callback: CallbackQuery):
                 return
             
             kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔔 Ruxsat so'rash", callback_data="request_overall_access")],
+                [InlineKeyboardButton(text="🙋‍♂️ Ruxsat so'rash", callback_data=f"request_access:{talaba['kod']}")],
                 [InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back")]
             ])
-            await callback.message.edit_text("⚠️ Umumiy reytingni ko'rish uchun admindan ruxsat olishingiz kerak.", reply_markup=kb)
+            await callback.message.edit_text(
+                "🔒 <b>Umumiy Top ro'yxatini ko'rish uchun admin ruxsati kerak.</b>\n\n"
+                "Ruxsat so'rash uchun quyidagi tugmani bosing:",
+                parse_mode="HTML",
+                reply_markup=kb
+            )
             return
 
-        top50 = get_overall_ranking()
+        # Parallel sinflarni aniqlash (masalan: 11-A -> 11)
+        sinf_prefix = None
+        if talaba and talaba['sinf']:
+            match = re.match(r'(\d+)', talaba['sinf'])
+            if match:
+                sinf_prefix = match.group(1)
+        
+        top50 = get_overall_ranking(sinf_prefix=sinf_prefix)
         if not top50:
             await callback.answer("⚠️ Hozircha natijalar yo'q.", show_alert=True)
             return
         
-        text = "🌍 <b>Umumiy Top 50 o'quvchilar:</b>\n\n"
+        header = f"🌍 <b>{sinf_prefix}-sinflar orasidagi Top 50:</b>\n\n" if sinf_prefix else "🌍 <b>Umumiy Top 50 o'quvchilar:</b>\n\n"
+        text = header
         for i, t in enumerate(top50, 1):
             emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-            # Ruxsat olingan bo'lsa ismlarni ko'rsatish mumkin yoki baribir anonim saqlash (mijoz talabiga ko'ra ruxsat olinganda ko'rinadi)
             text += f"{emoji} {t['ismlar']} ({t['sinf']}) — <b>{t['umumiy_ball']}</b> ball\n"
         
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard())
@@ -302,260 +324,113 @@ async def ranking_process(callback: CallbackQuery):
             return
         
         ranks = get_student_rank(talaba['kod'])
-        diff = get_score_difference(talaba['kod'])
-        
         text = (
-            f"👤 <b>Sizning reytingingiz:</b>\n\n"
-            f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
-            f"🏫 Sinfingizda: <b>{ranks['class']}-o'rin</b>\n"
-            f"🌍 Umumiy: <b>{ranks['overall']}-o'rin</b>\n"
+            f"👤 <b>Sizning o'rningiz:</b>\n\n"
+            f"🏫 Sinfda: <b>{ranks['class']}-o'rin</b>\n"
+            f"🌍 Umumiy: <b>{ranks['overall']}-o'rin</b>\n\n"
+            f"📈 Ball: <b>{talaba_natijalari(talaba['kod'], limit=1)[0]['umumiy_ball'] if talaba_natijalari(talaba['kod'], limit=1) else 0}</b>"
         )
-        if diff is not None:
-            if diff > 0:
-                text += f"📈 O'zgarish: <b>+{diff} ball</b> (Yaxshi! 🚀)"
-            elif diff < 0:
-                text += f"📉 O'zgarish: <b>{diff} ball</b> (Harakat qiling! 💪)"
-            else:
-                text += "⏺ O'zgarish: <b>O'zgarmadi</b>"
-        
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard())
 
     elif action == "back":
-        await callback.message.edit_text("🏆 <b>Reyting tizimi:</b>\n\nQuyidagilardan birini tanlang:", parse_mode="HTML", reply_markup=ranking_keyboard())
+        await ranking_menu(callback.message)
+    
+    await callback.answer()
 
-@router.callback_query(F.data == "request_overall_access")
-async def request_overall_access_handler(callback: CallbackQuery):
-    from database import get_connection, release_connection
-    import psycopg2.extras
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (callback.from_user.id,))
-    talaba = cur.fetchone()
-    cur.close()
-    release_connection(conn)
-    
-    if not talaba:
-        await callback.answer("⚠️ Avval profilingizni ulashing (Masalan: ULASH_A-001)", show_alert=True)
-        return
-    
-    add_access_request(callback.from_user.id, talaba['kod'])
-    await callback.message.edit_text("✅ So'rovingiz adminga yuborildi. Ruxsat berilgach, sizga xabar yuboramiz.")
-    
-    # Adminga xabar yuborish
-    from config import ADMIN_IDS
-    from keyboards import request_actions_keyboard
-    
-    # So'rov ID sini olish
-    req = get_request_by_user(callback.from_user.id)
-    if req:
-        admin_text = (
-            f"🔔 <b>Yangi kirish so'rovi!</b>\n\n"
-            f"👤 O'quvchi: <b>{talaba['ismlar']}</b>\n"
-            f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
-            f"🆔 Kod: <code>{talaba['kod']}</code>\n"
-            f"👤 Telegram ID: <code>{callback.from_user.id}</code>"
-        )
-        for admin_id in ADMIN_IDS:
-            try:
-                await callback.bot.send_message(admin_id, admin_text, parse_mode="HTML", reply_markup=request_actions_keyboard(req['id']))
-            except:
-                continue
-    
-    await callback.answer("So'rov yuborildi")
+@router.callback_query(F.data.startswith("request_access:"))
+async def request_access_process(callback: CallbackQuery):
+    kod = callback.data.split(":")[1]
+    add_access_request(callback.from_user.id, kod)
+    await callback.answer("✅ So'rov yuborildi. Admin tasdiqlashini kuting.", show_alert=True)
+    await callback.message.edit_text("⏳ <b>So'rovingiz yuborildi.</b>\n\nAdmin tasdiqlaganidan keyin sizga xabar yuboramiz.", parse_mode="HTML")
+
+# ─────────────────────────────────────────
+# Statistika
+# ─────────────────────────────────────────
 
 @router.message(F.text == "📈 Statistika")
 async def stats_menu(message: Message):
     stats_enabled = get_setting('stats_enabled', 'True')
     if stats_enabled == 'False':
-        # Agar o'chirilgan bo'lsa, menyuni yangilab qo'yamiz
         ranking_enabled = get_setting('ranking_enabled', 'True')
         await message.answer("⚠️ Statistika bo'limi vaqtincha o'chirib qo'yilgan.", reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled))
         return
     await message.answer("📈 <b>Statistika bo'limi:</b>\n\nQuyidagilardan birini tanlang:", parse_mode="HTML", reply_markup=stats_keyboard())
-
 
 @router.callback_query(F.data.startswith("stats:"))
 async def stats_process(callback: CallbackQuery):
     action = callback.data.split(":")[1]
     
     if action == "direction":
-        data = get_avg_score_by_direction()
-        if not data:
+        stats = get_avg_score_by_direction()
+        if not stats:
             await callback.answer("⚠️ Ma'lumotlar yo'q.", show_alert=True)
             return
-        
-        text = "🎯 <b>Yo'nalishlar bo'yicha o'rtacha ball:</b>\n\n"
-        for i, d in enumerate(data, 1):
-            text += f"{i}. {d['yonalish']}: <b>{d['avg_score']}</b>\n"
-        
+        text = "🎯 <b>Yo'nalishlar bo'yicha o'rtacha ballar:</b>\n\n"
+        for s in stats:
+            text += f"• {s['yonalish']}: <b>{s['avg_score']}</b>\n"
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=stats_keyboard())
-
+        
     elif action == "class":
-        data = get_class_comparison()
-        if not data:
+        stats = get_class_comparison()
+        if not stats:
             await callback.answer("⚠️ Ma'lumotlar yo'q.", show_alert=True)
             return
+        text = "🏫 <b>Sinflar bo'yicha o'rtacha ballar:</b>\n\n"
+        for s in stats:
+            text += f"• {s['sinf']}: <b>{s['avg_score']}</b>\n"
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=stats_keyboard())
         
-        text = "🏫 <b>Sinflar bo'yicha o'rtacha ball:</b>\n\n"
-        for i, d in enumerate(data, 1):
-            text += f"{i}. {d['sinf']}: <b>{d['avg_score']}</b>\n"
-        
+    elif action == "improved":
+        students = get_most_improved_students()
+        if not students:
+            await callback.answer("⚠️ Ma'lumotlar yo'q.", show_alert=True)
+            return
+        text = "🚀 <b>Eng ko'p o'sishga erishganlar (oxirgi 2 test):</b>\n\n"
+        for s in students:
+            text += f"• {s['ismlar']} ({s['sinf']}): <b>+{s['diff']}</b> ball\n"
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=stats_keyboard())
 
-    elif action == "improved":
-        data = get_most_improved_students()
-        if not data:
-            await callback.answer("⚠️ Ma'lumotlar yo'q.", show_alert=True)
-            return
-        
-        text = "🚀 <b>Eng ko'p o'sgan o'quvchilar (Oxirgi 2 test):</b>\n\n"
-        for i, d in enumerate(data, 1):
-            # Statistika bo'limida ham anonimlikni saqlaymiz
-            text += f"{i}. O'quvchi #{d['kod'][-3:]} ({d['sinf']}): <b>+{d['diff']} ball</b>\n"
-        
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=stats_keyboard())
+    await callback.answer()
 
 # ─────────────────────────────────────────
-# Natijani ko'rish
+# Profil ma'lumotlari
 # ─────────────────────────────────────────
 
 @router.message(F.text == "📊 Mening natijalarim")
-async def results_start(message: Message, state: FSMContext):
-    await state.set_state(ResultCheckState.kod_kutish)
-    await message.answer(
-        "📝 Natijangizni ko'rish uchun shaxsiy <b>kodingizni</b> yuboring:",
-        parse_mode="HTML"
-    )
-
-
-@router.message(ResultCheckState.kod_kutish)
-async def results_kod_olingan(message: Message, state: FSMContext):
-    if message.text in ADMIN_TUGMALAR:
-        await state.clear()
-        return
-    await state.clear()
-    await _natija_yuborish(message, message.text.strip().upper())
-
-
-@router.message(F.text & ~F.text.startswith("/"))
-async def talaba_natija_umumiy(message: Message, state: FSMContext):
-    if message.text in ADMIN_TUGMALAR:
-        return
-    
-    # Yangi qo'shilgan tugmalarni o'tkazib yuboramiz
-    if message.text in ["🏆 Reyting", "📈 Statistika"]:
-        return
-
-    current_state = await state.get_state()
-    if current_state is not None:
-        return
-    
-    # Faqat kodga o'xshash matnlarni tekshiramiz (masalan, A-001 yoki 52B)
-    text = message.text.strip().upper()
-    if re.match(r'^[A-Z0-9-]{2,10}$', text):
-        await _natija_yuborish(message, text)
-
-
-def _generate_plot(dates, scores, plot_path, ismlar):
-    """Grafikni alohida thread/process'da yaratish uchun (blocking emas)."""
-    plt.figure(figsize=(8, 4))
-    plt.plot(dates, scores, marker='o', linestyle='-', color='b')
-    plt.title(f"{ismlar} - Natijalar Dinamikasi")
-    plt.xlabel("Sana")
-    plt.ylabel("Ball")
-    plt.grid(True)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    plt.savefig(plot_path)
-    plt.close()
-
-def _generate_cert_internal(full_name, score, date, kod):
-    """Sertifikatni executor'da yaratish uchun."""
-    cert_gen = CertificateGenerator()
-    return cert_gen.generate(full_name, score, date, kod)
-
-async def _natija_yuborish(message: Message, kod: str):
-    talaba = talaba_topish(kod)
+async def my_results(message: Message):
+    # Foydalanuvchini user_id orqali topish
+    from database import get_connection, release_connection
+    import psycopg2.extras
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (message.from_user.id,))
+    talaba = cur.fetchone()
+    cur.close()
+    release_connection(conn)
 
     if not talaba:
         await message.answer(
-            f"❌ <b>{kod}</b> kodi topilmadi.\n\n"
-            f"Iltimos, kodingizni to'g'ri kiriting.\n"
-            f"Masalan: <code>A-001</code> yoki <code>52B</code>",
+            "⚠️ <b>Profilingiz hali ulanmagan!</b>\n\n"
+            "Profilingizni ulash uchun <code>ULASH_KOD</code> formatida xabar yuboring.\n"
+            "<i>Masalan: ULASH_A-001</i>",
             parse_mode="HTML"
         )
         return
 
-    # Faqat oxirgi 10 ta natijani olamiz (tezlik uchun)
-    natijalar = talaba_natijalari(kod, limit=10)
+    natijalar = talaba_natijalari(talaba['kod'])
     if not natijalar:
-        await message.answer(
-            f"👤 <b>{talaba['ismlar']}</b>\n\n⚠️ Siz uchun hali test natijalari kiritilmagan.",
-            parse_mode="HTML"
-        )
+        await message.answer(f"👤 <b>{talaba['ismlar']}</b>, sizda hali test natijalari mavjud emas.")
         return
 
-    songi = natijalar[0]
-    foiz = round((songi['umumiy_ball'] / 189) * 100, 1)
-    sana_str = str(songi['test_sanasi'])[:10]
-
-    text = (
-        f"🎓 <b>Sizning natijangiz (Oxirgi test)</b>\n\n"
-        f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
-        f"🆔 Kod: <b>{talaba['kod']}</b>\n"
-        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
-        f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n\n"
-        f"📊 <b>Fan bo'yicha natijalar:</b>\n"
-        f"  📘 Majburiy fanlar: {songi['majburiy']}/30 ta → <b>{songi['majburiy'] * 1.1:.1f}</b> ball\n"
-        f"  📗 1-asosiy fan:    {songi['asosiy_1']}/30 ta → <b>{songi['asosiy_1'] * 3.1:.1f}</b> ball\n"
-        f"  📙 2-asosiy fan:    {songi['asosiy_2']}/30 ta → <b>{songi['asosiy_2'] * 2.1:.1f}</b> ball\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"🏆 <b>Umumiy ball: {songi['umumiy_ball']} / 189</b>\n"
-        f"📈 Foiz: <b>{foiz}%</b>\n"
-        f"📅 Sana: {sana_str}\n\n"
-    )
-
-    loop = asyncio.get_event_loop()
+    text = f"👤 <b>O'quvchi: {talaba['ismlar']}</b>\n"
+    text += f"🆔 Kod: <code>{talaba['kod']}</code>\n"
+    text += f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+    text += f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n\n"
+    text += "📊 <b>Oxirgi natijalar:</b>\n"
     
-    # 1. Sertifikat yaratish
-    cert_path = None
-    try:
-        cert_path = await loop.run_in_executor(None, _generate_cert_internal, talaba['ismlar'], songi['umumiy_ball'], sana_str, talaba['kod'])
-    except Exception as e:
-        print(f"Sertifikat yaratishda xato: {e}")
-
-    # 2. Grafik yaratish (agar natijalar 1 tadan ko'p bo'lsa)
-    plot_path = f"plot_{kod}.png"
-    has_plot = False
-    if len(natijalar) > 1:
-        text += "📜 <b>Oldingi natijalar:</b>\n"
-        for n in natijalar[1:6]:
-            text += f"• {str(n['test_sanasi'])[:10]}: <b>{n['umumiy_ball']}</b> ball\n"
-
-        try:
-            dates = [str(n['test_sanasi'])[:10] for n in reversed(natijalar)]
-            scores = [n['umumiy_ball'] for n in reversed(natijalar)]
-            await loop.run_in_executor(None, _generate_plot, dates, scores, plot_path, talaba['ismlar'])
-            has_plot = True
-        except Exception as e:
-            print(f"Grafik chizishda xato: {e}")
-
-    # 3. Yuborish
-    try:
-        if cert_path and os.path.exists(cert_path):
-            # Sertifikatni hujjat sifatida yuboramiz
-            await message.answer_document(FSInputFile(cert_path), caption="📜 Sizning natijangiz aks etgan sertifikat.")
-            if os.path.exists(cert_path): os.remove(cert_path)
-        
-        if has_plot and os.path.exists(plot_path):
-            # Grafikni rasm sifatida matn bilan yuboramiz
-            await message.answer_photo(FSInputFile(plot_path), caption=text, parse_mode="HTML")
-            if os.path.exists(plot_path): os.remove(plot_path)
-        else:
-            # Grafik bo'lmasa, faqat matnni yuboramiz
-            await message.answer(text, parse_mode="HTML")
-            
-    except Exception as e:
-        print(f"Yuborishda xato: {e}")
-        # Xatolik bo'lsa hech bo'lmasa matnni yuboramiz
-        await message.answer(text, parse_mode="HTML")
+    for i, n in enumerate(natijalar[:5], 1):
+        sana = str(n['test_sanasi'])[:10]
+        text += f"{i}. {sana} — <b>{n['umumiy_ball']}</b> ball\n"
+    
+    await message.answer(text, parse_mode="HTML")

@@ -258,11 +258,18 @@ def settings_keyboard(ranking_enabled, stats_enabled):
         [InlineKeyboardButton(text=stats_text, callback_data="toggle_setting:stats_enabled")],
     ])
 
-def request_actions_keyboard(request_id):
+def request_actions_keyboard(request_id, user_id=None):
     """So'rovlar uchun amallar."""
-    return InlineKeyboardMarkup(inline_keyboard=[
+    buttons = [
         [
-            InlineKeyboardButton(text="✅ Ruxsat berish", callback_data=f"request_action:approve:{request_id}"),
+            InlineKeyboardButton(text="✅ 1 soatga", callback_data=f"request_action:approve_1h:{request_id}"),
+            InlineKeyboardButton(text="✅ 24 soatga", callback_data=f"request_action:approve_24h:{request_id}"),
+        ],
+        [
+            InlineKeyboardButton(text="✅ Cheksiz", callback_data=f"request_action:approve_inf:{request_id}"),
             InlineKeyboardButton(text="❌ Rad etish", callback_data=f"request_action:reject:{request_id}")
         ]
-    ])
+    ]
+    if user_id:
+        buttons.append([InlineKeyboardButton(text="🚫 Ruxsatni qaytarib olish", callback_data=f"request_action:revoke:{user_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

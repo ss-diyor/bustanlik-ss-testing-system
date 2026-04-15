@@ -747,35 +747,73 @@ async def admin_requests(message: Message, state: FSMContext):
             f"🆔 Kod: <code>{req['talaba_kod']}</code>\n"
             f"👤 Telegram ID: <code>{req['user_id']}</code>"
         )
-        await message.answer(text, parse_mode="HTML", reply_markup=request_actions_keyboard(req['id']))
+        await message.answer(text, parse_mode="HTML", reply_markup=request_actions_keyboard(req['id'], req['user_id']))
 
 @router.callback_query(F.data.startswith("request_action:"))
 async def request_action_handler(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state): return
-    _, action, req_id = callback.data.split(":")
-    status = 'approved' if action == 'approve' else 'rejected'
+    data_parts = callback.data.split(":")
+    action = data_parts[1]
+    target_id = int(data_parts[2]) # request_id yoki user_id bo'lishi mumkin
     
-    # So'rovni yangilashdan oldin user_id ni olamiz (xabar yuborish uchun)
-    from database import get_connection, release_connection
+    from database import get_connection, release_connection, revoke_access_by_user
+    from datetime import datetime, timedelta
+
+    if action == "revoke":
+        revoke_access_by_user(target_id)
+        await callback.answer("🚫 Ruxsat qaytarib olindi")
+        await callback.message.edit_text(f"🚫 Foydalanuvchining (ID: {target_id}) barcha ruxsatlari bekor qilindi.")
+        try:
+            await callback.bot.send_message(target_id, "🚫 Admin sizdan umumiy reytingni ko'rish ruxsatini qaytarib oldi.")
+        except Exception: pass
+        return
+
+    # So'rov ma'lumotlarini olish
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT user_id FROM access_requests WHERE id = %s", (req_id,))
+    cur.execute("SELECT user_id FROM access_requests WHERE id = %s", (target_id,))
     row = cur.fetchone()
     cur.close()
     release_connection(conn)
     
-    update_request_status(int(req_id), status)
-    
-    if row:
-        user_id = row[0]
-        msg = "✅ Tabriklaymiz! Admin sizga barcha o'quvchilar reytingini ko'rish uchun ruxsat berdi." if action == 'approve' else "❌ Afsuski, admin sizning so'rovingizni rad etdi."
+    if not row:
+        await callback.answer("⚠️ So'rov topilmadi.")
+        return
+
+    user_id = row[0]
+    expires_at = None
+    time_text = "cheksiz vaqtga"
+
+    if action == "approve_1h":
+        expires_at = datetime.now() + timedelta(hours=1)
+        time_text = "1 soatga"
+        update_request_status(target_id, 'approved', expires_at)
+    elif action == "approve_24h":
+        expires_at = datetime.now() + timedelta(hours=24)
+        time_text = "24 soatga"
+        update_request_status(target_id, 'approved', expires_at)
+    elif action == "approve_inf":
+        update_request_status(target_id, 'approved', None)
+    elif action == "reject":
+        update_request_status(target_id, 'rejected')
+        await callback.answer("❌ Rad etildi")
+        await callback.message.edit_text(f"❌ Foydalanuvchining (ID: {user_id}) so'rovi rad etildi.")
         try:
-            await callback.bot.send_message(user_id, msg)
-        except:
-            pass
-            
-    await callback.message.edit_text(f"{callback.message.text}\n\n✅ <b>{status.capitalize()}</b>", parse_mode="HTML")
-    await callback.answer(f"So'rov {status}")
+            await callback.bot.send_message(user_id, "❌ Admin umumiy reytingni ko'rish so'rovingizni rad etdi.")
+        except Exception: pass
+        return
+    else: # Eski 'approve' tugmasi uchun (agar qolgan bo'lsa)
+        update_request_status(target_id, 'approved', None)
+
+    await callback.answer(f"✅ Ruxsat berildi ({time_text})")
+    await callback.message.edit_text(
+        f"✅ Foydalanuvchiga (ID: {user_id}) umumiy reytingni ko'rishga <b>{time_text}</b> ruxsat berildi.",
+        parse_mode="HTML",
+        reply_markup=request_actions_keyboard(target_id, user_id)
+    )
+    try:
+        await callback.bot.send_message(user_id, f"✅ Admin umumiy reytingni ko'rishga <b>{time_text}</b> ruxsat berdi! Endi '🏆 Reyting' menyusi orqali 'Umumiy Top' ni ko'rishingiz mumkin.", parse_mode="HTML")
+    except Exception: pass
 
 
 @router.message(F.text == "📋 O'quvchilar ro'yxati")

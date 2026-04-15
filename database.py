@@ -97,9 +97,15 @@ def init_db():
             talaba_kod TEXT NOT NULL,
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP DEFAULT NULL,
             FOREIGN KEY (talaba_kod) REFERENCES talabalar (kod)
         )
     """)
+    # Eski bazalarda expires_at ustuni bo'lmasligi mumkin, uni qo'shib qo'yamiz
+    try:
+        cur.execute("ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT NULL")
+    except Exception:
+        pass
 
     # Default settings
     cur.execute("INSERT INTO settings (key, value) VALUES ('ranking_enabled', 'True') ON CONFLICT DO NOTHING")
@@ -481,7 +487,8 @@ def talaba_filtrlangan(sinf: str = None, yonalish: str = None):
     return [dict(r) for r in rows]
 
 
-def get_top_10_in_class(sinf: str):
+def get_all_in_class(sinf: str):
+    """Sinfdagi barcha o'quvchilar natijalarini ballar bo'yicha kamayish tartibida qaytaradi."""
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
@@ -495,17 +502,21 @@ def get_top_10_in_class(sinf: str):
         )
         WHERE t.sinf = %s
         ORDER BY n.umumiy_ball DESC
-        LIMIT 10
     """, (sinf,))
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)
     return [dict(r) for r in rows]
 
-def get_overall_ranking():
+def get_overall_ranking(sinf_prefix: str = None):
+    """
+    Umumiy Top 50 reytingini qaytaradi.
+    Agar sinf_prefix (masalan '9') berilsa, faqat o'sha parallel sinflar (9-A, 9-B va h.k.) bo'yicha qaytaradi.
+    """
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
+    
+    query = """
         SELECT t.kod, t.ismlar, t.sinf, n.umumiy_ball
         FROM talabalar t
         JOIN test_natijalari n ON n.id = (
@@ -514,9 +525,15 @@ def get_overall_ranking():
             ORDER BY test_sanasi DESC
             LIMIT 1
         )
-        ORDER BY n.umumiy_ball DESC
-        LIMIT 50
-    """)
+    """
+    params = []
+    if sinf_prefix:
+        query += " WHERE t.sinf LIKE %s"
+        params.append(f"{sinf_prefix}%")
+        
+    query += " ORDER BY n.umumiy_ball DESC LIMIT 50"
+    
+    cur.execute(query, tuple(params))
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)
@@ -695,18 +712,37 @@ def get_pending_requests():
     release_connection(conn)
     return [dict(r) for r in rows]
 
-def update_request_status(request_id: int, status: str):
+def update_request_status(request_id: int, status: str, expires_at=None):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("UPDATE access_requests SET status = %s WHERE id = %s", (status, request_id))
+    cur.execute("UPDATE access_requests SET status = %s, expires_at = %s WHERE id = %s", (status, expires_at, request_id))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def revoke_access_by_user(user_id: int):
+    """Foydalanuvchining barcha tasdiqlangan ruxsatlarini 'revoked' holatiga o'tkazadi."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE access_requests SET status = 'revoked' WHERE user_id = %s AND status = 'approved'", (user_id,))
     conn.commit()
     cur.close()
     release_connection(conn)
 
 def check_access(user_id: int):
+    """
+    Foydalanuvchining ruxsati borligini tekshiradi.
+    Vaqtli ruxsatlarni ham hisobga oladi.
+    """
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT 1 FROM access_requests WHERE user_id = %s AND status = 'approved'", (user_id,))
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    # Status 'approved' bo'lgan va (expires_at NULL yoki hozirgi vaqtdan katta) bo'lgan so'rovni qidiramiz
+    cur.execute("""
+        SELECT 1 FROM access_requests 
+        WHERE user_id = %s AND status = 'approved' 
+        AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+        LIMIT 1
+    """, (user_id,))
     row = cur.fetchone()
     cur.close()
     release_connection(conn)
