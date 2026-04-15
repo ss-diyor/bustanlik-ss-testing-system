@@ -25,7 +25,7 @@ from keyboards import (
     kalit_boshqarish_keyboard, kalit_actions_keyboard, kalit_yonalish_tanlash_keyboard,
     oquvchilar_filtrlash_keyboard, sinf_tanlash_keyboard, yonalish_tanlash_keyboard, filter_actions_keyboard,
     settings_keyboard, request_actions_keyboard, ranking_keyboard, sinf_tanlash_ranking_keyboard,
-    oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard
+    oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard, oqituvchi_ochirish_keyboard
 )
 
 router = Router()
@@ -986,7 +986,6 @@ async def oqituvchi_boshqar_process(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
     
     elif action == "ochir":
-        from keyboards import oqituvchi_ochirish_keyboard
         await callback.message.edit_text("❌ O'chirmoqchi bo'lgan o'qituvchini tanlang:", reply_markup=oqituvchi_ochirish_keyboard())
     
     elif action == "orqaga":
@@ -1000,7 +999,6 @@ async def oqituvchi_ochir_process(callback: CallbackQuery, state: FSMContext):
     else:
         await callback.answer("❌ Xatolik yuz berdi")
     
-    from keyboards import oqituvchi_ochirish_keyboard
     await callback.message.edit_text("❌ O'chirmoqchi bo'lgan o'qituvchini tanlang:", reply_markup=oqituvchi_ochirish_keyboard())
 
 @router.message(OqituvchiQosh.user_id_kutish)

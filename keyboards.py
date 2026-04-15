@@ -2,7 +2,7 @@ from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton,
     InlineKeyboardMarkup, InlineKeyboardButton
 )
-from database import yonalish_ol, sinf_ol, kalit_ol
+from database import yonalish_ol, sinf_ol, kalit_ol, oqituvchilar_hammasi
 
 
 def admin_menu_keyboard():

@@ -378,9 +378,11 @@ def oqituvchi_ochir(user_id: int):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM oqituvchilar WHERE user_id = %s", (user_id,))
+    row_count = cur.rowcount
     conn.commit()
     cur.close()
     release_connection(conn)
+    return row_count > 0
 
 def talaba_songi_natija(kod: str):
     conn = get_connection()
