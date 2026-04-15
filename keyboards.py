@@ -198,13 +198,26 @@ def murojaat_javob_keyboard(user_id):
         [InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"murojaat_javob:{user_id}")]
     ])
 
-def ranking_keyboard():
+def ranking_keyboard(is_admin=False):
     """Reyting menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
+    buttons = [
         [InlineKeyboardButton(text="🔝 Sinf Top 10", callback_data="ranking:class_top10")],
         [InlineKeyboardButton(text="🌍 Umumiy Top 50", callback_data="ranking:overall_top50")],
-        [InlineKeyboardButton(text="👤 Mening o'rnim", callback_data="ranking:my_rank")],
-    ])
+    ]
+    if is_admin:
+        buttons.insert(0, [InlineKeyboardButton(text="🏫 Tanlangan sinf reytingi", callback_data="ranking:select_class")])
+    else:
+        buttons.append([InlineKeyboardButton(text="👤 Mening o'rnim", callback_data="ranking:my_rank")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def sinf_tanlash_ranking_keyboard():
+    """Admin uchun reyting ko'rishda sinf tanlash."""
+    buttons = []
+    sinflar = sinf_ol()
+    for s in sinflar:
+        buttons.append([InlineKeyboardButton(text=s, callback_data=f"ranking:view_class:{s}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back_admin")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def stats_keyboard():
     """Statistika menyusi."""

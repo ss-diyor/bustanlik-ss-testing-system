@@ -23,7 +23,7 @@ from keyboards import (
     sinf_keyboard, sinf_boshqarish_keyboard, sinf_ochirish_keyboard,
     kalit_boshqarish_keyboard, kalit_actions_keyboard, kalit_yonalish_tanlash_keyboard,
     oquvchilar_filtrlash_keyboard, sinf_tanlash_keyboard, yonalish_tanlash_keyboard, filter_actions_keyboard,
-    settings_keyboard, request_actions_keyboard, ranking_keyboard
+    settings_keyboard, request_actions_keyboard, ranking_keyboard, sinf_tanlash_ranking_keyboard
 )
 
 router = Router()
@@ -90,6 +90,10 @@ async def is_admin(message: Message, state: FSMContext):
 async def admin_tekshir(state: FSMContext) -> bool:
     data = await state.get_data()
     return data.get("admin") is True
+
+def is_admin_id(user_id: int) -> bool:
+    from config import ADMIN_IDS
+    return user_id in ADMIN_IDS
 
 def _son_tekshir(text: str):
     try:
@@ -704,7 +708,31 @@ async def admin_statistika(message: Message, state: FSMContext):
 
 @router.message(F.text == "🏆 Reyting", is_admin)
 async def admin_ranking(message: Message, state: FSMContext):
-    await message.answer("🏆 <b>Reyting bo'limi (Admin):</b>", parse_mode="HTML", reply_markup=ranking_keyboard())
+    await message.answer("🏆 <b>Reyting bo'limi (Admin):</b>", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=True))
+
+@router.callback_query(F.data == "ranking:select_class", is_admin)
+async def admin_ranking_select_class(callback: CallbackQuery):
+    await callback.message.edit_text("🏫 Reytingni ko'rish uchun sinfni tanlang:", reply_markup=sinf_tanlash_ranking_keyboard())
+
+@router.callback_query(F.data.startswith("ranking:view_class:"), is_admin)
+async def admin_ranking_view_class(callback: CallbackQuery):
+    sinf = callback.data.split(":")[2]
+    from database import get_all_in_class
+    talabalar = get_all_in_class(sinf)
+    
+    if not talabalar:
+        await callback.answer(f"⚠️ {sinf} sinfida natijalar yo'q.")
+        return
+        
+    text = f"🏆 <b>{sinf} sinf reytingi:</b>\n\n"
+    for i, t in enumerate(talabalar, 1):
+        text += f"{i}. {t['ismlar']} — <b>{t['umumiy_ball']}</b>\n"
+    
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=sinf_tanlash_ranking_keyboard())
+
+@router.callback_query(F.data == "ranking:back_admin", is_admin)
+async def admin_ranking_back(callback: CallbackQuery):
+    await callback.message.edit_text("🏆 <b>Reyting bo'limi (Admin):</b>", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=True))
 
 @router.message(F.text == "⚙️ Sozlamalar", is_admin)
 async def admin_settings(message: Message, state: FSMContext):
@@ -744,7 +772,7 @@ async def admin_requests(message: Message, state: FSMContext):
             f"🔔 <b>Yangi kirish so'rovi!</b>\n\n"
             f"👤 O'quvchi: <b>{req['ismlar']}</b>\n"
             f"🏫 Sinf: <b>{req['sinf']}</b>\n"
-            f"🎯 Yo'nalish: <b>{req.get('yonalish', 'Noma\'lum')}</b>\n"
+            f"🎯 Yo'nalish: <b>{req.get('yonalish', 'Noma' + chr(39) + 'lum')}</b>\n"
             f"🆔 Kod: <code>{req['talaba_kod']}</code>\n"
             f"👤 Telegram ID: <code>{req['user_id']}</code>"
         )

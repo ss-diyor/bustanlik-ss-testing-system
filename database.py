@@ -438,8 +438,13 @@ def get_all_user_ids():
 def delete_all_data():
     conn = get_connection()
     cur = conn.cursor()
+    # Tashqi kalitlar (Foreign Keys) sababli o'chirish tartibi muhim
+    cur.execute("DELETE FROM access_requests")
     cur.execute("DELETE FROM test_natijalari")
     cur.execute("DELETE FROM talabalar")
+    cur.execute("DELETE FROM test_kalitlari")
+    # Ixtiyoriy: Yo'nalishlar va sinflarni ham tozalash mumkin, 
+    # lekin odatda ular qolishi kerak. Foydalanuvchi "Barcha o'quvchilar va natijalar" degan.
     conn.commit()
     cur.close()
     release_connection(conn)

@@ -348,6 +348,10 @@ async def ranking_menu(message: Message):
 async def ranking_process(callback: CallbackQuery):
     action = callback.data.split(":")[1]
     
+    # Admin tekshiruvi
+    from admin import is_admin_id
+    is_admin = is_admin_id(callback.from_user.id)
+    
     # Talabani user_id orqali topish
     from database import get_connection, release_connection
     import psycopg2.extras
@@ -385,10 +389,10 @@ async def ranking_process(callback: CallbackQuery):
                 ismlar = t['ismlar'] if t['kod'] == talaba['kod'] else f"O'quvchi"
                 text += f"{i}. {ismlar} — <b>{t['umumiy_ball']}</b> ball\n"
         
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard())
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=is_admin))
 
     elif action == "overall_top50":
-        if not check_access(callback.from_user.id):
+        if not is_admin and not check_access(callback.from_user.id):
             # Ruxsat yo'q bo'lsa, so'rov yuborish tugmasini ko'rsatish
             req = get_request_by_user(callback.from_user.id)
             if req and req['status'] == 'pending':
@@ -425,7 +429,7 @@ async def ranking_process(callback: CallbackQuery):
             emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
             text += f"{emoji} {t['ismlar']} ({t['sinf']}) — <b>{t['umumiy_ball']}</b> ball\n"
         
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard())
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=is_admin))
 
     elif action == "my_rank":
         if not talaba:
