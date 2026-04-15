@@ -341,6 +341,37 @@ async def ranking_process(callback: CallbackQuery):
 async def request_access_process(callback: CallbackQuery):
     kod = callback.data.split(":")[1]
     add_access_request(callback.from_user.id, kod)
+    
+    # Talaba ma'lumotlarini olish
+    talaba = talaba_topish(kod)
+    
+    # Adminlarga bildirishnoma yuborish
+    from config import ADMIN_IDS
+    from keyboards import request_actions_keyboard
+    
+    # request_id ni olish uchun oxirgi so'rovni olamiz
+    req = get_request_by_user(callback.from_user.id)
+    
+    admin_text = (
+        f"🔔 <b>Yangi kirish so'rovi!</b>\n\n"
+        f"👤 O'quvchi: <b>{talaba['ismlar']}</b>\n"
+        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n"
+        f"🆔 Kod: <code>{talaba['kod']}</code>\n"
+        f"👤 Telegram ID: <code>{callback.from_user.id}</code>"
+    )
+    
+    for admin_id in ADMIN_IDS:
+        try:
+            await callback.bot.send_message(
+                admin_id, 
+                admin_text, 
+                parse_mode="HTML", 
+                reply_markup=request_actions_keyboard(req['id'], callback.from_user.id)
+            )
+        except Exception:
+            continue
+
     await callback.answer("✅ So'rov yuborildi. Admin tasdiqlashini kuting.", show_alert=True)
     await callback.message.edit_text("⏳ <b>So'rovingiz yuborildi.</b>\n\nAdmin tasdiqlaganidan keyin sizga xabar yuboramiz.", parse_mode="HTML")
 

@@ -744,6 +744,7 @@ async def admin_requests(message: Message, state: FSMContext):
             f"🔔 <b>Yangi kirish so'rovi!</b>\n\n"
             f"👤 O'quvchi: <b>{req['ismlar']}</b>\n"
             f"🏫 Sinf: <b>{req['sinf']}</b>\n"
+            f"🎯 Yo'nalish: <b>{req.get('yonalish', 'Noma\'lum')}</b>\n"
             f"🆔 Kod: <code>{req['talaba_kod']}</code>\n"
             f"👤 Telegram ID: <code>{req['user_id']}</code>"
         )
@@ -784,16 +785,18 @@ async def request_action_handler(callback: CallbackQuery, state: FSMContext):
     expires_at = None
     time_text = "cheksiz vaqtga"
 
-    if action == "approve_1h":
+    if action == "approve_5m":
+        expires_at = datetime.now() + timedelta(minutes=5)
+        time_text = "5 daqiqaga"
+        update_request_status(target_id, 'approved', expires_at)
+    elif action == "approve_30m":
+        expires_at = datetime.now() + timedelta(minutes=30)
+        time_text = "30 daqiqaga"
+        update_request_status(target_id, 'approved', expires_at)
+    elif action == "approve_1h":
         expires_at = datetime.now() + timedelta(hours=1)
         time_text = "1 soatga"
         update_request_status(target_id, 'approved', expires_at)
-    elif action == "approve_24h":
-        expires_at = datetime.now() + timedelta(hours=24)
-        time_text = "24 soatga"
-        update_request_status(target_id, 'approved', expires_at)
-    elif action == "approve_inf":
-        update_request_status(target_id, 'approved', None)
     elif action == "reject":
         update_request_status(target_id, 'rejected')
         await callback.answer("❌ Rad etildi")

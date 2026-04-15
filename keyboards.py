@@ -262,11 +262,11 @@ def request_actions_keyboard(request_id, user_id=None):
     """So'rovlar uchun amallar."""
     buttons = [
         [
-            InlineKeyboardButton(text="✅ 1 soatga", callback_data=f"request_action:approve_1h:{request_id}"),
-            InlineKeyboardButton(text="✅ 24 soatga", callback_data=f"request_action:approve_24h:{request_id}"),
+            InlineKeyboardButton(text="✅ 5 daqiqa", callback_data=f"request_action:approve_5m:{request_id}"),
+            InlineKeyboardButton(text="✅ 30 daqiqa", callback_data=f"request_action:approve_30m:{request_id}"),
         ],
         [
-            InlineKeyboardButton(text="✅ Cheksiz", callback_data=f"request_action:approve_inf:{request_id}"),
+            InlineKeyboardButton(text="✅ 1 soat", callback_data=f"request_action:approve_1h:{request_id}"),
             InlineKeyboardButton(text="❌ Rad etish", callback_data=f"request_action:reject:{request_id}")
         ]
     ]
