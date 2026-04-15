@@ -152,19 +152,20 @@ def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
     """Foydalanuvchi asosiy menyusi (Dinamik)."""
     keyboard = []
     
-    # Birinchi qator
+    # Birinchi qator: Mening natijalarim, Shaxsiy kabinet, Reyting
     row1 = [KeyboardButton(text="📊 Mening natijalarim"), KeyboardButton(text="👤 Shaxsiy kabinet")]
     if ranking_enabled == 'True':
         row1.append(KeyboardButton(text="🏆 Reyting"))
     keyboard.append(row1)
     
-    # Ikkinchi qator
-    row2 = [KeyboardButton(text="✅ Javoblarni tekshirish")]
-    if stats_enabled == 'True':
-        row2.append(KeyboardButton(text="📈 Statistika"))
-    keyboard.append(row2)
+    # Ikkinchi qator: Javoblarni tekshirish
+    keyboard.append([KeyboardButton(text="✅ Javoblarni tekshirish")])
     
-    # Uchinchi qator
+    # Uchinchi qator: Statistika (agar yoqilgan bo'lsa)
+    if stats_enabled == 'True':
+        keyboard.append([KeyboardButton(text="📈 Statistika")])
+    
+    # To'rtinchi qator: Admin bilan bog'lanish
     keyboard.append([KeyboardButton(text="✍️ Admin bilan bog'lanish")])
     
     return ReplyKeyboardMarkup(
@@ -314,5 +315,15 @@ def oqituvchi_boshqarish_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📋 O'qituvchilar ro'yxati", callback_data="oqituvchi_boshqar:ro'yxat")],
         [InlineKeyboardButton(text="➕ Yangi o'qituvchi qo'shish", callback_data="oqituvchi_boshqar:qosh")],
+        [InlineKeyboardButton(text="❌ O'qituvchini o'chirish", callback_data="oqituvchi_boshqar:ochir")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="oqituvchi_boshqar:orqaga")],
     ])
+
+def oqituvchi_ochirish_keyboard():
+    """O'qituvchilarni o'chirish uchun ro'yxat."""
+    buttons = []
+    oqituvchilar = oqituvchilar_hammasi()
+    for o in oqituvchilar:
+        buttons.append([InlineKeyboardButton(text=f"❌ {o['ismlar']} ({o['sinf']})", callback_data=f"oqituvchi_ochir:{o['user_id']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="oqituvchi_boshqar:orqaga")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

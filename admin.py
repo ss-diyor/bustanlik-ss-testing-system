@@ -985,8 +985,23 @@ async def oqituvchi_boshqar_process(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer("🆔 O'qituvchining Telegram ID raqamini kiriting:")
         await callback.answer()
     
+    elif action == "ochir":
+        from keyboards import oqituvchi_ochirish_keyboard
+        await callback.message.edit_text("❌ O'chirmoqchi bo'lgan o'qituvchini tanlang:", reply_markup=oqituvchi_ochirish_keyboard())
+    
     elif action == "orqaga":
         await callback.message.delete()
+
+@router.callback_query(F.data.startswith("oqituvchi_ochir:"))
+async def oqituvchi_ochir_process(callback: CallbackQuery, state: FSMContext):
+    user_id = int(callback.data.split(":")[1])
+    if oqituvchi_ochir(user_id):
+        await callback.answer("✅ O'qituvchi o'chirildi")
+    else:
+        await callback.answer("❌ Xatolik yuz berdi")
+    
+    from keyboards import oqituvchi_ochirish_keyboard
+    await callback.message.edit_text("❌ O'chirmoqchi bo'lgan o'qituvchini tanlang:", reply_markup=oqituvchi_ochirish_keyboard())
 
 @router.message(OqituvchiQosh.user_id_kutish)
 async def oqituvchi_id_get(message: Message, state: FSMContext):

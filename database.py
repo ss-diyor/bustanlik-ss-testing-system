@@ -862,3 +862,49 @@ def get_request_by_user(user_id: int):
     cur.close()
     release_connection(conn)
     return dict(row) if row else None
+
+def oqituvchi_ochir(user_id: int) -> bool:
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM oqituvchilar WHERE user_id = %s", (user_id,))
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+        return True
+    except Exception:
+        return False
+
+def oqituvchi_qosh(user_id: int, ismlar: str, sinf: str) -> bool:
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO oqituvchilar (user_id, ismlar, sinf)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id) DO UPDATE SET ismlar = EXCLUDED.ismlar, sinf = EXCLUDED.sinf
+        """, (user_id, ismlar, sinf))
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+        return True
+    except Exception:
+        return False
+
+def oqituvchi_ol(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM oqituvchilar WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return dict(row) if row else None
+
+def oqituvchilar_hammasi():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM oqituvchilar ORDER BY ismlar ASC")
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
