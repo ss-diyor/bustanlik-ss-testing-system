@@ -26,8 +26,8 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 # Routerlarni ulash
-dp.include_router(student.router)
 dp.include_router(admin.router)
+dp.include_router(student.router)
 
 
 @dp.message(CommandStart())
