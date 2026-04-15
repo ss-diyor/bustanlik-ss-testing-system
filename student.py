@@ -4,7 +4,7 @@ import asyncio
 import matplotlib
 matplotlib.use("Agg")  # GUI yo'q muhitda xatolikni oldini oladi
 import matplotlib.pyplot as plt
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import Message, FSInputFile, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -13,7 +13,8 @@ from database import (
     talaba_topish, talaba_natijalari, get_all_user_ids, kalit_ol,
     get_all_in_class, get_overall_ranking, get_student_rank,
     get_avg_score_by_direction, get_class_comparison, get_most_improved_students,
-    get_score_difference, get_setting, check_access, add_access_request, get_request_by_user
+    get_score_difference, get_setting, check_access, add_access_request, get_request_by_user,
+    talaba_songi_natija
 )
 from keyboards import (
     user_menu_keyboard, murojaat_bekor_qilish_keyboard, murojaat_javob_keyboard,
@@ -56,6 +57,114 @@ ADMIN_TUGMALAR = {
     "✅ Javoblarni tekshirish",
     "📊 Mening natijalarim"
 }
+
+# ─────────────────────────────────────────
+# Yordamchi funksiyalar
+# ─────────────────────────────────────────
+
+def _generate_chart(natijalar, ismlar, kod):
+    """O'quvchining natijalari dinamikasi grafigini chizadi."""
+    if not natijalar:
+        return None
+    
+    # Natijalarni vaqt bo'yicha tartiblaymiz (eskidan yangiga)
+    sorted_results = sorted(natijalar, key=lambda x: x['test_sanasi'])
+    
+    dates = [str(r['test_sanasi'])[:10] for r in sorted_results]
+    scores = [r['umumiy_ball'] for r in sorted_results]
+    
+    plt.figure(figsize=(8, 5))
+    plt.plot(dates, scores, marker='o', linestyle='-', color='blue')
+    plt.title(f"{ismlar} - Natijalar Dinamikasi")
+    plt.xlabel("Sana")
+    plt.ylabel("Ball")
+    plt.grid(True)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    
+    chart_path = f"charts/chart_{kod}.png"
+    os.makedirs("charts", exist_ok=True)
+    plt.savefig(chart_path)
+    plt.close()
+    return chart_path
+
+def _generate_certificate_file(cert_gen, ismlar, ball, sana, kod):
+    """Sertifikatni generatsiya qilish."""
+    return cert_gen.generate(ismlar, ball, sana, kod)
+
+async def send_full_results(message: Message, kod: str):
+    """O'quvchiga barcha natijalarini (grafik, xabar va sertifikat) yuboradi."""
+    talaba = talaba_topish(kod)
+    if not talaba:
+        await message.answer("❌ Bunday kodli o'quvchi topilmadi.")
+        return
+
+    natija = talaba_songi_natija(kod)
+    if not natija:
+        await message.answer(f"👤 <b>{talaba['ismlar']}</b>, sizda hali test natijalari mavjud emas.", parse_mode="HTML")
+        return
+
+    all_results = talaba_natijalari(kod)
+    
+    # Grafik yaratish
+    chart_path = await asyncio.get_event_loop().run_in_executor(None, _generate_chart, all_results, talaba['ismlar'], kod)
+    
+    # Sertifikat yaratish
+    cert_gen = CertificateGenerator()
+    sana = str(natija.get('test_sanasi', 'Noaniq'))[:10]
+    cert_path = await asyncio.get_event_loop().run_in_executor(None, _generate_certificate_file, cert_gen, talaba['ismlar'], natija['umumiy_ball'], sana, kod)
+
+    # Xabar matni
+    foiz = round((natija['umumiy_ball'] / 189) * 100, 1)
+    
+    matn = (
+        f"🎓 <b>Sizning natijangiz (Oxirgi test)</b>\n\n"
+        f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
+        f"🆔 Kod: <code>{talaba['kod']}</code>\n"
+        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n\n"
+        f"📊 <b>Fan bo'yicha natijalar:</b>\n"
+        f"📘 Majburiy fanlar: {natija['majburiy']}/30 ta → <b>{natija['majburiy'] * 1.1:.1f} ball</b>\n"
+        f"📗 1-asosiy fan: {natija['asosiy_1']}/30 ta → <b>{natija['asosiy_1'] * 3.1:.1f} ball</b>\n"
+        f"📙 2-asosiy fan: {natija['asosiy_2']}/30 ta → <b>{natija['asosiy_2'] * 2.1:.1f} ball</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"🏆 <b>Umumiy ball: {natija['umumiy_ball']} / 189</b>\n"
+        f"📈 Foiz: <b>{foiz}%</b>\n"
+        f"📅 Sana: <b>{sana}</b>\n\n"
+        f"📜 <b>Oldingi natijalar:</b>\n"
+    )
+    
+    # Oxirgidan boshlab natijalarni qo'shamiz
+    for r in all_results[:5]:
+        r_sana = str(r['test_sanasi'])[:10]
+        matn += f"• {r_sana}: <b>{r['umumiy_ball']} ball</b>\n"
+
+    # Sertifikatni rasm (grafik) bilan birga yuborish
+    try:
+        # 1. Sertifikatni yuboramiz
+        await message.answer_document(
+            FSInputFile(cert_path),
+            caption="📜 Sizning natijangiz aks etgan sertifikat."
+        )
+        
+        # 2. Grafikni natijalar matni bilan yuboramiz
+        if chart_path and os.path.exists(chart_path):
+            await message.answer_photo(
+                FSInputFile(chart_path),
+                caption=matn,
+                parse_mode="HTML"
+            )
+        else:
+            await message.answer(matn, parse_mode="HTML")
+
+    except Exception as e:
+        await message.answer(f"❌ Xatolik yuz berdi: {e}")
+    finally:
+        # Fayllarni tozalash
+        if cert_path and os.path.exists(cert_path):
+            os.remove(cert_path)
+        if chart_path and os.path.exists(chart_path):
+            os.remove(chart_path)
 
 # ─────────────────────────────────────────
 # Admin bilan bog'lanish
@@ -297,7 +406,7 @@ async def ranking_process(callback: CallbackQuery):
                 reply_markup=kb
             )
             return
-
+        
         # Parallel sinflarni aniqlash (masalan: 11-A -> 11)
         sinf_prefix = None
         if talaba and talaba['sinf']:
@@ -429,7 +538,7 @@ async def stats_process(callback: CallbackQuery):
 # ─────────────────────────────────────────
 
 @router.message(F.text == "📊 Mening natijalarim")
-async def my_results(message: Message):
+async def my_results(message: Message, state: FSMContext):
     # Foydalanuvchini user_id orqali topish
     from database import get_connection, release_connection
     import psycopg2.extras
@@ -441,27 +550,28 @@ async def my_results(message: Message):
     release_connection(conn)
 
     if not talaba:
+        await state.set_state(ResultCheckState.kod_kutish)
         await message.answer(
-            "⚠️ <b>Profilingiz hali ulanmagan!</b>\n\n"
-            "Profilingizni ulash uchun <code>ULASH_KOD</code> formatida xabar yuboring.\n"
-            "<i>Masalan: ULASH_A-001</i>",
+            "📝 <b>Natijangizni ko'rish uchun shaxsiy kodingizni yuboring:</b>",
             parse_mode="HTML"
         )
         return
 
-    natijalar = talaba_natijalari(talaba['kod'])
-    if not natijalar:
-        await message.answer(f"👤 <b>{talaba['ismlar']}</b>, sizda hali test natijalari mavjud emas.")
+    # Agar profil ulangan bo'lsa, to'g'ridan-to'g'ri natijalarni yuboramiz
+    await send_full_results(message, talaba['kod'])
+
+@router.message(ResultCheckState.kod_kutish)
+async def process_result_code(message: Message, state: FSMContext):
+    if message.text in ADMIN_TUGMALAR:
+        await state.clear()
         return
 
-    text = f"👤 <b>O'quvchi: {talaba['ismlar']}</b>\n"
-    text += f"🆔 Kod: <code>{talaba['kod']}</code>\n"
-    text += f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
-    text += f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n\n"
-    text += "📊 <b>Oxirgi natijalar:</b>\n"
+    kod = message.text.strip().upper()
+    talaba = talaba_topish(kod)
     
-    for i, n in enumerate(natijalar[:5], 1):
-        sana = str(n['test_sanasi'])[:10]
-        text += f"{i}. {sana} — <b>{n['umumiy_ball']}</b> ball\n"
-    
-    await message.answer(text, parse_mode="HTML")
+    if not talaba:
+        await message.answer("❌ Bunday kod topilmadi. Iltimos, qaytadan urinib ko'ring.")
+        return
+
+    await state.clear()
+    await send_full_results(message, kod)

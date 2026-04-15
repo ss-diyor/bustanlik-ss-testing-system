@@ -316,6 +316,19 @@ def talaba_topish(kod: str):
     release_connection(conn)
     return dict(row) if row else None
 
+def talaba_songi_natija(kod: str):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT * FROM test_natijalari 
+        WHERE talaba_kod = %s 
+        ORDER BY test_sanasi DESC LIMIT 1
+    """, (kod.upper(),))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return dict(row) if row else None
+
 def talaba_natijalari(kod: str, limit: int = None):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
