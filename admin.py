@@ -83,6 +83,10 @@ class NatijaTahrirlash(StatesGroup):
 # Yordamchi funksiyalar
 # ─────────────────────────────────────────
 
+async def is_admin(message: Message, state: FSMContext):
+    data = await state.get_data()
+    return data.get("admin") is True
+
 async def admin_tekshir(state: FSMContext) -> bool:
     data = await state.get_data()
     return data.get("admin") is True
@@ -681,9 +685,8 @@ async def excel_import_process(message: Message, state: FSMContext):
 # Statistika
 # ─────────────────────────────────────────
 
-@router.message(F.text == "📊 Statistika")
+@router.message(F.text == "📊 Statistika", is_admin)
 async def admin_statistika(message: Message, state: FSMContext):
-    if not await admin_tekshir(state): return
     s = statistika()
     if not s:
         await message.answer("⚠️ Ma'lumotlar yetarli emas.")
@@ -699,14 +702,12 @@ async def admin_statistika(message: Message, state: FSMContext):
     from student import stats_keyboard
     await message.answer(text, parse_mode="HTML", reply_markup=stats_keyboard())
 
-@router.message(F.text == "🏆 Reyting")
+@router.message(F.text == "🏆 Reyting", is_admin)
 async def admin_ranking(message: Message, state: FSMContext):
-    if not await admin_tekshir(state): return
     await message.answer("🏆 <b>Reyting bo'limi (Admin):</b>", parse_mode="HTML", reply_markup=ranking_keyboard())
 
-@router.message(F.text == "⚙️ Sozlamalar")
+@router.message(F.text == "⚙️ Sozlamalar", is_admin)
 async def admin_settings(message: Message, state: FSMContext):
-    if not await admin_tekshir(state): return
     ranking_enabled = get_setting('ranking_enabled', 'True')
     stats_enabled = get_setting('stats_enabled', 'True')
     await message.answer("⚙️ <b>Bot sozlamalari:</b>\n\nO'quvchilar uchun funksiyalarni yoqish yoki o'chirish:", 
@@ -731,9 +732,8 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(f"✅ {setting_name} funksiyasi {status}.")
     await callback.answer()
 
-@router.message(F.text == "🔔 So'rovlar")
+@router.message(F.text == "🔔 So'rovlar", is_admin)
 async def admin_requests(message: Message, state: FSMContext):
-    if not await admin_tekshir(state): return
     requests = get_pending_requests()
     if not requests:
         await message.answer("📭 Hozircha yangi so'rovlar yo'q.")

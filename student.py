@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use("Agg")  # GUI yo'q muhitda xatolikni oldini oladi
 import matplotlib.pyplot as plt
 from aiogram import Router, F
-from aiogram.types import Message, FSInputFile, CallbackQuery
+from aiogram.types import Message, FSInputFile, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
