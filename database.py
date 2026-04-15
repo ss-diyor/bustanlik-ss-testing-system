@@ -1013,7 +1013,7 @@ def maktablar_ol():
 # Guruh rejimi (Groups)
 # ─────────────────────────────────────────
 
-def guruh_qosh(chat_id: BIGINT, nomi: str):
+def guruh_qosh(chat_id: int, nomi: str):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("INSERT INTO guruhlar (chat_id, nomi) VALUES (%s, %s) ON CONFLICT (chat_id) DO UPDATE SET nomi = EXCLUDED.nomi", (chat_id, nomi))
