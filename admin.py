@@ -715,6 +715,8 @@ async def admin_statistika(message: Message, state: FSMContext):
 
 @router.message(F.text == "🏆 Reyting")
 async def admin_ranking(message: Message, state: FSMContext):
+    if not is_admin_id(message.from_user.id):
+        return
     await message.answer("🏆 <b>Reyting bo'limi:</b>", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=True))
 
 @router.callback_query(F.data == "ranking:select_class")
