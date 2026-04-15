@@ -339,6 +339,9 @@ async def process_answers(message: Message, state: FSMContext):
 
 @router.message(F.text == "🏆 Reyting")
 async def ranking_menu(message: Message):
+    from admin import is_admin_id
+    if is_admin_id(message.from_user.id):
+        return
     ranking_enabled = get_setting('ranking_enabled', 'True')
     if ranking_enabled == 'False':
         # Agar o'chirilgan bo'lsa, menyuni yangilab qo'yamiz
