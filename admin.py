@@ -696,7 +696,7 @@ async def excel_import_process(message: Message, state: FSMContext):
 # Statistika
 # ─────────────────────────────────────────
 
-@router.message(F.text == "📊 Statistika", is_admin)
+@router.message(F.text == "📊 Statistika")
 async def admin_statistika(message: Message, state: FSMContext):
     s = statistika()
     if not s:
@@ -713,15 +713,15 @@ async def admin_statistika(message: Message, state: FSMContext):
     from student import stats_keyboard
     await message.answer(text, parse_mode="HTML", reply_markup=stats_keyboard())
 
-@router.message(F.text == "🏆 Reyting", is_admin)
+@router.message(F.text == "🏆 Reyting")
 async def admin_ranking(message: Message, state: FSMContext):
     await message.answer("🏆 <b>Reyting bo'limi (Admin):</b>", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=True))
 
-@router.callback_query(F.data == "ranking:select_class", is_admin)
+@router.callback_query(F.data == "ranking:select_class")
 async def admin_ranking_select_class(callback: CallbackQuery):
     await callback.message.edit_text("🏫 Reytingni ko'rish uchun sinfni tanlang:", reply_markup=sinf_tanlash_ranking_keyboard())
 
-@router.callback_query(F.data.startswith("ranking:view_class:"), is_admin)
+@router.callback_query(F.data.startswith("ranking:view_class:"))
 async def admin_ranking_view_class(callback: CallbackQuery):
     sinf = callback.data.split(":")[2]
     from database import get_all_in_class
@@ -737,11 +737,11 @@ async def admin_ranking_view_class(callback: CallbackQuery):
     
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=sinf_tanlash_ranking_keyboard())
 
-@router.callback_query(F.data == "ranking:back_admin", is_admin)
+@router.callback_query(F.data == "ranking:back_admin")
 async def admin_ranking_back(callback: CallbackQuery):
     await callback.message.edit_text("🏆 <b>Reyting bo'limi (Admin):</b>", parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=True))
 
-@router.message(F.text == "⚙️ Sozlamalar", is_admin)
+@router.message(F.text == "⚙️ Sozlamalar")
 async def admin_settings(message: Message, state: FSMContext):
     ranking_enabled = get_setting('ranking_enabled', 'True')
     stats_enabled = get_setting('stats_enabled', 'True')
@@ -962,11 +962,11 @@ async def export_excel(message: Message, state: FSMContext):
         os.remove(path)
 
 
-@router.message(F.text == "👨‍🏫 O'qituvchilarni boshqarish", is_admin)
+@router.message(F.text == "👨‍🏫 O'qituvchilarni boshqarish")
 async def teachers_management(message: Message, state: FSMContext):
     await message.answer("👨‍🏫 <b>O'qituvchilarni boshqarish bo'limi:</b>", parse_mode="HTML", reply_markup=oqituvchi_boshqarish_keyboard())
 
-@router.callback_query(F.data.startswith("oqituvchi_boshqar:"), is_admin)
+@router.callback_query(F.data.startswith("oqituvchi_boshqar:"))
 async def oqituvchi_boshqar_process(callback: CallbackQuery, state: FSMContext):
     action = callback.data.split(":")[1]
     
@@ -988,7 +988,7 @@ async def oqituvchi_boshqar_process(callback: CallbackQuery, state: FSMContext):
     elif action == "orqaga":
         await callback.message.delete()
 
-@router.message(OqituvchiQosh.user_id_kutish, is_admin)
+@router.message(OqituvchiQosh.user_id_kutish)
 async def oqituvchi_id_get(message: Message, state: FSMContext):
     try:
         user_id = int(message.text)
@@ -998,7 +998,7 @@ async def oqituvchi_id_get(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("❌ Faqat raqam kiriting!")
 
-@router.message(OqituvchiQosh.ismlar_kutish, is_admin)
+@router.message(OqituvchiQosh.ismlar_kutish)
 async def oqituvchi_ism_get(message: Message, state: FSMContext):
     await state.update_data(teacher_name=message.text)
     await state.set_state(OqituvchiQosh.sinf_kutish)

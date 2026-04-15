@@ -112,7 +112,7 @@ def kalit_yonalish_tanlash_keyboard():
     yonalishlar = yonalish_ol()
     for y in yonalishlar:
         # callback_data uzunligi 64 belgidan oshmasligi uchun truncate
-        cb_data = f"kalit_yon:{y[:40]}"
+        cb_data = f"kalit_yonalish:{y[:40]}"
         buttons.append([InlineKeyboardButton(text=y, callback_data=cb_data)])
     buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
