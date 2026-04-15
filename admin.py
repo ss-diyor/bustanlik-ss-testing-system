@@ -987,11 +987,12 @@ async def clear_db_start(message: Message, state: FSMContext):
 
 @router.message(ConfirmDelete.tasdiqlash_kutish)
 async def clear_db_process(message: Message, state: FSMContext):
-    if message.text.upper() == "HA":
+    if not await admin_tekshir(state): return
+    if message.text.strip().upper() == "HA":
         delete_all_data()
-        await message.answer("✅ Barcha ma'lumotlar o'chirildi.")
+        await message.answer("✅ Barcha ma'lumotlar o'chirildi.", reply_markup=admin_menu_keyboard())
     else:
-        await message.answer("❌ Bekor qilindi.")
+        await message.answer("❌ Bekor qilindi.", reply_markup=admin_menu_keyboard())
     await state.set_state(None)
 
 

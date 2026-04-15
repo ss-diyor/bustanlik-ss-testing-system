@@ -549,16 +549,11 @@ async def my_results(message: Message, state: FSMContext):
     cur.close()
     release_connection(conn)
 
-    if not talaba:
-        await state.set_state(ResultCheckState.kod_kutish)
-        await message.answer(
-            "📝 <b>Natijangizni ko'rish uchun shaxsiy kodingizni yuboring:</b>",
-            parse_mode="HTML"
-        )
-        return
-
-    # Agar profil ulangan bo'lsa, to'g'ridan-to'g'ri natijalarni yuboramiz
-    await send_full_results(message, talaba['kod'])
+    await state.set_state(ResultCheckState.kod_kutish)
+    await message.answer(
+        "📝 <b>Natijangizni ko'rish uchun shaxsiy kodingizni yuboring:</b>",
+        parse_mode="HTML"
+    )
 
 @router.message(ResultCheckState.kod_kutish)
 async def process_result_code(message: Message, state: FSMContext):
@@ -571,6 +566,7 @@ async def process_result_code(message: Message, state: FSMContext):
     
     if not talaba:
         await message.answer("❌ Bunday kod topilmadi. Iltimos, qaytadan urinib ko'ring.")
+        await state.set_state(ResultCheckState.kod_kutish)
         return
 
     await state.clear()
