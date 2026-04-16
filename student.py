@@ -494,8 +494,9 @@ async def request_access_process(callback: CallbackQuery):
     await callback.message.edit_text("⏳ <b>So'rovingiz yuborildi.</b>\n\nAdmin tasdiqlaganidan keyin sizga xabar yuboramiz.", parse_mode="HTML")
 
 # ─────────────────────────────────────────
-# Statistika
-# ─────────────────────────────────────────@router.message(F.text == "⚖️ Apellyatsiya")
+# Apellyatsiya
+# ─────────────────────────────────────────
+@router.message(F.text == "⚖️ Apellyatsiya")
 async def appeal_start(message: Message, state: FSMContext):
     # Avval talaba o'z profilini ulaganini tekshiramiz
     from database import get_connection, release_connection
@@ -520,9 +521,28 @@ async def appeal_message_save(message: Message, state: FSMContext):
     if message.text in ADMIN_TUGMALAR:
         await state.clear()
         return
+    
     data = await state.get_data()
     kod = data['appeal_kod']
     appeal_qosh(message.from_user.id, kod, message.text)
+    
+    # Adminlarga bildirishnoma yuborish
+    from config import ADMIN_IDS
+    from admin import is_admin_id
+    
+    admin_text = (
+        f"⚖️ <b>Yangi apellyatsiya!</b>\n\n"
+        f"🆔 Kod: <code>{kod}</code>\n"
+        f"👤 Telegram ID: <code>{message.from_user.id}</code>\n"
+        f"📝 Xabar: <i>{message.text}</i>"
+    )
+    
+    for admin_id in ADMIN_IDS:
+        try:
+            await message.bot.send_message(admin_id, admin_text, parse_mode="HTML")
+        except Exception:
+            continue
+
     await state.clear()
     await message.answer("✅ Apellyatsiyangiz qabul qilindi. Tez orada ko'rib chiqiladi.", reply_markup=user_menu_keyboard())
 
