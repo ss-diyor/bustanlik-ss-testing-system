@@ -527,7 +527,8 @@ async def appeal_message_save(message: Message, state: FSMContext):
     await message.answer("✅ Apellyatsiyangiz qabul qilindi. Tez orada ko'rib chiqiladi.", reply_markup=user_menu_keyboard())
 
 @router.message(F.text == "📈 Statistika")
-async def student_stats(message: Message):    stats_enabled = get_setting('stats_enabled', 'True')
+async def student_stats(message: Message):
+    stats_enabled = get_setting('stats_enabled', 'True')
     if stats_enabled == 'False':
         ranking_enabled = get_setting('ranking_enabled', 'True')
         await message.answer("⚠️ Statistika bo'limi vaqtincha o'chirib qo'yilgan.", reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled))
