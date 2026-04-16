@@ -739,7 +739,7 @@ async def profile_callback(callback: CallbackQuery):
     
     await callback.answer()
 
-@router.inline_query(F.query == "my_result")
+@router.inline_query(F.query.contains("my_result"))
 async def inline_result_handler(inline_query: InlineQuery):
     from database import get_connection, release_connection
     import psycopg2.extras

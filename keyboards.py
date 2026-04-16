@@ -1,6 +1,7 @@
 from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton,
-    InlineKeyboardMarkup, InlineKeyboardButton
+    InlineKeyboardMarkup, InlineKeyboardButton,
+    SwitchInlineQueryChosenChat
 )
 from database import yonalish_ol, sinf_ol, kalit_ol, oqituvchilar_hammasi
 
@@ -324,7 +325,7 @@ def profile_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📜 Testlar tarixi", callback_data="profile:history")],
         [InlineKeyboardButton(text="🔄 Yangilash", callback_data="profile:refresh")],
-        [InlineKeyboardButton(text="📤 Natijani ulashish", switch_inline_query="my_result")]
+        [InlineKeyboardButton(text="📤 Natijani ulashish", switch_inline_query_chosen_chat=SwitchInlineQueryChosenChat(query="my_result", allow_user_chats=True, allow_group_chats=True, allow_channel_chats=False))]
     ])
 
 def oqituvchi_boshqarish_keyboard():
