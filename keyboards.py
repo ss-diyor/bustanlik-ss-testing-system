@@ -20,8 +20,8 @@ def admin_menu_keyboard():
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
             [KeyboardButton(text="⏰ Eslatmalar"), KeyboardButton(text="🏫 Maktablarni boshqarish")],
             [KeyboardButton(text="📢 Guruhlarni boshqarish")],
-            [KeyboardButton(text="🔔 So'rovlar"), KeyboardButton(text="⚙️ Sozlamalar")],
-            [KeyboardButton(text="📥 Excelga yuklash")],
+            [KeyboardButton(text="🔔 So'rovlar"), KeyboardButton(text="⚖️ Apellyatsiyalar")],
+            [KeyboardButton(text="⚙️ Sozlamalar"), KeyboardButton(text="📥 Excelga yuklash")],
             [KeyboardButton(text="🧹 Bazani tozalash")],
             [KeyboardButton(text="📢 Xabar yuborish")],
             [KeyboardButton(text="🔍 Kod bo'yicha qidirish")],
@@ -160,8 +160,8 @@ def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
         row1.append(KeyboardButton(text="🏆 Mening o'rnim"))
     keyboard.append(row1)
     
-    # Ikkinchi qator: Javoblarni tekshirish
-    keyboard.append([KeyboardButton(text="✅ Javoblarni tekshirish")])
+    # Ikkinchi qator: Javoblarni tekshirish, Apellyatsiya yuborish
+    keyboard.append([KeyboardButton(text="✅ Javoblarni tekshirish"), KeyboardButton(text="⚖️ Apellyatsiya")])
     
     # Uchinchi qator: Statistika (agar yoqilgan bo'lsa)
     if stats_enabled == 'True':
@@ -386,4 +386,18 @@ def guruh_boshqarish_keyboard():
         [InlineKeyboardButton(text="📊 Guruhda reyting e'lon qilish", callback_data="guruh:ranking")],
         [InlineKeyboardButton(text="💾 Guruhga Backup yuborish", callback_data="guruh:backup")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")],
+    ])
+
+def appeals_keyboard(appeals_list):
+    """Apellyatsiyalar ro'yxati uchun inline tugmalar."""
+    buttons = []
+    for a in appeals_list:
+        buttons.append([InlineKeyboardButton(text=f"⚖️ {a['ismlar']} ({a['talaba_kod']})", callback_data=f"appeal_view:{a['id']}")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def appeal_action_keyboard(appeal_id):
+    """Bitta apellyatsiya uchun amallar."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"appeal_reply:{appeal_id}")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="appeal_list")]
     ])

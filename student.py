@@ -17,7 +17,7 @@ from database import (
     get_all_in_class, get_overall_ranking, get_student_rank,
     get_avg_score_by_direction, get_class_comparison, get_most_improved_students,
     get_score_difference, get_setting, check_access, add_access_request, get_request_by_user,
-    talaba_songi_natija
+    talaba_songi_natija, appeal_qosh
 )
 from keyboards import (
     user_menu_keyboard, murojaat_bekor_qilish_keyboard, murojaat_javob_keyboard,
@@ -33,6 +33,9 @@ router = Router()
 # ─────────────────────────────────────────
 
 class MurojaatState(StatesGroup):
+    xabar_kutish = State()
+
+class AppealState(StatesGroup):
     xabar_kutish = State()
 
 class TestCheckState(StatesGroup):
@@ -492,11 +495,39 @@ async def request_access_process(callback: CallbackQuery):
 
 # ─────────────────────────────────────────
 # Statistika
-# ─────────────────────────────────────────
+# ─────────────────────────────────────────@router.message(F.text == "⚖️ Apellyatsiya")
+async def appeal_start(message: Message, state: FSMContext):
+    # Avval talaba o'z profilini ulaganini tekshiramiz
+    from database import get_connection, release_connection
+    import psycopg2.extras
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT kod FROM talabalar WHERE user_id = %s", (message.from_user.id,))
+    talaba = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+
+    if not talaba:
+        await message.answer("❌ Apellyatsiya yuborish uchun avval profilingizni ulashingiz kerak.\nBuning uchun <code>ULASH_KODINGIZ</code> deb yozing.", parse_mode="HTML")
+        return
+
+    await state.set_state(AppealState.xabar_kutish)
+    await state.update_data(appeal_kod=talaba['kod'])
+    await message.answer("⚖️ <b>Apellyatsiya bo'limi</b>\n\nNatijangiz bo'yicha e'tirozingizni batafsil yozib qoldiring. Adminlar uni ko'rib chiqib, sizga javob berishadi.", parse_mode="HTML")
+
+@router.message(AppealState.xabar_kutish)
+async def appeal_message_save(message: Message, state: FSMContext):
+    if message.text in ADMIN_TUGMALAR:
+        await state.clear()
+        return
+    data = await state.get_data()
+    kod = data['appeal_kod']
+    appeal_qosh(message.from_user.id, kod, message.text)
+    await state.clear()
+    await message.answer("✅ Apellyatsiyangiz qabul qilindi. Tez orada ko'rib chiqiladi.", reply_markup=user_menu_keyboard())
 
 @router.message(F.text == "📈 Statistika")
-async def stats_menu(message: Message):
-    stats_enabled = get_setting('stats_enabled', 'True')
+async def student_stats(message: Message):    stats_enabled = get_setting('stats_enabled', 'True')
     if stats_enabled == 'False':
         ranking_enabled = get_setting('ranking_enabled', 'True')
         await message.answer("⚠️ Statistika bo'limi vaqtincha o'chirib qo'yilgan.", reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled))

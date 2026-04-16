@@ -162,6 +162,19 @@ def init_db():
         )
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS appeals (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            talaba_kod TEXT NOT NULL,
+            xabar TEXT NOT NULL,
+            javob TEXT DEFAULT NULL,
+            status TEXT DEFAULT 'kutilmoqda',
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (talaba_kod) REFERENCES talabalar (kod)
+        )
+    """)
+
     # Mavjud jadvallarga maktab_id qo'shish
     tables_to_update = ['talabalar', 'yonalishlar', 'sinflar', 'test_kalitlari']
     for table in tables_to_update:
@@ -796,6 +809,40 @@ def get_most_improved_students():
     cur.close()
     release_connection(conn)
     return [dict(r) for r in rows]
+
+def appeal_qosh(user_id: int, talaba_kod: str, xabar: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO appeals (user_id, talaba_kod, xabar) VALUES (%s, %s, %s)", (user_id, talaba_kod.upper(), xabar))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def appeals_ol(status: str = 'kutilmoqda'):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT a.*, t.ismlar FROM appeals a JOIN talabalar t ON a.talaba_kod = t.kod WHERE a.status = %s ORDER BY a.yaratilgan_sana DESC", (status,))
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def appeal_javob_ber(appeal_id: int, javob: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE appeals SET javob = %s, status = 'javob_berildi' WHERE id = %s", (javob, appeal_id))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def appeal_ol_id(appeal_id: int):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM appeals WHERE id = %s", (appeal_id,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return dict(row) if row else None
 
 def get_score_difference(kod: str):
     conn = get_connection()

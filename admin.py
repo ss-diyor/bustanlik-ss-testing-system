@@ -19,7 +19,8 @@ from database import (
     get_all_in_class,
     reminder_qosh, kutilayotgan_reminders_ol, reminder_holat_yangila, reminder_ochir,
     maktab_qosh, maktablar_ol, maktab_ochir, sinf_maktabga_bogla, maktab_sinflari_ol,
-    guruh_qosh, guruhlar_ol, get_overall_ranking
+    guruh_qosh, guruhlar_ol, get_overall_ranking,
+    appeals_ol, appeal_javob_ber, appeal_ol_id
 )
 from keyboards import (
     admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard,
@@ -30,7 +31,8 @@ from keyboards import (
     settings_keyboard, request_actions_keyboard, ranking_keyboard, sinf_tanlash_ranking_keyboard,
     oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard, oqituvchi_ochirish_keyboard,
     reminder_boshqarish_keyboard, maktab_boshqarish_keyboard, guruh_boshqarish_keyboard,
-    reminder_list_keyboard, maktab_list_keyboard, maktab_detail_keyboard
+    reminder_list_keyboard, maktab_list_keyboard, maktab_detail_keyboard,
+    appeals_keyboard, appeal_action_keyboard
 )
 
 router = Router()
@@ -101,6 +103,10 @@ class MaktabAdd(StatesGroup):
 class MaktabSinfAdd(StatesGroup):
     maktab_id = State()
     sinf_nomi = State()
+
+class AppealReply(StatesGroup):
+    appeal_id = State()
+    javob_kutish = State()
 
 # ─────────────────────────────────────────
 # Yordamchi funksiyalar
@@ -1440,6 +1446,73 @@ async def guruh_ranking_manual(call: CallbackQuery):
     
     await call.answer(f"✅ Top-10 reyting {success_count} ta guruhga yuborildi.", show_alert=True)
     await call.answer()
+
+@router.message(F.text == "⚖️ Apellyatsiyalar")
+async def admin_appeals_list(message: Message, state: FSMContext):
+    if not await admin_tekshir(state): return
+    appeals = appeals_ol('kutilmoqda')
+    if not appeals:
+        await message.answer("✅ Hozircha yangi apellyatsiyalar yo'q.")
+        return
+    await message.answer("⚖️ <b>Yangi apellyatsiyalar:</b>", parse_mode="HTML", reply_markup=appeals_keyboard(appeals))
+
+@router.callback_query(F.data.startswith("appeal_view:"))
+async def admin_appeal_view(call: CallbackQuery):
+    aid = int(call.data.split(":")[1])
+    appeal = appeal_ol_id(aid)
+    if not appeal: return
+    
+    from database import talaba_topish
+    talaba = talaba_topish(appeal['talaba_kod'])
+    
+    text = (
+        f"⚖️ <b>Apellyatsiya ma'lumotlari:</b>\n\n"
+        f"👤 O'quvchi: <b>{talaba['ismlar']}</b> ({appeal['talaba_kod']})\n"
+        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"📅 Sana: {appeal['yaratilgan_sana']}\n\n"
+        f"📝 <b>E'tiroz matni:</b>\n{appeal['xabar']}"
+    )
+    await call.message.edit_text(text, parse_mode="HTML", reply_markup=appeal_action_keyboard(aid))
+
+@router.callback_query(F.data == "appeal_list")
+async def admin_appeal_list_back(call: CallbackQuery):
+    appeals = appeals_ol('kutilmoqda')
+    if not appeals:
+        await call.message.edit_text("✅ Hozircha yangi apellyatsiyalar yo'q.")
+        return
+    await call.message.edit_text("⚖️ <b>Yangi apellyatsiyalar:</b>", parse_mode="HTML", reply_markup=appeals_keyboard(appeals))
+
+@router.callback_query(F.data.startswith("appeal_reply:"))
+async def admin_appeal_reply_start(call: CallbackQuery, state: FSMContext):
+    aid = int(call.data.split(":")[1])
+    await state.update_data(reply_appeal_id=aid)
+    await state.set_state(AppealReply.javob_kutish)
+    await call.message.answer("📝 Apellyatsiya bo'yicha javobingizni yozing:")
+    await call.answer()
+
+@router.message(AppealReply.javob_kutish)
+async def admin_appeal_reply_send(message: Message, state: FSMContext):
+    data = await state.get_data()
+    aid = data['reply_appeal_id']
+    appeal = appeal_ol_id(aid)
+    
+    appeal_javob_ber(aid, message.text)
+    
+    # O'quvchiga xabar yuborish
+    try:
+        await message.bot.send_message(
+            appeal['user_id'],
+            f"⚖️ <b>Apellyatsiya javobi:</b>\n\n"
+            f"Sizning e'tirozingiz ko'rib chiqildi.\n"
+            f"✅ <b>Javob:</b> {message.text}",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+    
+    await message.answer("✅ Javob o'quvchiga yuborildi.")
+    await state.set_state(None)
+    await state.update_data(admin=True)
 
 @router.callback_query(F.data == "guruh:backup")
 async def guruh_backup_manual(call: CallbackQuery):
