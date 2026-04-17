@@ -303,12 +303,32 @@ def yonalish_tanlash_keyboard(action_prefix="filter_yon"):
     buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-def filter_actions_keyboard(filter_type="all", filter_value="all"):
-    """Filtrlangan ro'yxat uchun amallar (Excel yuklash)."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📥 Excelga yuklash", callback_data=f"filter_excel:{filter_type}:{filter_value}")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")],
-    ])
+def filter_actions_keyboard(filter_type="all", filter_value="all", page=1, total_pages=1):
+    """Filtrlangan ro'yxat uchun amallar (sahifalash + Excel)."""
+    rows = []
+    if total_pages > 1:
+        nav = []
+        if page > 1:
+            nav.append(
+                InlineKeyboardButton(
+                    text="⬅️ Oldingi",
+                    callback_data=f"filter_page:{filter_type}:{filter_value}:{page-1}"
+                )
+            )
+        if page < total_pages:
+            nav.append(
+                InlineKeyboardButton(
+                    text="Keyingi ➡️",
+                    callback_data=f"filter_page:{filter_type}:{filter_value}:{page+1}"
+                )
+            )
+        if nav:
+            rows.append(nav)
+        rows.append([InlineKeyboardButton(text=f"📄 {page}/{total_pages}", callback_data="filter_page:noop:noop:1")])
+
+    rows.append([InlineKeyboardButton(text="📥 Excelga yuklash", callback_data=f"filter_excel:{filter_type}:{filter_value}")])
+    rows.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def settings_keyboard(ranking_enabled, stats_enabled):
     """Bot sozlamalari klaviaturasi."""

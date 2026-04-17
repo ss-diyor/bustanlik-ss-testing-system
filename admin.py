@@ -160,6 +160,20 @@ def _split_long_text(text: str, max_len: int = 3500):
         chunks.append(current)
     return chunks
 
+def _build_students_page(talabalar: list, title: str, page: int = 1, page_size: int = 20):
+    total = len(talabalar)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * page_size
+    end = start + page_size
+    visible = talabalar[start:end]
+
+    text = f"{title} (jami: {total} ta)\n"
+    text += f"📄 Sahifa: {page}/{total_pages}\n\n"
+    for t in visible:
+        text += f"🔹 {t['kod']} | {t['ismlar']} | {t['sinf']}\n"
+    return text, page, total_pages
+
 async def guruhlarga_yangi_oquvchi_yuborish(bot: Bot, talaba: dict, natija: dict = None):
     """Guruhlarga yangi qo'shilgan o'quvchi ma'lumotlarini yuboradi."""
     from database import guruhlar_ol
@@ -972,17 +986,12 @@ async def filter_type_process(callback: CallbackQuery, state: FSMContext):
         if not talabalar:
             await callback.answer("⚠️ O'quvchilar yo'q.", show_alert=True)
             return
-        text = f"📋 <b>Barcha o'quvchilar ({len(talabalar)} ta):</b>\n\n"
-        for t in talabalar:
-            text += f"🔹 {t['kod']} | {t['ismlar']} | {t['sinf']}\n"
-        chunks = _split_long_text(text)
-        await callback.message.edit_text(chunks[0], parse_mode="HTML")
-        for chunk in chunks[1:-1]:
-            await callback.message.answer(chunk, parse_mode="HTML")
-        if len(chunks) > 1:
-            await callback.message.answer(chunks[-1], parse_mode="HTML", reply_markup=filter_actions_keyboard("all", "all"))
-        else:
-            await callback.message.edit_reply_markup(reply_markup=filter_actions_keyboard("all", "all"))
+        text, page, total_pages = _build_students_page(talabalar, "📋 <b>Barcha o'quvchilar</b>", 1)
+        await callback.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=filter_actions_keyboard("all", "all", page, total_pages)
+        )
     elif ftype == "sinf":
         await callback.message.edit_text("🏫 Sinfni tanlang:", reply_markup=sinf_tanlash_keyboard())
     elif ftype == "yonalish":
@@ -1007,18 +1016,49 @@ async def filter_val_process(callback: CallbackQuery, state: FSMContext):
     if not talabalar:
         await callback.answer("⚠️ Bu filtr bo'yicha o'quvchilar topilmadi.", show_alert=True)
         return
-        
-    text = f"📋 <b>Filtrlangan ro'yxat ({len(talabalar)} ta):</b>\n\n"
-    for t in talabalar:
-        text += f"🔹 {t['kod']} | {t['ismlar']} | {t['sinf']}\n"
-    chunks = _split_long_text(text)
-    await callback.message.edit_text(chunks[0], parse_mode="HTML")
-    for chunk in chunks[1:-1]:
-        await callback.message.answer(chunk, parse_mode="HTML")
-    if len(chunks) > 1:
-        await callback.message.answer(chunks[-1], parse_mode="HTML", reply_markup=filter_actions_keyboard(ftype, fval))
+
+    text, page, total_pages = _build_students_page(talabalar, "📋 <b>Filtrlangan ro'yxat</b>", 1)
+    await callback.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=filter_actions_keyboard(ftype, fval, page, total_pages)
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("filter_page:"))
+async def filter_page_process(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    parts = callback.data.split(":")
+    ftype, fval, page_raw = parts[1], parts[2], parts[3]
+    if ftype == "noop":
+        await callback.answer()
+        return
+
+    try:
+        page = int(page_raw)
+    except ValueError:
+        page = 1
+
+    if ftype == "all":
+        talabalar = talaba_hammasi()
+        title = "📋 <b>Barcha o'quvchilar</b>"
+    elif ftype == "sinf":
+        talabalar = talaba_filtrlangan(sinf=fval)
+        title = "📋 <b>Filtrlangan ro'yxat</b>"
     else:
-        await callback.message.edit_reply_markup(reply_markup=filter_actions_keyboard(ftype, fval))
+        talabalar = talaba_filtrlangan(yonalish=fval)
+        title = "📋 <b>Filtrlangan ro'yxat</b>"
+
+    if not talabalar:
+        await callback.answer("⚠️ Ma'lumot topilmadi.", show_alert=True)
+        return
+
+    text, page, total_pages = _build_students_page(talabalar, title, page)
+    await callback.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=filter_actions_keyboard(ftype, fval, page, total_pages)
+    )
     await callback.answer()
 
 @router.callback_query(F.data.startswith("filter_excel:"))
