@@ -791,8 +791,8 @@ async def stats_start(message: Message, state: FSMContext):
         f"📊 <b>Umumiy statistika:</b>\n\n"
         f"👥 Jami o'quvchilar: <b>{res['jami']} ta</b>\n"
         f"📈 O'rtacha ball: <b>{res['ortacha']} ball</b>\n"
-        f"🏆 Eng yuqori ball: <b>{res['max_ball']} ball</b>\n"
-        f"📉 Eng past ball: <b>{res['min_ball']} ball</b>"
+        f"🏆 Eng yuqori ball: <b>{res['eng_yuqori']} ball</b>\n"
+        f"📉 Eng past ball: <b>{res['eng_past']} ball</b>"
     )
     await message.answer(text, parse_mode="HTML")
 
@@ -1343,84 +1343,4 @@ async def kod_qidirish_process(message: Message, state: FSMContext):
             f"🏆 Ball: <b>{talaba['umumiy_ball']}</b>"
         )
         await message.answer(text, parse_mode="HTML")
-    await state.set_state(None)
-
-
-# ─────────────────────────────────────────
-# Apellyatsiya callback handlerlari
-# ─────────────────────────────────────────
-
-@router.callback_query(F.data == "appeal_list")
-async def appeal_list_callback(callback: CallbackQuery, state: FSMContext):
-    """Apellyatsiyalar ro'yxatiga qaytish."""
-    if not await admin_tekshir(state, callback.from_user.id):
-        await callback.answer("Siz admin emassiz!", show_alert=True)
-        return
-    appeals = appeals_ol('kutilmoqda')
-    if not appeals:
-        await callback.message.edit_text("✅ Hozircha yangi apellyatsiyalar yo'q.")
-    else:
-        await callback.message.edit_text(
-            "⚖️ <b>Yangi apellyatsiyalar:</b>",
-            parse_mode="HTML",
-            reply_markup=appeals_keyboard(appeals)
-        )
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("appeal_view:"))
-async def appeal_view_callback(callback: CallbackQuery, state: FSMContext):
-    """Bitta apellyatsiyani ko'rish."""
-    if not await admin_tekshir(state, callback.from_user.id):
-        await callback.answer("Siz admin emassiz!", show_alert=True)
-        return
-    appeal_id = int(callback.data.split(":")[1])
-    appeal = appeal_ol_id(appeal_id)
-    if not appeal:
-        await callback.answer("Apellyatsiya topilmadi!", show_alert=True)
-        return
-    text = (
-        f"⚖️ <b>Apellyatsiya #{appeal['id']}</b>\n\n"
-        f"👤 O'quvchi: <b>{appeal['ismlar']}</b>\n"
-        f"🆔 Kod: <b>{appeal['talaba_kod']}</b>\n"
-        f"📝 Muammo: {appeal['muammo']}\n"
-        f"📅 Sana: {str(appeal.get('created_at', ''))[:16]}"
-    )
-    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=appeal_action_keyboard(appeal_id))
-    await callback.answer()
-
-
-@router.callback_query(F.data.startswith("appeal_reply:"))
-async def appeal_reply_start(callback: CallbackQuery, state: FSMContext):
-    """Apellyatsiyaga javob berish."""
-    if not await admin_tekshir(state, callback.from_user.id):
-        await callback.answer("Siz admin emassiz!", show_alert=True)
-        return
-    appeal_id = int(callback.data.split(":")[1])
-    await state.update_data(appeal_id=appeal_id)
-    await state.set_state(AppealReply.javob_kutish)
-    await callback.message.answer(f"📝 Apellyatsiya #{appeal_id} ga javobingizni yozing:")
-    await callback.answer()
-
-
-@router.message(AppealReply.javob_kutish)
-async def appeal_reply_send(message: Message, state: FSMContext):
-    """Apellyatsiyaga javob yuborish."""
-    if not await admin_tekshir(state, message.from_user.id): return
-    data = await state.get_data()
-    appeal_id = data.get("appeal_id")
-    appeal = appeal_ol_id(appeal_id)
-    if appeal:
-        appeal_javob_ber(appeal_id, message.text)
-        try:
-            await message.bot.send_message(
-                appeal['user_id'],
-                f"⚖️ <b>Apellyatsiyangizga javob keldi:</b>\n\n{message.text}",
-                parse_mode="HTML"
-            )
-        except Exception:
-            pass
-        await message.answer("✅ Javob yuborildi.", reply_markup=admin_menu_keyboard())
-    else:
-        await message.answer("❌ Apellyatsiya topilmadi.")
     await state.set_state(None)
