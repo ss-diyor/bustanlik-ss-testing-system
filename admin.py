@@ -447,7 +447,12 @@ async def kalit_detail(callback: CallbackQuery, state: FSMContext):
 async def kalit_status_change(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id): return
     test_nomi = callback.data.split(":")[1]
-    kalit_holat_ozgartir(test_nomi)
+    test_info = kalit_ol(test_nomi)
+    if not test_info:
+        await callback.answer("❌ Test topilmadi", show_alert=True)
+        return
+    yangi_holat = "yopiq" if test_info.get("holat") == "ochiq" else "ochiq"
+    kalit_holat_ozgartir(test_nomi, yangi_holat)
     await kalit_detail(callback, state)
 
 @router.callback_query(F.data.startswith("kalit_del:"))
@@ -625,8 +630,8 @@ async def talaba_tasdiq(callback: CallbackQuery, state: FSMContext):
             'umumiy_ball': data['umumiy_ball']
         }
         
-        talaba_qosh(talaba['kod'], talaba['ismlar'], talaba['yonalish'], talaba['sinf'])
-        natija_qosh(talaba['kod'], natija['majburiy'], natija['asosiy_1'], natija['asosiy_2'], natija['umumiy_ball'])
+        talaba_qosh(talaba['kod'], talaba['yonalish'], talaba['sinf'], talaba['ismlar'])
+        natija_qosh(talaba['kod'], natija['majburiy'], natija['asosiy_1'], natija['asosiy_2'])
         
         await callback.message.edit_text("✅ Ma'lumotlar muvaffaqiyatli saqlandi!", reply_markup=None)
         await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
@@ -703,7 +708,7 @@ async def natija_tahrir_asosiy2(message: Message, state: FSMContext):
     ball = ball_hisobla(data['majburiy'], data['asosiy1'], son)
     
     # Ma'lumotlarni yangilash
-    natija_qosh(data['kod'], data['majburiy'], data['asosiy1'], son, ball)
+    natija_qosh(data['kod'], data['majburiy'], data['asosiy1'], son)
     
     await message.answer(f"✅ Natija yangilandi! Yangi ball: <b>{ball}</b>", parse_mode="HTML", reply_markup=admin_menu_keyboard())
     await state.set_state(None)
@@ -755,8 +760,8 @@ async def excel_import_process(message: Message, state: FSMContext):
                 
                 ball = ball_hisobla(majburiy, asosiy1, asosiy2)
                 
-                talaba_qosh(kod, ismlar, yonalish, sinf)
-                natija_qosh(kod, majburiy, asosiy1, asosiy2, ball)
+                talaba_qosh(kod, yonalish, sinf, ismlar)
+                natija_qosh(kod, majburiy, asosiy1, asosiy2)
                 
                 # Bildirishnomalarni fonda yuboramiz
                 talaba = {'kod': kod, 'ismlar': ismlar, 'yonalish': yonalish, 'sinf': sinf}
@@ -1334,13 +1339,14 @@ async def kod_qidirish_process(message: Message, state: FSMContext):
     if not talaba:
         await message.answer("❌ O'quvchi topilmadi.")
     else:
+        last_result = talaba_songi_natija(kod)
         text = (
             f"👤 <b>O'quvchi ma'lumotlari:</b>\n\n"
             f"🆔 Kod: <b>{talaba['kod']}</b>\n"
             f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
             f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
             f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n"
-            f"🏆 Ball: <b>{talaba['umumiy_ball']}</b>"
+            f"🏆 Ball: <b>{last_result['umumiy_ball'] if last_result else 'Mavjud emas'}</b>"
         )
         await message.answer(text, parse_mode="HTML")
     await state.set_state(None)
