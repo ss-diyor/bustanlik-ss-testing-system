@@ -7,6 +7,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.types import Message
 from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.context import FSMContext
 
 from config import BOT_TOKEN
 from database import init_db, add_user, talaba_topish, talaba_user_id_yangila, get_setting, guruh_qosh
@@ -31,7 +32,7 @@ dp.include_router(student.router)
 
 
 @dp.message(CommandStart())
-async def start_handler(message: Message):
+async def start_handler(message: Message, state: FSMContext):
     """/start buyrug'i"""
     # add_user endi pool orqali tezroq ishlaydi
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
@@ -40,6 +41,7 @@ async def start_handler(message: Message):
     from admin import is_admin_id
     from database import oqituvchi_ol
     if is_admin_id(message.from_user.id):
+        await state.update_data(admin=True)  # ← TUZATISH: state ga admin=True saqlanadi
         await message.answer(f"👋 Xush kelibsiz, Admin!", reply_markup=admin_menu_keyboard())
         return
 
