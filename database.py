@@ -6,24 +6,50 @@ from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Connection pool yaratish (minimal 1, maksimal 10 ta ulanish)
-# Bu har safar yangi ulanish ochishdagi vaqtni tejaydi
-try:
-    connection_pool = pool.SimpleConnectionPool(1, 10, DATABASE_URL)
-except Exception as e:
-    print(f"Pool yaratishda xato: {e}")
-    connection_pool = None
+# Connection pool — lazy yaratiladi (birinchi so'rovda)
+# Bu Railway cold start muammosini hal qiladi
+connection_pool = None
+
+def _get_pool():
+    global connection_pool
+    if connection_pool is None:
+        import time
+        for attempt in range(5):
+            try:
+                connection_pool = pool.SimpleConnectionPool(
+                    1, 10, DATABASE_URL,
+                    sslmode='require',
+                    connect_timeout=10
+                )
+                print("✅ Connection pool muvaffaqiyatli yaratildi")
+                break
+            except Exception as e:
+                print(f"⚠️ Pool yaratish urinish {attempt+1}/5: {e}")
+                time.sleep(3)
+        if connection_pool is None:
+            raise Exception("❌ Supabase ga ulanib bo'lmadi!")
+    return connection_pool
 
 def get_connection():
-    if connection_pool:
-        return connection_pool.getconn()
-    return psycopg2.connect(DATABASE_URL)
+    try:
+        conn = _get_pool().getconn()
+        # Ulanish hali ham tirik ekanligini tekshiramiz
+        conn.cursor().execute("SELECT 1")
+        return conn
+    except Exception:
+        # Pool buzilgan bo'lsa, yangisini yaratamiz
+        global connection_pool
+        connection_pool = None
+        return _get_pool().getconn()
 
 def release_connection(conn):
-    if connection_pool:
-        connection_pool.putconn(conn)
-    else:
-        conn.close()
+    try:
+        _get_pool().putconn(conn)
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 def init_db():
     conn = get_connection()
