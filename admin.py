@@ -139,6 +139,27 @@ def _generate_certificate_file(cert_gen, ismlar, ball, sana, kod):
     """Sertifikatni alohida executor'da generatsiya qilish uchun."""
     return cert_gen.generate(ismlar, ball, sana, kod)
 
+def _split_long_text(text: str, max_len: int = 3500):
+    """Uzun matnni Telegram limitidan oshmasdan bo'lib beradi."""
+    if len(text) <= max_len:
+        return [text]
+
+    chunks = []
+    current = ""
+    for line in text.splitlines(keepends=True):
+        if len(current) + len(line) > max_len:
+            if current:
+                chunks.append(current)
+                current = ""
+            # Juda uzun bitta qator bo'lsa ham bo'lib yuboramiz
+            while len(line) > max_len:
+                chunks.append(line[:max_len])
+                line = line[max_len:]
+        current += line
+    if current:
+        chunks.append(current)
+    return chunks
+
 async def guruhlarga_yangi_oquvchi_yuborish(bot: Bot, talaba: dict, natija: dict = None):
     """Guruhlarga yangi qo'shilgan o'quvchi ma'lumotlarini yuboradi."""
     from database import guruhlar_ol
@@ -952,9 +973,16 @@ async def filter_type_process(callback: CallbackQuery, state: FSMContext):
             await callback.answer("⚠️ O'quvchilar yo'q.", show_alert=True)
             return
         text = f"📋 <b>Barcha o'quvchilar ({len(talabalar)} ta):</b>\n\n"
-        for t in talabalar[:50]: # Dastlabki 50 tasi
+        for t in talabalar:
             text += f"🔹 {t['kod']} | {t['ismlar']} | {t['sinf']}\n"
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=filter_actions_keyboard("all", "all"))
+        chunks = _split_long_text(text)
+        await callback.message.edit_text(chunks[0], parse_mode="HTML")
+        for chunk in chunks[1:-1]:
+            await callback.message.answer(chunk, parse_mode="HTML")
+        if len(chunks) > 1:
+            await callback.message.answer(chunks[-1], parse_mode="HTML", reply_markup=filter_actions_keyboard("all", "all"))
+        else:
+            await callback.message.edit_reply_markup(reply_markup=filter_actions_keyboard("all", "all"))
     elif ftype == "sinf":
         await callback.message.edit_text("🏫 Sinfni tanlang:", reply_markup=sinf_tanlash_keyboard())
     elif ftype == "yonalish":
@@ -981,9 +1009,16 @@ async def filter_val_process(callback: CallbackQuery, state: FSMContext):
         return
         
     text = f"📋 <b>Filtrlangan ro'yxat ({len(talabalar)} ta):</b>\n\n"
-    for t in talabalar[:50]:
+    for t in talabalar:
         text += f"🔹 {t['kod']} | {t['ismlar']} | {t['sinf']}\n"
-    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=filter_actions_keyboard(ftype, fval))
+    chunks = _split_long_text(text)
+    await callback.message.edit_text(chunks[0], parse_mode="HTML")
+    for chunk in chunks[1:-1]:
+        await callback.message.answer(chunk, parse_mode="HTML")
+    if len(chunks) > 1:
+        await callback.message.answer(chunks[-1], parse_mode="HTML", reply_markup=filter_actions_keyboard(ftype, fval))
+    else:
+        await callback.message.edit_reply_markup(reply_markup=filter_actions_keyboard(ftype, fval))
     await callback.answer()
 
 @router.callback_query(F.data.startswith("filter_excel:"))
@@ -1647,6 +1682,7 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
         return
 
     await call.answer()
+
 
 
 @router.message(F.text == "🔍 Kod bo'yicha qidirish")
