@@ -28,7 +28,7 @@ from keyboards import (
     sinf_keyboard, sinf_boshqarish_keyboard, sinf_ochirish_keyboard,
     kalit_boshqarish_keyboard, kalit_actions_keyboard, kalit_yonalish_tanlash_keyboard,
     oquvchilar_filtrlash_keyboard, sinf_tanlash_keyboard, yonalish_tanlash_keyboard, filter_actions_keyboard,
-    settings_keyboard, request_actions_keyboard, ranking_keyboard, sinf_tanlash_ranking_keyboard,
+    settings_keyboard, request_actions_keyboard, ranking_keyboard, sinf_tanlash_ranking_keyboard, sinf_prefix_tanlash_keyboard,
     oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard, oqituvchi_ochirish_keyboard,
     reminder_boshqarish_keyboard, maktab_boshqarish_keyboard, guruh_boshqarish_keyboard,
     reminder_list_keyboard, maktab_list_keyboard, maktab_detail_keyboard,
@@ -454,6 +454,35 @@ async def kalit_status_change(callback: CallbackQuery, state: FSMContext):
     yangi_holat = "yopiq" if test_info.get("holat") == "ochiq" else "ochiq"
     kalit_holat_ozgartir(test_nomi, yangi_holat)
     await kalit_detail(callback, state)
+
+@router.callback_query(F.data.startswith("kalit_edit:"))
+async def kalit_edit_start(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    test_nomi = callback.data.split(":")[1]
+    await state.update_data(edit_test_nomi=test_nomi)
+    await state.set_state(KalitBoshqar.edit_kalit_kutish)
+    await callback.message.edit_text(
+        f"✏️ <b>{test_nomi}</b> uchun yangi kalitlarni kiriting:",
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.message(KalitBoshqar.edit_kalit_kutish)
+async def kalit_edit_save(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    data = await state.get_data()
+    test_nomi = data.get("edit_test_nomi")
+    if not test_nomi:
+        await message.answer("❌ Tahrirlash ma'lumoti topilmadi.")
+        await state.set_state(None)
+        return
+    kalit_tahrirla(test_nomi, message.text.strip().lower())
+    await message.answer(
+        f"✅ <b>{test_nomi}</b> kalitlari yangilandi.",
+        parse_mode="HTML",
+        reply_markup=admin_menu_keyboard()
+    )
+    await state.set_state(None)
 
 @router.callback_query(F.data.startswith("kalit_del:"))
 async def kalit_delete(callback: CallbackQuery, state: FSMContext):
@@ -1164,6 +1193,48 @@ async def ranking_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
     await message.answer("🏆 Reyting bo'limi:", reply_markup=ranking_keyboard(is_admin=True))
 
+@router.callback_query(F.data.startswith("ranking:"))
+async def ranking_admin_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    action = callback.data.split(":")[1]
+    if action == "select_class":
+        await callback.message.edit_text(
+            "🏫 Reytingni ko'rish uchun sinfni tanlang:",
+            reply_markup=sinf_tanlash_ranking_keyboard()
+        )
+    elif action == "top_by_classes":
+        await callback.message.edit_text(
+            "📊 Qaysi parallel sinflar bo'yicha ko'rmoqchisiz?",
+            reply_markup=sinf_prefix_tanlash_keyboard()
+        )
+    elif action == "view_class":
+        sinf = callback.data.split(":", 2)[2]
+        talabalar = get_all_in_class(sinf)
+        if not talabalar:
+            await callback.answer("⚠️ Bu sinfda natijalar yo'q.", show_alert=True)
+            return
+        text = f"🏆 <b>{sinf} sinf reytingi:</b>\n\n"
+        for i, t in enumerate(talabalar, 1):
+            text += f"{i}. {t['ismlar']} — <b>{t['umumiy_ball']}</b>\n"
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=sinf_tanlash_ranking_keyboard())
+    elif action == "top_prefix":
+        sinf_prefix = callback.data.split(":", 2)[2]
+        top50 = get_overall_ranking(sinf_prefix=sinf_prefix)
+        if not top50:
+            await callback.answer("⚠️ Hozircha natijalar yo'q.", show_alert=True)
+            return
+        text = f"🌍 <b>{sinf_prefix}-sinflar orasidagi Top 50:</b>\n\n"
+        for i, t in enumerate(top50, 1):
+            emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            text += f"{emoji} {t['ismlar']} ({t['sinf']}) — <b>{t['umumiy_ball']}</b> ball\n"
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=sinf_prefix_tanlash_keyboard())
+    elif action == "back_admin":
+        await callback.message.edit_text("🏆 Reyting bo'limi:", reply_markup=ranking_keyboard(is_admin=True))
+
+    await callback.answer()
+
 
 @router.message(F.text == "📢 Xabar yuborish")
 async def broadcast_start(message: Message, state: FSMContext):
@@ -1196,6 +1267,70 @@ async def appeals_list_view(message: Message, state: FSMContext):
         await message.answer("✅ Hozircha yangi apellyatsiyalar yo'q.")
         return
     await message.answer("⚖️ <b>Yangi apellyatsiyalar:</b>", parse_mode="HTML", reply_markup=appeals_keyboard(appeals))
+
+@router.callback_query(F.data.startswith("appeal_view:"))
+async def appeal_view_handler(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    appeal_id = int(callback.data.split(":")[1])
+    appeal = appeal_ol_id(appeal_id)
+    if not appeal:
+        await callback.answer("❌ Apellyatsiya topilmadi.", show_alert=True)
+        return
+    text = (
+        f"⚖️ <b>Apellyatsiya</b>\n\n"
+        f"🆔 ID: <code>{appeal['id']}</code>\n"
+        f"👤 User ID: <code>{appeal['user_id']}</code>\n"
+        f"🎓 Kod: <code>{appeal['talaba_kod']}</code>\n"
+        f"📌 Status: <b>{appeal['status']}</b>\n\n"
+        f"📝 Xabar:\n<i>{appeal['xabar']}</i>"
+    )
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=appeal_action_keyboard(appeal_id))
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("appeal_reply:"))
+async def appeal_reply_start(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    appeal_id = int(callback.data.split(":")[1])
+    await state.update_data(appeal_id=appeal_id)
+    await state.set_state(AppealReply.javob_kutish)
+    await callback.message.answer("✍️ Apellyatsiyaga javob matnini yuboring:")
+    await callback.answer()
+
+@router.message(AppealReply.javob_kutish)
+async def appeal_reply_save(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    data = await state.get_data()
+    appeal_id = data.get("appeal_id")
+    if not appeal_id:
+        await message.answer("❌ Apellyatsiya ID topilmadi.")
+        await state.set_state(None)
+        return
+    appeal = appeal_ol_id(appeal_id)
+    if not appeal:
+        await message.answer("❌ Apellyatsiya topilmadi.")
+        await state.set_state(None)
+        return
+    appeal_javob_ber(appeal_id, message.text)
+    try:
+        await message.bot.send_message(
+            appeal["user_id"],
+            f"📩 <b>Apellyatsiyangizga javob:</b>\n\n{message.html_text}",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+    await message.answer("✅ Apellyatsiyaga javob yuborildi.", reply_markup=admin_menu_keyboard())
+    await state.set_state(None)
+
+@router.callback_query(F.data == "appeal_list")
+async def appeal_list_back(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    appeals = appeals_ol('kutilmoqda')
+    if not appeals:
+        await callback.message.edit_text("✅ Hozircha yangi apellyatsiyalar yo'q.")
+    else:
+        await callback.message.edit_text("⚖️ <b>Yangi apellyatsiyalar:</b>", parse_mode="HTML", reply_markup=appeals_keyboard(appeals))
+    await callback.answer()
 
 # ─────────────────────────────────────────
 # Bazani tozalash (MUAMMO TUZATILGAN JOY)
@@ -1354,6 +1489,83 @@ async def maktab_qosh_start(call: CallbackQuery, state: FSMContext):
     await call.message.edit_text("🏫 Yangi maktab nomini kiriting:")
     await call.answer()
 
+@router.callback_query(F.data == "maktab:ro'yxat")
+async def maktab_list_view(call: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, call.from_user.id): return
+    maktablar = maktablar_ol()
+    if not maktablar:
+        await call.answer("⚠️ Maktablar ro'yxati bo'sh.", show_alert=True)
+        return
+    await call.message.edit_text(
+        "🏫 <b>Maktablar ro'yxati:</b>",
+        parse_mode="HTML",
+        reply_markup=maktab_list_keyboard(maktablar)
+    )
+    await call.answer()
+
+@router.callback_query(F.data == "maktab:orqaga")
+async def maktab_back(call: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, call.from_user.id): return
+    await call.message.edit_text("🏫 Maktablarni boshqarish bo'limi:", reply_markup=maktab_boshqarish_keyboard())
+    await call.answer()
+
+@router.callback_query(F.data.startswith("maktab_view:"))
+async def maktab_view_detail(call: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, call.from_user.id): return
+    maktab_id = int(call.data.split(":")[1])
+    maktablar = maktablar_ol()
+    maktab = next((m for m in maktablar if m["id"] == maktab_id), None)
+    if not maktab:
+        await call.answer("❌ Maktab topilmadi.", show_alert=True)
+        return
+    sinflar = maktab_sinflari_ol(maktab_id)
+    sinf_text = "\n".join([f"• {s}" for s in sinflar]) if sinflar else "Hali bog'lanmagan"
+    text = (
+        f"🏫 <b>{maktab['nomi']}</b>\n\n"
+        f"📚 Sinflar:\n{sinf_text}"
+    )
+    await call.message.edit_text(text, parse_mode="HTML", reply_markup=maktab_detail_keyboard(maktab_id))
+    await call.answer()
+
+@router.callback_query(F.data.startswith("maktab_sinf_add:"))
+async def maktab_sinf_add_start(call: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, call.from_user.id): return
+    maktab_id = int(call.data.split(":")[1])
+    await state.update_data(maktab_id=maktab_id)
+    await state.set_state(MaktabSinfAdd.sinf_nomi)
+    await call.message.edit_text("🏫 Qaysi sinfni bog'lamoqchisiz?", reply_markup=sinf_keyboard())
+    await call.answer()
+
+@router.callback_query(MaktabSinfAdd.sinf_nomi, F.data.startswith("sinf:"))
+async def maktab_sinf_add_save(call: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, call.from_user.id): return
+    sinf_nomi = call.data.split(":", 1)[1]
+    data = await state.get_data()
+    maktab_id = data.get("maktab_id")
+    if not maktab_id:
+        await call.answer("❌ Maktab ID topilmadi.", show_alert=True)
+        return
+    sinf_maktabga_bogla(sinf_nomi, maktab_id)
+    await state.set_state(None)
+    maktablar = maktablar_ol()
+    maktab = next((m for m in maktablar if m["id"] == maktab_id), None)
+    sinflar = maktab_sinflari_ol(maktab_id)
+    sinf_text = "\n".join([f"• {s}" for s in sinflar]) if sinflar else "Hali bog'lanmagan"
+    text = (
+        f"🏫 <b>{maktab['nomi'] if maktab else 'Maktab'}</b>\n\n"
+        f"📚 Sinflar:\n{sinf_text}"
+    )
+    await call.message.edit_text(text, parse_mode="HTML", reply_markup=maktab_detail_keyboard(maktab_id))
+    await call.answer("✅ Sinf maktabga bog'landi")
+
+@router.callback_query(F.data.startswith("maktab_del:"))
+async def maktab_delete(call: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, call.from_user.id): return
+    maktab_id = int(call.data.split(":")[1])
+    maktab_ochir(maktab_id)
+    await call.answer("✅ Maktab o'chirildi")
+    await call.message.edit_text("🏫 Maktablarni boshqarish bo'limi:", reply_markup=maktab_boshqarish_keyboard())
+
 
 @router.message(MaktabAdd.nomi_kutish)
 async def maktab_nomi_save(message: Message, state: FSMContext):
@@ -1372,6 +1584,69 @@ async def maktab_nomi_save(message: Message, state: FSMContext):
 async def guruh_menu(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
     await message.answer("📢 Guruhlarni boshqarish bo'limi:", reply_markup=guruh_boshqarish_keyboard())
+
+@router.callback_query(F.data.startswith("guruh:"))
+async def guruh_actions(call: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, call.from_user.id): return
+    action = call.data.split(":")[1]
+    guruhlar = guruhlar_ol()
+
+    if action == "ro'yxat":
+        if not guruhlar:
+            await call.answer("⚠️ Hali guruhlar mavjud emas.", show_alert=True)
+            return
+        text = "📋 <b>Ulangan guruhlar:</b>\n\n"
+        for i, g in enumerate(guruhlar, 1):
+            text += f"{i}. {g.get('nomi') or 'Noma' + chr(39) + 'lum'} — <code>{g['chat_id']}</code>\n"
+        await call.message.edit_text(text, parse_mode="HTML", reply_markup=guruh_boshqarish_keyboard())
+        await call.answer()
+        return
+
+    elif action == "ranking":
+        if not guruhlar:
+            await call.answer("⚠️ Guruhlar topilmadi.", show_alert=True)
+            return
+        sinflar = sinf_ol()
+        text = "🏆 <b>Top-10 reyting (sinflar kesimida):</b>\n\n"
+        for s in sinflar:
+            talabalar = get_all_in_class(s)
+            if talabalar:
+                text += f"📍 <b>{s}:</b>\n"
+                for i, t in enumerate(talabalar[:10], 1):
+                    text += f"{i}. {t['ismlar']} — {t['umumiy_ball']}\n"
+                text += "\n"
+        sent = 0
+        for g in guruhlar:
+            try:
+                await call.bot.send_message(g["chat_id"], text, parse_mode="HTML")
+                sent += 1
+            except Exception:
+                pass
+        await call.answer(f"✅ {sent} ta guruhga yuborildi.", show_alert=True)
+        return
+
+    elif action == "backup":
+        data = get_all_students_for_excel()
+        if not data:
+            await call.answer("⚠️ Backup uchun ma'lumot yo'q.", show_alert=True)
+            return
+        filename = f"group_backup_{call.from_user.id}.xlsx"
+        pd.DataFrame(data).to_excel(filename, index=False)
+        sent = 0
+        try:
+            for g in guruhlar:
+                try:
+                    await call.bot.send_document(g["chat_id"], FSInputFile(filename), caption="💾 Guruh uchun backup fayl")
+                    sent += 1
+                except Exception:
+                    pass
+        finally:
+            if os.path.exists(filename):
+                os.remove(filename)
+        await call.answer(f"✅ Backup {sent} ta guruhga yuborildi.", show_alert=True)
+        return
+
+    await call.answer()
 
 
 @router.message(F.text == "🔍 Kod bo'yicha qidirish")
