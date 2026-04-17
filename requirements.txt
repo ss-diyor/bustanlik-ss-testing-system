@@ -1,0 +1,8 @@
+aiogram==3.27.0
+pydantic==2.10.6
+pydantic-core==2.27.2
+pandas
+openpyxl
+matplotlib
+fpdf2
+psycopg2-binary
