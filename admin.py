@@ -790,8 +790,8 @@ async def excel_import_start(message: Message, state: FSMContext):
         "Fayl ustunlari tartibi:\n"
         "1. Kod\n"
         "2. Ism-familiya\n"
-        "3. Yo'nalish\n"
-        "4. Sinf\n"
+        "3. Sinf\n"
+        "4. Yo'nalish\n"
         "5. Majburiy (to'g'ri javoblar soni)\n"
         "6. 1-asosiy\n"
         "7. 2-asosiy",
@@ -811,16 +811,57 @@ async def excel_import_process(message: Message, state: FSMContext):
     
     try:
         df = pd.read_excel(download_path)
+        normalized_columns = {
+            str(col).strip().lower().replace("'", "").replace("`", "").replace("’", "").replace("ʻ", "").replace("-", "").replace("_", "").replace(" ", ""): col
+            for col in df.columns
+        }
+
+        alias_map = {
+            "kod": ["kod", "idkod", "oquvchikodi"],
+            "ismlar": ["ism", "ismlar", "ismfamiliya", "fio", "fullname"],
+            "sinf": ["sinf", "class", "klass"],
+            "yonalish": ["yonalish", "yunalish", "direction"],
+            "majburiy": ["majburiy", "majburiyfan", "majburiyfanlar"],
+            "asosiy1": ["asosiy1", "1asosiy", "asosiyfan1", "asosiybirinchi"],
+            "asosiy2": ["asosiy2", "2asosiy", "asosiyfan2", "asosiyikkinchi"],
+        }
+
+        header_mode = True
+        resolved_cols = {}
+        for key, aliases in alias_map.items():
+            found = None
+            for alias in aliases:
+                if alias in normalized_columns:
+                    found = normalized_columns[alias]
+                    break
+            if found is None:
+                header_mode = False
+                break
+            resolved_cols[key] = found
+
         count = 0
         for _, row in df.iterrows():
             try:
-                kod = str(row.iloc[0]).strip().upper()
-                ismlar = str(row.iloc[1]).strip()
-                yonalish = str(row.iloc[2]).strip()
-                sinf = str(row.iloc[3]).strip()
-                majburiy = int(row.iloc[4])
-                asosiy1 = int(row.iloc[5])
-                asosiy2 = int(row.iloc[6])
+                if header_mode:
+                    kod = str(row[resolved_cols["kod"]]).strip().upper()
+                    ismlar = str(row[resolved_cols["ismlar"]]).strip()
+                    sinf = str(row[resolved_cols["sinf"]]).strip()
+                    yonalish = str(row[resolved_cols["yonalish"]]).strip()
+                    majburiy = int(row[resolved_cols["majburiy"]])
+                    asosiy1 = int(row[resolved_cols["asosiy1"]])
+                    asosiy2 = int(row[resolved_cols["asosiy2"]])
+                else:
+                    # Eski format bilan moslik: ustunlar qat'iy tartibda
+                    kod = str(row.iloc[0]).strip().upper()
+                    ismlar = str(row.iloc[1]).strip()
+                    sinf = str(row.iloc[2]).strip()
+                    yonalish = str(row.iloc[3]).strip()
+                    majburiy = int(row.iloc[4])
+                    asosiy1 = int(row.iloc[5])
+                    asosiy2 = int(row.iloc[6])
+
+                if not kod or kod.lower() == "nan":
+                    continue
                 
                 ball = ball_hisobla(majburiy, asosiy1, asosiy2)
                 
