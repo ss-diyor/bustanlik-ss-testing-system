@@ -788,13 +788,7 @@ async def excel_import_start(message: Message, state: FSMContext):
     await message.answer(
         "📥 <b>Excel faylini yuboring.</b>\n\n"
         "Fayl ustunlari tartibi:\n"
-        "1. Kod\n"
-        "2. Ism-familiya\n"
-        "3. Sinf\n"
-        "4. Yo'nalish\n"
-        "5. Majburiy (to'g'ri javoblar soni)\n"
-        "6. 1-asosiy\n"
-        "7. 2-asosiy",
+        "Kod | Ism | Sinf | Yo'nalish | Majburiy | Asosiy1 | Asosiy2",
         parse_mode="HTML"
     )
 
