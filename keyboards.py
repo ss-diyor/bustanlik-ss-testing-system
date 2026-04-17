@@ -151,6 +151,16 @@ def tasdiqlash_keyboard():
     ])
 
 
+def baza_tozalash_keyboard():
+    """Bazani tozalashni tasdiqlash uchun inline tugmalar."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ HA, tozalansin", callback_data="baza_tozalash:ha"),
+            InlineKeyboardButton(text="❌ YO'Q, bekor qilinsin", callback_data="baza_tozalash:yoq"),
+        ]
+    ])
+
+
 def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
     """Foydalanuvchi asosiy menyusi (Dinamik)."""
     keyboard = []

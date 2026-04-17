@@ -23,7 +23,7 @@ from database import (
     appeals_ol, appeal_javob_ber, appeal_ol_id
 )
 from keyboards import (
-    admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard,
+    admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard, baza_tozalash_keyboard,
     yonalish_boshqarish_keyboard, yonalish_ochirish_keyboard,
     sinf_keyboard, sinf_boshqarish_keyboard, sinf_ochirish_keyboard,
     kalit_boshqarish_keyboard, kalit_actions_keyboard, kalit_yonalish_tanlash_keyboard,
@@ -78,9 +78,6 @@ class Broadcast(StatesGroup):
 
 class MurojaatJavob(StatesGroup):
     javob_kutish = State()
-
-class ConfirmDelete(StatesGroup):
-    tasdiqlash_kutish = State()
 
 class OqituvchiQosh(StatesGroup):
     user_id_kutish = State()
@@ -1209,18 +1206,30 @@ async def broadcast_process(message: Message, state: FSMContext):
 @router.message(F.text == "🧹 Bazani tozalash")
 async def clear_db_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state): return
-    await state.set_state(ConfirmDelete.tasdiqlash_kutish)
-    await message.answer("⚠️ <b>DIQQAT!</b> Barcha o'quvchilar va natijalar o'chib ketadi. Tasdiqlaysizmi? (HA deb yozing)")
+    await message.answer(
+        "⚠️ <b>DIQQAT!</b> Barcha o'quvchilar va natijalar o'chib ketadi. Tasdiqlaysizmi?",
+        reply_markup=baza_tozalash_keyboard(),
+        parse_mode="HTML"
+    )
 
 
-@router.message(ConfirmDelete.tasdiqlash_kutish)
-async def clear_db_process(message: Message, state: FSMContext):
-    if not await admin_tekshir(state): return
-    if message.text.strip().upper() == "HA":
+@router.callback_query(F.data.startswith("baza_tozalash:"))
+async def clear_db_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state):
+        await callback.answer("Siz admin emassiz!", show_alert=True)
+        return
+    
+    action = callback.data.split(":")[1]
+    
+    if action == "ha":
         delete_all_data()
-        await message.answer("✅ Barcha ma'lumotlar o'chirildi.", reply_markup=admin_menu_keyboard())
+        await callback.message.edit_text("✅ Barcha ma'lumotlar o'chirildi.")
+        await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
     else:
-        await message.answer("❌ Bekor qilindi.", reply_markup=admin_menu_keyboard())
+        await callback.message.edit_text("❌ Bekor qilindi.")
+        await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
+    
+    await callback.answer()
     await state.set_state(None)
 
 
