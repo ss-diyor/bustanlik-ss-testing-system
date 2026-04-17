@@ -664,6 +664,15 @@ async def process_result_code(message: Message, state: FSMContext):
         await state.set_state(ResultCheckState.kod_kutish)
         return
 
+    if talaba.get("user_id") != message.from_user.id:
+        await message.answer(
+            "❌ Bu kod sizning profilingizga ulanmagan. Avval o'z kodingizni "
+            "<code>ULASH_KODINGIZ</code> formatida ulang.",
+            parse_mode="HTML"
+        )
+        await state.set_state(ResultCheckState.kod_kutish)
+        return
+
     await state.clear()
     await send_full_results(message, kod)
 
