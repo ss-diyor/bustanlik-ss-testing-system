@@ -532,7 +532,7 @@ async def admin_remove_handler(callback: CallbackQuery, state: FSMContext):
         await callback.answer("❌ Xatolik yuz berdi!", show_alert=True)
 
 
-@router.callback_query(F.data.startswith("tasdiq:"))
+@router.callback_query(AdminAdd.tasdiq_kutish, F.data.startswith("tasdiq:"))
 async def admin_add_tasdiq(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id): return
     action = callback.data.split(":")[1]
