@@ -120,10 +120,13 @@ async def admin_tekshir(state: FSMContext, user_id: int = None) -> bool:
     if data.get("admin") is True:
         return True
     if user_id:
-        from config import ADMIN_IDS
-        if user_id in ADMIN_IDS:
-            await state.update_data(admin=True)
-            return True
+        try:
+            from config import ADMIN_IDS
+            if int(user_id) in [int(i) for i in ADMIN_IDS]:
+                await state.update_data(admin=True)
+                return True
+        except Exception:
+            pass
     return False
 
 def is_admin_id(user_id: int) -> bool:
@@ -1524,11 +1527,11 @@ async def clear_db_callback(callback: CallbackQuery, state: FSMContext):
     action = callback.data.split(":")[1]
     
     if action == "ha":
-        delete_all_data()
         try:
+            delete_all_data()
             await callback.message.edit_text("✅ Barcha ma'lumotlar o'chirildi.")
-        except Exception:
-            await callback.message.answer("✅ Barcha ma'lumotlar o'chirildi.")
+        except Exception as e:
+            await callback.message.answer(f"❌ Xatolik yuz berdi: {str(e)}")
         await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
     else:
         try:

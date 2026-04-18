@@ -603,6 +603,7 @@ def delete_all_data():
     # Tashqi kalitlar (Foreign Keys) sababli o'chirish tartibi muhim
     cur.execute("DELETE FROM access_requests")
     cur.execute("DELETE FROM test_natijalari")
+    cur.execute("DELETE FROM appeals")
     cur.execute("DELETE FROM talabalar")
     cur.execute("DELETE FROM test_kalitlari")
     # Ixtiyoriy: Yo'nalishlar va sinflarni ham tozalash mumkin, 
