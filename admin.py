@@ -92,7 +92,7 @@ from database import (
     talaba_user_id_ol, talaba_user_id_yangila, talaba_hammasi, statistika,
     yonalish_ol, yonalish_qosh, yonalish_ochir, sinf_ol, sinf_qosh, sinf_ochir,
     kalit_ol, kalit_qosh, kalit_ochir, kalit_holat_ozgartir, kalit_tahrirla,
-    get_student_rank, get_score_difference, get_student_tests, get_test_results,
+    get_student_rank, get_score_difference,
     get_class_comparison, get_avg_score_by_direction, get_most_improved_students,
     get_setting, set_setting, guruhlar_ol, guruh_qosh, guruh_ochir,
     murojaatlar_ol, murojaat_status_ozgartir, appeal_qosh, 
