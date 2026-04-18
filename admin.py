@@ -1035,11 +1035,22 @@ async def filter_type_process(callback: CallbackQuery, state: FSMContext):
             reply_markup=filter_actions_keyboard("all", "all", page, total_pages)
         )
     elif ftype == "sinf":
-        await callback.message.edit_text("🏫 Sinfni tanlang:", reply_markup=sinf_tanlash_keyboard())
+        new_text = "🏫 Sinfni tanlang:"
+        new_markup = sinf_tanlash_keyboard()
+        if callback.message.text != new_text or callback.message.reply_markup != new_markup:
+            await callback.message.edit_text(new_text, reply_markup=new_markup)
     elif ftype == "yonalish":
-        await callback.message.edit_text("🎯 Yo'nalishni tanlang:", reply_markup=yonalish_tanlash_keyboard())
+        new_text = "🎯 Yo'nalishni tanlang:"
+        new_markup = yonalish_tanlash_keyboard()
+        if callback.message.text != new_text or callback.message.reply_markup != new_markup:
+            await callback.message.edit_text(new_text, reply_markup=new_markup)
     elif ftype in ("back", "orqaga"):
-        await callback.message.edit_text("📋 O'quvchilar ro'yxatini ko'rish usulini tanlang:", reply_markup=oquvchilar_filtrlash_keyboard())
+        new_text = "📋 O'quvchilar ro'yxatini ko'rish usulini tanlang:"
+        new_markup = oquvchilar_filtrlash_keyboard()
+        
+        # Faqat agar xabar matni yoki reply_markup o'zgargan bo'lsa tahrirlash
+        if callback.message.text != new_text or callback.message.reply_markup != new_markup:
+            await callback.message.edit_text(new_text, reply_markup=new_markup)
     await callback.answer()
 
 
