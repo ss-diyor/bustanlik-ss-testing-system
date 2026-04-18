@@ -6,6 +6,25 @@ from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Admin sessiyalari jadvali
+def create_admin_sessions_table():
+    """Admin sessiyalari jadvalini yaratish"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS admin_sessions (
+            id SERIAL PRIMARY KEY,
+            admin_id BIGINT NOT NULL,
+            admin_name VARCHAR(100) NOT NULL,
+            login_time TIMESTAMP NOT NULL DEFAULT NOW(),
+            logout_time TIMESTAMP,
+            is_active BOOLEAN NOT NULL DEFAULT true
+        )
+    """)
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
 # Connection pool — lazy yaratiladi (birinchi so'rovda)
 # Bu Railway cold start muammosini hal qiladi
 connection_pool = None
@@ -861,6 +880,67 @@ def appeal_qosh(user_id: int, talaba_kod: str, xabar: str):
     conn.commit()
     cur.close()
     release_connection(conn)
+
+
+# ─────────────────────────────────────────
+# Admin sessiyalari tracking
+# ─────────────────────────────────────────
+
+def admin_session_start(admin_id: int, admin_name: str):
+    """Admin sessiyasini boshlash"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO admin_sessions (admin_id, admin_name, login_time, is_active)
+        VALUES (%s, %s, NOW(), true)
+    """, (admin_id, admin_name))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def admin_session_end(admin_id: int):
+    """Admin sessiyasini tugatish"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE admin_sessions 
+        SET logout_time = NOW(), is_active = false 
+        WHERE admin_id = %s AND is_active = true
+    """, (admin_id,))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def get_active_admin_sessions():
+    """Faol admin sessiyalarini olish"""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT admin_id, admin_name, login_time, 
+               EXTRACT(EPOCH FROM login_time) as login_epoch,
+               CASE WHEN logout_time IS NULL THEN NULL 
+                    ELSE EXTRACT(EPOCH FROM logout_time) END as logout_epoch
+        FROM admin_sessions 
+        WHERE is_active = true 
+        ORDER BY login_time DESC
+    """)
+    sessions = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(s) for s in sessions]
+
+def is_admin_already_active(admin_id: int):
+    """Admin allaqachon faol ekanligini tekshirish"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT COUNT(*) FROM admin_sessions 
+        WHERE admin_id = %s AND is_active = true
+    """, (admin_id,))
+    count = cur.fetchone()[0]
+    cur.close()
+    release_connection(conn)
+    return count > 0
 
 def appeals_ol(status: str = 'kutilmoqda'):
     conn = get_connection()

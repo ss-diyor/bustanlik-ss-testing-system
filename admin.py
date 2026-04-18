@@ -370,6 +370,22 @@ async def admin_start(message: Message, state: FSMContext):
 @router.message(AdminLogin.parol_kutish)
 async def parol_tekshir(message: Message, state: FSMContext):
     if message.text.strip() == ADMIN_PASSWORD:
+        # Admin sessiyasini boshlash
+        from database import admin_session_start, get_active_admin_sessions
+        admin_session_start(message.from_user.id, message.from_user.full_name)
+        
+        # Faol adminlarni tekshirish
+        active_sessions = get_active_admin_sessions()
+        if len(active_sessions) > 1:
+            # Boshqa adminlar ham borligi haqida xabar
+            other_admins = [s for s in active_sessions if s['admin_id'] != message.from_user.id]
+            warning_text = f"⚠️ <b>Diqqat!</b>\n\n"
+            warning_text += f"Sizdan tashqari {len(other_admins)} ta admin faol:\n"
+            for admin in other_admins:
+                warning_text += f"• {admin['admin_name']}\n"
+            warning_text += "\nIltimos, o'z ishlaringiz moslashtiring."
+            await message.answer(warning_text, parse_mode="HTML")
+        
         await state.update_data(admin=True)
         await state.set_state(None)
         await message.answer("✅ Xush kelibsiz, admin!", reply_markup=admin_menu_keyboard())
@@ -380,8 +396,17 @@ async def parol_tekshir(message: Message, state: FSMContext):
 
 @router.message(F.text == "🚪 Chiqish")
 async def chiqish(message: Message, state: FSMContext):
+    # Admin sessiyasini tugatish
+    from database import admin_session_end
+    admin_session_end(message.from_user.id)
+    
     await state.clear()
     await message.answer("Admin rejimidan chiqdingiz.", reply_markup=None)
+
+@router.message(F.text == "🔑 Parol")
+async def admin_login(message: Message, state: FSMContext):
+    await state.set_state(AdminLogin.parol_kutish)
+    await message.answer("🔑 Admin parolini kiriting:")
 
 # ─────────────────────────────────────────
 # Yo'nalishlarni boshqarish
