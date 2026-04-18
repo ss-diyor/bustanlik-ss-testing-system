@@ -1070,9 +1070,8 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
             text = "🚀 <b>Eng ko'p o'sgan o'quvchilar:</b>\n\n"
             for i, student in enumerate(students[:10], 1):  # Top 10
                 name = student['ismlar']
-                improvement = student['improvement']
-                current_score = student['current_score']
-                text += f"{i}. <b>{name}</b>: +{improvement:.1f} ball (joriy: {current_score})\n"
+                improvement = student['diff']
+                text += f"{i}. <b>{name}</b>: +{improvement:.1f} ball\n"
         
         await callback.message.edit_text(text, parse_mode="HTML")
     
