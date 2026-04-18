@@ -99,9 +99,9 @@ from database import (
     oqituvchilar_hammasi,
     talaba_songi_natija,
     maktab_qosh,
-    maktab_ol, maktab_ochir,
-    reminder_qosh, reminder_ol, reminder_ochir,
-    send_backup, admin_session_start, admin_session_end, get_active_admin_sessions,
+    maktablar_ol, maktab_ochir,
+    reminder_qosh, kutilayotgan_reminders_ol, reminder_ochir,
+    admin_session_start, admin_session_end, get_active_admin_sessions,
     is_admin_already_active, create_admins_table, add_admin, remove_admin, 
     get_all_admins, is_admin_in_db
 )
@@ -126,6 +126,10 @@ router = Router()
 
 class AdminLogin(StatesGroup):
     parol_kutish = State()
+
+class AdminAdd(StatesGroup):
+    user_id_kutish = State()
+    tasdiq_kutish = State()
 
 class TalabaQosh(StatesGroup):
     kod_kutish = State()
@@ -564,11 +568,6 @@ async def admin_add_tasdiq(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.answer()
 
-
-# Admin qo'shish uchun FSM states
-class AdminAdd(StatesGroup):
-    user_id_kutish = State()
-    tasdiq_kutish = State()
 
 @router.message(F.text == "🔑 Parol")
 async def admin_login(message: Message, state: FSMContext):
