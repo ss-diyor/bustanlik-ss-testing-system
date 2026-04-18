@@ -89,7 +89,7 @@ def create_direction_chart(stats_data):
 
 from database import (
     init_db, talaba_topish, talaba_qosh, talaba_ochir, 
-    talaba_user_id_ol, talaba_user_id_yangila, talabalar_ol, talabalar_soni,
+    talaba_user_id_ol, talaba_user_id_yangila, talaba_hammasi, talabalar_soni,
     yonalish_ol, yonalish_qosh, yonalish_ochir, sinf_ol, sinf_qosh, sinf_ochir,
     kalit_ol, kalit_qosh, kalit_ochir, kalit_holat_ozgartir, kalit_edit,
     get_student_rank, get_score_difference, get_student_tests, get_test_results,
