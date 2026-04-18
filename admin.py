@@ -903,9 +903,73 @@ async def stats_start(message: Message, state: FSMContext):
         f"👥 Jami o'quvchilar: <b>{res['jami']} ta</b>\n"
         f"📈 O'rtacha ball: <b>{res['ortacha']} ball</b>\n"
         f"🏆 Eng yuqori ball: <b>{res['eng_yuqori']} ball</b>\n"
-        f"📉 Eng past ball: <b>{res['eng_past']} ball</b>"
+        f"📉 Eng past ball: <b>{res['eng_past']} ball</b>\n\n"
+        f"🔍 <b>Batafsil statistika uchun:</b>"
     )
-    await message.answer(text, parse_mode="HTML")
+    await message.answer(text, parse_mode="HTML", reply_markup=stats_keyboard())
+
+
+@router.callback_query(F.data.startswith("stats:"))
+async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
+    """Statistika callback handlerlari"""
+    if not await admin_tekshir(state, callback.from_user.id): 
+        await callback.answer("❌ Sizda ruxsat yo'q!", show_alert=True)
+        return
+    
+    action = callback.data.split(":")[1]
+    
+    if action == "direction":
+        # Yo'nalishlar bo'yicha o'rtacha ballar
+        from database import get_avg_score_by_direction
+        stats = get_avg_score_by_direction()
+        
+        if not stats:
+            text = "🎯 <b>Yo'nalishlar bo'yicha o'rtacha ballar:</b>\n\n⚠️ Ma'lumotlar yo'q."
+        else:
+            text = "🎯 <b>Yo'nalishlar bo'yicha o'rtacha ballar:</b>\n\n"
+            for i, stat in enumerate(stats, 1):
+                yonalish = stat['yonalish'] or 'Umumiy'
+                avg = stat['avg_score']
+                count = stat['count']
+                text += f"{i}. <b>{yonalish}</b>: {avg:.1f} ball ({count} ta o'quvchi)\n"
+        
+        await callback.message.edit_text(text, parse_mode="HTML")
+        
+    elif action == "class":
+        # Sinflar bo'yicha o'rtacha ballar
+        from database import get_class_comparison
+        stats = get_class_comparison()
+        
+        if not stats:
+            text = "🏫 <b>Sinflar bo'yicha o'rtacha ballar:</b>\n\n⚠️ Ma'lumotlar yo'q."
+        else:
+            text = "🏫 <b>Sinflar bo'yicha o'rtacha ballar:</b>\n\n"
+            for i, stat in enumerate(stats, 1):
+                sinf = stat['sinf']
+                avg = stat['avg_score']
+                count = stat['count']
+                text += f"{i}. <b>{sinf}</b>: {avg:.1f} ball ({count} ta o'quvchi)\n"
+        
+        await callback.message.edit_text(text, parse_mode="HTML")
+        
+    elif action == "improved":
+        # Eng ko'p o'sganlar
+        from database import get_most_improved_students
+        students = get_most_improved_students()
+        
+        if not students:
+            text = "🚀 <b>Eng ko'p o'sgan o'quvchilar:</b>\n\n⚠️ Ma'lumotlar yo'q."
+        else:
+            text = "🚀 <b>Eng ko'p o'sgan o'quvchilar:</b>\n\n"
+            for i, student in enumerate(students[:10], 1):  # Top 10
+                name = student['ismlar']
+                improvement = student['improvement']
+                current_score = student['current_score']
+                text += f"{i}. <b>{name}</b>: +{improvement:.1f} ball (joriy: {current_score})\n"
+        
+        await callback.message.edit_text(text, parse_mode="HTML")
+    
+    await callback.answer()
 
 
 @router.message(F.text == "⚙️ Sozlamalar")
