@@ -19,7 +19,7 @@ def create_class_chart(stats_data):
     
     # Ma'lumotlarni tayyorlash
     classes = [item['sinf'] for item in stats_data]
-    avg_scores = [item['avg_score'] for item in stats_data]
+    avg_scores = [float(item['avg_score']) for item in stats_data]
     
     # Grafik yaratish
     plt.figure(figsize=(10, 6))
@@ -55,7 +55,7 @@ def create_direction_chart(stats_data):
     
     # Ma'lumotlarni tayyorlash
     directions = [item['yonalish'] or 'Umumiy' for item in stats_data]
-    avg_scores = [item['avg_score'] for item in stats_data]
+    avg_scores = [float(item['avg_score']) for item in stats_data]
     
     # Grafik yaratish
     plt.figure(figsize=(12, 6))
