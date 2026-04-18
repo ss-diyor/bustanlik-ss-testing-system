@@ -94,7 +94,7 @@ from database import (
     kalit_ol, kalit_qosh, kalit_ochir, kalit_holat_ozgartir, kalit_tahrirla,
     get_student_rank, get_score_difference,
     get_class_comparison, get_avg_score_by_direction, get_most_improved_students,
-    get_setting, set_setting, guruhlar_ol, guruh_qosh, guruh_ochir,
+    get_setting, set_setting, guruhlar_ol, guruh_qosh,
     murojaat_status_ozgartir, appeal_qosh, 
     appeal_javob_ber, appeals_ol, oqituvchi_ol, oqituvchi_qosh, oqituvchi_ochir,
     oqituvchilar_hammasi, oqituvchi_majburiy_saqla,
