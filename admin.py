@@ -930,8 +930,7 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
             for i, stat in enumerate(stats, 1):
                 yonalish = stat['yonalish'] or 'Umumiy'
                 avg = stat['avg_score']
-                count = stat['count']
-                text += f"{i}. <b>{yonalish}</b>: {avg:.1f} ball ({count} ta o'quvchi)\n"
+                text += f"{i}. <b>{yonalish}</b>: {avg:.1f} ball\n"
         
         await callback.message.edit_text(text, parse_mode="HTML")
         
@@ -947,8 +946,7 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
             for i, stat in enumerate(stats, 1):
                 sinf = stat['sinf']
                 avg = stat['avg_score']
-                count = stat['count']
-                text += f"{i}. <b>{sinf}</b>: {avg:.1f} ball ({count} ta o'quvchi)\n"
+                text += f"{i}. <b>{sinf}</b>: {avg:.1f} ball\n"
         
         await callback.message.edit_text(text, parse_mode="HTML")
         
