@@ -70,6 +70,7 @@ def yonalish_boshqarish_keyboard():
         [InlineKeyboardButton(text="📋 Mavjud yo'nalishlar", callback_data="yonalish_boshqar:ro'yxat")],
         [InlineKeyboardButton(text="➕ Yangi yo'nalish qo'shish", callback_data="yonalish_boshqar:qosh")],
         [InlineKeyboardButton(text="❌ Yo'nalishni o'chirish", callback_data="yonalish_boshqar:ochir")],
+        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel:admin_menu")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="yonalish_boshqar:orqaga")],
     ])
 

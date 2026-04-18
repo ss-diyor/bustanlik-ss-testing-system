@@ -1859,3 +1859,50 @@ async def kod_qidirish_process(message: Message, state: FSMContext):
         )
         await message.answer(text, parse_mode="HTML")
     await state.set_state(None)
+
+
+# ─────────────────────────────────────────
+# Universal cancel buyrug'i
+# ─────────────────────────────────────────
+
+@router.message(F.text == "/cancel")
+async def cancel_handler(message: Message, state: FSMContext):
+    """Barcha faol FSM holatlarini bekor qilish"""
+    current_state = await state.get_state()
+    
+    if current_state is None:
+        await message.answer("❌ Hech qanday amal bekor qilinmadi. Siz hozircha hech qanday jarayonda emassiz.")
+        return
+    
+    await state.clear()
+    await message.answer(
+        "✅ <b>Barcha amallar bekor qilindi!</b>\n\n"
+        "🏠 Asosiy menyu:",
+        parse_mode="HTML",
+        reply_markup=admin_menu_keyboard()
+    )
+
+
+@router.callback_query(F.data.startswith("cancel:"))
+async def cancel_callback_handler(callback: CallbackQuery, state: FSMContext):
+    """Callback orqali bekor qilish"""
+    current_state = await state.get_state()
+    
+    # FSM holatini tozalash
+    await state.clear()
+    
+    # Callback data ga qarab qayerga qaytishni aniqlash
+    target = callback.data.split(":", 1)[1]
+    
+    if target == "admin_menu":
+        await callback.message.edit_text(
+            "✅ <b>Barcha amallar bekor qilindi!</b>\n\n"
+            "🏠 Asosiy menyu:",
+            parse_mode="HTML",
+            reply_markup=None
+        )
+        await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
+    else:
+        await callback.message.edit_text("✅ Amal bekor qilindi.")
+    
+    await callback.answer()
