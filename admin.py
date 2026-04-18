@@ -98,7 +98,7 @@ class MaktabAdd(StatesGroup):
     nomi_kutish = State()
 class MaktabSinfAdd(StatesGroup):
     maktab_id = State()
-    nomi_kutish = State()
+    sinf_nomi = State()
 
 class TalabaOchir(StatesGroup):
     kod_kutish = State()
