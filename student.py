@@ -21,7 +21,7 @@ from database import (
 )
 from keyboards import (
     user_menu_keyboard, murojaat_bekor_qilish_keyboard, murojaat_javob_keyboard,
-    test_tanlash_keyboard, ranking_keyboard, stats_keyboard, profile_keyboard
+    test_tanlash_keyboard, student_ranking_keyboard, stats_keyboard, profile_keyboard
 )
 from config import ADMIN_IDS
 from certificate import CertificateGenerator
@@ -386,15 +386,16 @@ async def ranking_menu(event):
         )
         
         if isinstance(event, CallbackQuery):
-            await event.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+            await event.message.edit_text(text, parse_mode="HTML", reply_markup=student_ranking_keyboard())
         else:
-            await event.answer(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+            await event.answer(text, parse_mode="HTML", reply_markup=student_ranking_keyboard())
     except Exception as e:
         await message.answer(f"❌ Reytingni yuklashda xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.")
 
 @router.callback_query(F.data.startswith("ranking:"))
+@router.callback_query(F.data.startswith("student_ranking:"))
 async def ranking_process(callback: CallbackQuery):
-    action = callback.data.split(":")[1]
+    action = callback.data.split(":", 1)[1]
     
     # Admin tekshiruvi
     from admin import is_admin_id
@@ -414,7 +415,7 @@ async def ranking_process(callback: CallbackQuery):
         if not is_admin and not check_access(callback.from_user.id):
             if not talaba:
                 kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back")]
+                    [InlineKeyboardButton(text="🔙 Orqaga", callback_data="student_ranking:back")]
                 ])
                 await callback.message.edit_text(
                     "⚠️ <b>Avval profilingizni ulashing.</b>\n\n"
@@ -433,7 +434,7 @@ async def ranking_process(callback: CallbackQuery):
             
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🙋‍♂️ Ruxsat so'rash", callback_data=f"request_access:{talaba['kod']}")],
-                [InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back")]
+                [InlineKeyboardButton(text="🔙 Orqaga", callback_data="student_ranking:back")]
             ])
             await callback.message.edit_text(
                 "🔒 <b>Umumiy Top ro'yxatini ko'rish uchun admin ruxsati kerak.</b>\n\n"
@@ -461,7 +462,7 @@ async def ranking_process(callback: CallbackQuery):
             emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
             text += f"{emoji} {t['ismlar']} ({t['sinf']}) — <b>{t['umumiy_ball']}</b> ball\n"
         
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=student_ranking_keyboard())
 
     elif action == "back":
         await ranking_menu(callback)

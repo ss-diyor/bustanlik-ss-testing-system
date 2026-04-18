@@ -252,6 +252,14 @@ def ranking_keyboard(is_admin=False):
         ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+
+def student_ranking_keyboard():
+    """User panel reyting menyusi (student-prefiks)."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🌍 Umumiy Top 50", callback_data="student_ranking:overall_top50")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="student_ranking:back")],
+    ])
+
 def sinf_tanlash_ranking_keyboard():
     """Admin uchun reyting ko'rishda sinf tanlash."""
     buttons = []
