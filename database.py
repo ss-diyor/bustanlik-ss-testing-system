@@ -942,6 +942,94 @@ def is_admin_already_active(admin_id: int):
     release_connection(conn)
     return count > 0
 
+
+# ─────────────────────────────────────────
+# Adminlar boshqarish
+# ─────────────────────────────────────────
+
+def create_admins_table():
+    """Adminlar jadvalini yaratish"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS admins (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL UNIQUE,
+            username VARCHAR(100),
+            full_name VARCHAR(200),
+            is_active BOOLEAN NOT NULL DEFAULT true,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+    """)
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def add_admin(user_id: int, username: str = None, full_name: str = None):
+    """Yangi admin qo'shish"""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO admins (user_id, username, full_name) 
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id) DO UPDATE SET
+                username = EXCLUDED.username,
+                full_name = EXCLUDED.full_name,
+                is_active = true
+        """, (user_id, username, full_name))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Admin qo'shish xatosi: {e}")
+        return False
+    finally:
+        cur.close()
+        release_connection(conn)
+
+def remove_admin(user_id: int):
+    """Adminni o'chirish"""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            DELETE FROM admins WHERE user_id = %s
+        """, (user_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Admin o'chirish xatosi: {e}")
+        return False
+    finally:
+        cur.close()
+        release_connection(conn)
+
+def get_all_admins():
+    """Barcha adminlarni olish"""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT user_id, username, full_name, is_active, created_at
+        FROM admins 
+        ORDER BY created_at DESC
+    """)
+    admins = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(a) for a in admins]
+
+def is_admin_in_db(user_id: int) -> bool:
+    """Admin ekanligini database dan tekshirish"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT COUNT(*) FROM admins WHERE user_id = %s AND is_active = true
+    """, (user_id,))
+    count = cur.fetchone()[0]
+    cur.close()
+    release_connection(conn)
+    return count > 0
+
 def appeals_ol(status: str = 'kutilmoqda'):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)

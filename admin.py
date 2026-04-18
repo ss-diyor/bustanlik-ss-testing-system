@@ -88,18 +88,33 @@ def create_direction_chart(stats_data):
     return filename
 
 from database import (
-    talaba_qosh, natija_qosh, talaba_topish, statistika, ball_hisobla,
-    yonalish_ol, yonalish_qosh, yonalish_ochir, talaba_hammasi, get_all_students_for_excel,
-    delete_all_data, get_all_user_ids, talaba_ochir,
-    sinf_ol, sinf_qosh, sinf_ochir, talaba_songi_natija, talaba_filtrlangan,
-    kalit_qosh, kalit_ol, kalit_tahrirla, kalit_holat_ozgartir, kalit_ochir,
-    talaba_user_id_ol, get_setting, set_setting, get_pending_requests, update_request_status,
-    get_overall_ranking, oqituvchi_qosh, oqituvchi_ol, oqituvchilar_hammasi, oqituvchi_ochir,
-    get_all_in_class,
-    reminder_qosh, kutilayotgan_reminders_ol, reminder_holat_yangila, reminder_ochir,
-    maktab_qosh, maktablar_ol, maktab_ochir, sinf_maktabga_bogla, maktab_sinflari_ol,
-    guruh_qosh, guruhlar_ol, get_overall_ranking,
-    appeals_ol, appeal_javob_ber, appeal_ol_id
+    init_db, talaba_topish, talaba_qosh, talaba_ochir, talaba_edit, 
+    talaba_user_id_ol, talaba_user_id_yangila, talabalar_ol, talabalar_soni,
+    yonalish_ol, yonalish_qosh, yonalish_ochir, sinf_ol, sinf_qosh, sinf_ochir,
+    kalit_ol, kalit_qosh, kalit_ochir, kalit_holat_ozgartir, kalit_edit,
+    get_student_rank, get_score_difference, get_student_tests, get_test_results,
+    get_class_comparison, get_avg_score_by_direction, get_most_improved_students,
+    get_setting, set_setting, guruhlar_ol, guruh_qosh, guruh_ochir,
+    murojaatlar_ol, murojaat_status_ozgartir, appeal_qosh, 
+    appeal_javob_ber, appeals_ol, oqituvchi_ol, oqituvchi_qosh, oqituvchi_ochir,
+    oqituvchilar_hammasi, oqituvchi_majburiy_ol, oqituvchi_majburiy_saqla,
+    oqituvchi_asosiy_1_ol, oqituvchi_asosiy_1_saqla, oqituvchi_asosiy_2_ol,
+    oqituvchi_asosiy_2_saqla, oqituvchi_majburiy_ochir, oqituvchi_asosiy_1_ochir,
+    oqituvchi_asosiy_2_ochir, get_oqituvchi_talabalari, oqituvchi_talaba_qosh,
+    oqituvchi_talaba_ochir, oqituvchi_talaba_edit, get_oqituvchi_reyting,
+    get_oqituvchi_test_natijalari, oqituvchi_natija_tahrirlash,
+    oqituvchi_test_natijalari_excel, oqituvchi_testlar_ol, oqituvchi_test_ochir,
+    oqituvchi_test_qosh, oqituvchi_test_edit, get_oqituvchi_test_kalitlari,
+    oqituvchi_test_kalit_tahrirlash, get_oqituvchi_maktablar, maktab_qosh,
+    maktab_ol, maktab_ochir, maktab_sinf_qosh, get_maktab_sinflari,
+    maktab_sinf_ochir, get_maktab_sinf_talabalari, maktab_sinf_talaba_qosh,
+    maktab_sinf_talaba_ochir, maktab_sinf_talaba_edit, get_maktab_sinf_reytingi,
+    get_maktab_sinf_test_natijalari, maktab_sinf_test_natijalari_excel,
+    reminder_qosh, reminder_ol, reminder_ochir, get_pending_requests, request_approve,
+    request_reject, guruh_ochirish, get_group_ranking, group_ranking_scheduler,
+    send_backup, admin_session_start, admin_session_end, get_active_admin_sessions,
+    is_admin_already_active, create_admins_table, add_admin, remove_admin, 
+    get_all_admins, is_admin_in_db
 )
 from keyboards import (
     admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard, baza_tozalash_keyboard,
@@ -111,7 +126,7 @@ from keyboards import (
     oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard, oqituvchi_ochirish_keyboard,
     reminder_boshqarish_keyboard, maktab_boshqarish_keyboard, guruh_boshqarish_keyboard,
     reminder_list_keyboard, maktab_list_keyboard, maktab_detail_keyboard,
-    appeals_keyboard, appeal_action_keyboard, stats_keyboard
+    appeals_keyboard, appeal_action_keyboard, stats_keyboard, admin_management_keyboard
 )
 
 router = Router()
@@ -402,6 +417,169 @@ async def chiqish(message: Message, state: FSMContext):
     
     await state.clear()
     await message.answer("Admin rejimidan chiqdingiz.", reply_markup=None)
+
+
+# ─────────────────────────────────────────
+# Adminlarni boshqarish
+# ─────────────────────────────────────────
+
+@router.message(F.text == "👥 Adminlarni boshqarish")
+async def admin_management_start(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    await message.answer("Adminlarni boshqarish menyusi:", reply_markup=admin_management_keyboard())
+
+
+@router.callback_query(F.data.startswith("admin_manage:"))
+async def admin_management_handler(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    action = callback.data.split(":")[1]
+    
+    if action == "list":
+        admins = get_all_admins()
+        if not admins:
+            text = "⚠️ Hozircha adminlar yo'q."
+        else:
+            text = "👥 <b>Adminlar ro'yxati:</b>\n\n"
+            for i, admin in enumerate(admins, 1):
+                status = "✅ Faol" if admin['is_active'] else "❌ Faol emas"
+                username = f"@{admin['username']}" if admin['username'] else "Username yo'q"
+                text += f"{i}. <b>{admin['full_name']}</b> ({admin['user_id']}) - {status}\n"
+                text += f"   👤 {username}\n"
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_management_keyboard())
+    
+    elif action == "add":
+        await state.set_state(AdminAdd.user_id_kutish)
+        await callback.message.edit_text(
+            "🆕 Yangi admin qo'shish uchun foydalanuvchi Telegram ID sini kiriting:\n\n"
+            "📝 Masalan: 123456789\n\n"
+            "❌ Bekor qilish uchun /cancel ni bosing.",
+            reply_markup=None
+        )
+    
+    elif action == "remove":
+        admins = get_all_admins()
+        if not admins:
+            await callback.answer("❌ Adminlar yo'q", show_alert=True)
+            return
+        
+        buttons = []
+        for admin in admins:
+            if admin['is_active']:
+                buttons.append([InlineKeyboardButton(
+                    text=f"❌ {admin['full_name']} ({admin['user_id']})", 
+                    callback_data=f"admin_remove:{admin['user_id']}"
+                )])
+        buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_manage:back")])
+        
+        await callback.message.edit_text(
+            "❌ O'chiriladigan adminni tanlang:",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+        )
+    
+    elif action == "back":
+        await callback.message.edit_text(
+            "Asosiy menyu:",
+            reply_markup=admin_menu_keyboard()
+        )
+    
+    await callback.answer()
+
+
+@router.message(AdminAdd.user_id_kutish)
+async def admin_add_user_id(message: Message, state: FSMContext):
+    if message.text == "/cancel":
+        await state.clear()
+        await message.answer("❌ Admin qo'shish bekor qilindi.", reply_markup=admin_menu_keyboard())
+        return
+    
+    try:
+        user_id = int(message.text.strip())
+        await state.update_data(user_id=user_id)
+        await state.set_state(AdminAdd.tasdiq_kutish)
+        
+        await message.answer(
+            f"🆕 <b>Yangi admin:</b> {user_id}\n\n"
+            "✅ Tasdiqlaysizmi?\n\n"
+            "✅ Ha - Admin qilish\n"
+            "❌ Yo'q - Bekor qilish",
+            reply_markup=tasdiqlash_keyboard()
+        )
+    except ValueError:
+        await message.answer("❌ Noto'g'ri ID format. Faqat raqam kiriting.")
+
+
+@router.callback_query(F.data.startswith("admin_remove:"))
+async def admin_remove_handler(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    user_id = int(callback.data.split(":")[1])
+    
+    # O'zini o'chirib bo'lmaydi
+    if user_id == callback.from_user.id:
+        await callback.answer("❌ O'zingizni o'chira olmaysiz!", show_alert=True)
+        return
+    
+    if remove_admin(user_id):
+        await callback.answer(f"✅ Admin o'chirildi!", show_alert=True)
+        # Admin ro'yxatini yangilab ko'rsatish
+        admins = get_all_admins()
+        if admins:
+            text = "👥 <b>Adminlar ro'yxati:</b>\n\n"
+            for i, admin in enumerate(admins, 1):
+                status = "✅ Faol" if admin['is_active'] else "❌ Faol emas"
+                username = f"@{admin['username']}" if admin['username'] else "Username yo'q"
+                text += f"{i}. <b>{admin['full_name']}</b> ({admin['user_id']}) - {status}\n"
+                text += f"   👤 {username}\n"
+        else:
+            text = "⚠️ Hozircha adminlar yo'q."
+        
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_management_keyboard())
+    else:
+        await callback.answer("❌ Xatolik yuz berdi!", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("tasdiq:"))
+async def admin_add_tasdiq(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    action = callback.data.split(":")[1]
+    data = await state.get_data()
+    
+    if action == "ha":
+        user_id = data.get("user_id")
+        if user_id:
+            # Bu user_id ga tegishli user ma'lumotlarini olish (masalan, bot orqali)
+            # Bu yerda oddiy qilib user_id va ismni qo'shamiz
+            if add_admin(user_id, username=None, full_name=f"Admin {user_id}"):
+                await callback.message.edit_text(
+                    f"✅ <b>Yangi admin qo'shildi!</b>\n\n"
+                    f"👤 User ID: <code>{user_id}</code>\n"
+                    f"📝 To'liq ma'lumotlar uchun admin avval botdan foydalanishi kerak.",
+                    parse_mode="HTML",
+                    reply_markup=admin_menu_keyboard()
+                )
+            else:
+                await callback.message.edit_text(
+                    "❌ Admin qo'shishda xatolik yuz berdi.",
+                    reply_markup=admin_menu_keyboard()
+                )
+        else:
+            await callback.message.edit_text(
+                "❌ Ma'lumotlar topilmadi.",
+                reply_markup=admin_menu_keyboard()
+            )
+    else:
+        await callback.message.edit_text(
+            "❌ Admin qo'shish bekor qilindi.",
+            reply_markup=admin_menu_keyboard()
+        )
+    
+    await state.clear()
+    await callback.answer()
+
+
+# Admin qo'shish uchun FSM states
+class AdminAdd(StatesGroup):
+    user_id_kutish = State()
+    tasdiq_kutish = State()
 
 @router.message(F.text == "🔑 Parol")
 async def admin_login(message: Message, state: FSMContext):

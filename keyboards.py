@@ -17,6 +17,8 @@ def admin_menu_keyboard():
             [KeyboardButton(text="⚙️ Yo'nalishlarni boshqarish")],
             [KeyboardButton(text="🏫 Sinflarni boshqarish")],
             [KeyboardButton(text="👨‍🏫 O'qituvchilarni boshqarish")],
+            [KeyboardButton(text="�‍🏫 O'qituvchilarni boshqarish")],
+            [KeyboardButton(text="�👥 Adminlarni boshqarish")],
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🏆 Reyting")],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
             [KeyboardButton(text="⏰ Eslatmalar"), KeyboardButton(text="🏫 Maktablarni boshqarish")],
@@ -225,6 +227,16 @@ def murojaat_javob_keyboard(user_id):
     """Admin uchun murojaatga javob berish tugmasi."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"murojaat_javob:{user_id}")]
+    ])
+
+
+def admin_management_keyboard():
+    """Admin boshqarish menyusi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 Adminlar ro'yxati", callback_data="admin_manage:list")],
+        [InlineKeyboardButton(text="➕ Yangi admin qo'shish", callback_data="admin_manage:add")],
+        [InlineKeyboardButton(text="❌ Adminni o'chirish", callback_data="admin_manage:remove")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_manage:back")],
     ])
 
 def ranking_keyboard(is_admin=False):
