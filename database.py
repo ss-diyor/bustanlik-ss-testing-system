@@ -2,6 +2,7 @@ import psycopg2
 import psycopg2.extras
 from psycopg2 import pool
 import os
+import logging
 from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -32,6 +33,8 @@ connection_pool = None
 def _get_pool():
     global connection_pool
     if connection_pool is None:
+        if not DATABASE_URL:
+            raise RuntimeError("DATABASE_URL environment variable is not set")
         import time
         for attempt in range(5):
             try:
@@ -40,13 +43,13 @@ def _get_pool():
                     sslmode='require',
                     connect_timeout=10
                 )
-                print("✅ Connection pool muvaffaqiyatli yaratildi")
+                logging.info("Connection pool created successfully")
                 break
             except Exception as e:
-                print(f"⚠️ Pool yaratish urinish {attempt+1}/5: {e}")
+                logging.warning("Pool creation attempt %s/5 failed: %s", attempt + 1, e)
                 time.sleep(3)
         if connection_pool is None:
-            raise Exception("❌ Supabase ga ulanib bo'lmadi!")
+            raise Exception("Failed to connect to PostgreSQL")
     return connection_pool
 
 def get_connection():
