@@ -92,6 +92,9 @@ from database import (
     talaba_user_id_ol, talaba_user_id_yangila, talaba_hammasi, statistika,
     yonalish_ol, yonalish_qosh, yonalish_ochir, sinf_ol, sinf_qosh, sinf_ochir,
     kalit_ol, kalit_qosh, kalit_ochir, kalit_holat_ozgartir, kalit_tahrirla,
+    natija_qosh, talaba_filtrlangan, get_all_students_for_excel, get_all_user_ids,
+    get_pending_requests, update_request_status, get_all_in_class, get_overall_ranking,
+    appeal_ol_id, delete_all_data, sinf_maktabga_bogla, maktab_sinflari_ol,
     get_student_rank, get_score_difference,
     get_class_comparison, get_avg_score_by_direction, get_most_improved_students,
     get_setting, set_setting, guruhlar_ol, guruh_qosh,
@@ -470,10 +473,8 @@ async def admin_management_handler(callback: CallbackQuery, state: FSMContext):
         )
     
     elif action == "back":
-        await callback.message.edit_text(
-            "Asosiy menyu:",
-            reply_markup=admin_menu_keyboard()
-        )
+        await callback.message.edit_text("✅ Admin boshqaruvi yopildi.")
+        await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
     
     await callback.answer()
 
@@ -546,24 +547,24 @@ async def admin_add_tasdiq(callback: CallbackQuery, state: FSMContext):
                     f"✅ <b>Yangi admin qo'shildi!</b>\n\n"
                     f"👤 User ID: <code>{user_id}</code>\n"
                     f"📝 To'liq ma'lumotlar uchun admin avval botdan foydalanishi kerak.",
-                    parse_mode="HTML",
-                    reply_markup=admin_menu_keyboard()
+                    parse_mode="HTML"
                 )
+                await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
             else:
                 await callback.message.edit_text(
                     "❌ Admin qo'shishda xatolik yuz berdi.",
-                    reply_markup=admin_menu_keyboard()
                 )
+                await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
         else:
             await callback.message.edit_text(
                 "❌ Ma'lumotlar topilmadi.",
-                reply_markup=admin_menu_keyboard()
             )
+            await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
     else:
         await callback.message.edit_text(
             "❌ Admin qo'shish bekor qilindi.",
-            reply_markup=admin_menu_keyboard()
         )
+        await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
     
     await state.clear()
     await callback.answer()
