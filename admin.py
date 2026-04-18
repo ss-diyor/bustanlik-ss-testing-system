@@ -11,7 +11,7 @@ from certificate import CertificateGenerator
 from database import (
     talaba_qosh, natija_qosh, talaba_topish, statistika, ball_hisobla,
     yonalish_ol, yonalish_qosh, yonalish_ochir, talaba_hammasi, get_all_students_for_excel,
-    delete_all_data, get_all_user_ids,
+    delete_all_data, get_all_user_ids, talaba_ochir,
     sinf_ol, sinf_qosh, sinf_ochir, talaba_songi_natija, talaba_filtrlangan,
     kalit_qosh, kalit_ol, kalit_tahrirla, kalit_holat_ozgartir, kalit_ochir,
     talaba_user_id_ol, get_setting, set_setting, get_pending_requests, update_request_status,
@@ -96,11 +96,13 @@ class ReminderAdd(StatesGroup):
 
 class MaktabAdd(StatesGroup):
     nomi_kutish = State()
-
 class MaktabSinfAdd(StatesGroup):
     maktab_id = State()
-    sinf_nomi = State()
+    nomi_kutish = State()
 
+class TalabaOchir(StatesGroup):
+    kod_kutish = State()
+    tasdiq_kutish = State()
 class AppealReply(StatesGroup):
     appeal_id = State()
     javob_kutish = State()
@@ -117,9 +119,11 @@ async def admin_tekshir(state: FSMContext, user_id: int = None) -> bool:
     data = await state.get_data()
     if data.get("admin") is True:
         return True
-    if user_id and is_admin_id(user_id):
-        await state.update_data(admin=True)
-        return True
+    if user_id:
+        from config import ADMIN_IDS
+        if user_id in ADMIN_IDS:
+            await state.update_data(admin=True)
+            return True
     return False
 
 def is_admin_id(user_id: int) -> bool:
@@ -1094,6 +1098,61 @@ async def filter_page_process(callback: CallbackQuery, state: FSMContext):
         parse_mode="HTML",
         reply_markup=filter_actions_keyboard(ftype, fval, page, total_pages)
     )
+    await callback.answer()
+
+@router.callback_query(F.data == "talaba_ochir_start")
+async def talaba_ochir_start(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    await state.set_state(TalabaOchir.kod_kutish)
+    await callback.message.answer("🗑 O'chirmoqchi bo'lgan o'quvchingizning 🆔 kodini kiriting:")
+    await callback.answer()
+
+@router.message(TalabaOchir.kod_kutish)
+async def talaba_ochir_kod(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    kod = message.text.strip().upper()
+    talaba = talaba_topish(kod)
+    if not talaba:
+        await message.answer(f"❌ Kod {kod} bo'yicha o'quvchi topilmadi. Qaytadan kiriting yoki /cancel deb yozing:")
+        return
+    
+    await state.update_data(ochirish_kod=kod)
+    await state.set_state(TalabaOchir.tasdiq_kutish)
+    
+    text = (
+        f"❓ Haqiqatan ham ushbu o'quvchini o'chirmoqchimisiz?\n\n"
+        f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
+        f"🆔 Kod: <b>{talaba['kod']}</b>\n"
+        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n\n"
+        f"⚠️ Barcha natijalari ham o'chib ketadi!"
+    )
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ HA, o'chirilsin", callback_data="talaba_ochir_tasdiq:ha"),
+            InlineKeyboardButton(text="❌ YO'Q, bekor qilinsin", callback_data="talaba_ochir_tasdiq:yoq")
+        ]
+    ])
+    await message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+
+@router.callback_query(F.data.startswith("talaba_ochir_tasdiq:"))
+async def talaba_ochir_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    action = callback.data.split(":")[1]
+    
+    if action == "ha":
+        data = await state.get_data()
+        kod = data.get("ochirish_kod")
+        if talaba_ochir(kod):
+            await callback.message.edit_text(f"✅ O'quvchi (Kod: {kod}) muvaffaqiyatli o'chirildi.")
+        else:
+            await callback.message.edit_text("❌ O'chirishda xatolik yuz berdi.")
+    else:
+        await callback.message.edit_text("❌ O'chirish bekor qilindi.")
+    
+    await state.clear()
+    await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
     await callback.answer()
 
 @router.callback_query(F.data.startswith("filter_excel:"))

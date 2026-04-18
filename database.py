@@ -403,6 +403,23 @@ def talaba_topish(kod: str):
     release_connection(conn)
     return dict(row) if row else None
 
+def talaba_ochir(kod: str) -> bool:
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        # Avval bog'liq ma'lumotlarni o'chiramiz
+        cur.execute("DELETE FROM access_requests WHERE talaba_kod = %s", (kod.upper(),))
+        cur.execute("DELETE FROM test_natijalari WHERE talaba_kod = %s", (kod.upper(),))
+        cur.execute("DELETE FROM appeals WHERE talaba_kod = %s", (kod.upper(),))
+        # Keyin talabaning o'zini
+        cur.execute("DELETE FROM talabalar WHERE kod = %s", (kod.upper(),))
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+        return True
+    except Exception:
+        return False
+
 def talaba_natijalari(kod: str, limit: int = 10):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)

@@ -327,6 +327,7 @@ def filter_actions_keyboard(filter_type="all", filter_value="all", page=1, total
         rows.append([InlineKeyboardButton(text=f"📄 {page}/{total_pages}", callback_data="filter_page:noop:noop:1")])
 
     rows.append([InlineKeyboardButton(text="📥 Excelga yuklash", callback_data=f"filter_excel:{filter_type}:{filter_value}")])
+    rows.append([InlineKeyboardButton(text="🗑 O'quvchini o'chirish", callback_data="talaba_ochir_start")])
     rows.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
