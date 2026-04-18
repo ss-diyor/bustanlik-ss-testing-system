@@ -412,6 +412,19 @@ async def ranking_process(callback: CallbackQuery):
 
     if action == "overall_top50":
         if not is_admin and not check_access(callback.from_user.id):
+            if not talaba:
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back")]
+                ])
+                await callback.message.edit_text(
+                    "⚠️ <b>Avval profilingizni ulashing.</b>\n\n"
+                    "Masalan: <code>ULASH_A-001</code>\n"
+                    "Shundan keyin Umumiy Top 50 uchun admin ruxsatini so'rashingiz mumkin.",
+                    parse_mode="HTML",
+                    reply_markup=kb
+                )
+                await callback.answer()
+                return
             # Ruxsat yo'q bo'lsa, so'rov yuborish tugmasini ko'rsatish
             req = get_request_by_user(callback.from_user.id)
             if req and req['status'] == 'pending':
