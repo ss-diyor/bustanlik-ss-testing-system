@@ -92,6 +92,7 @@ from database import (
     talaba_user_id_ol, talaba_user_id_yangila, talaba_hammasi, statistika,
     yonalish_ol, yonalish_qosh, yonalish_ochir, sinf_ol, sinf_qosh, sinf_ochir,
     kalit_ol, kalit_qosh, kalit_ochir, kalit_holat_ozgartir, kalit_tahrirla,
+    ball_hisobla,
     natija_qosh, talaba_filtrlangan, get_all_students_for_excel, get_all_user_ids,
     get_pending_requests, update_request_status, get_all_in_class, get_overall_ranking,
     appeal_ol_id, delete_all_data, sinf_maktabga_bogla, maktab_sinflari_ol,
