@@ -7,7 +7,86 @@ from aiogram.fsm.state import State, StatesGroup
 
 from config import ADMIN_PASSWORD, MAX_SAVOL
 import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # GUI yo'q muhitda ishlashi uchun
 from certificate import CertificateGenerator
+
+def create_class_chart(stats_data):
+    """Sinflar bo'yicha o'rtacha ballar grafigini yasash"""
+    if not stats_data:
+        return None
+    
+    # Ma'lumotlarni tayyorlash
+    classes = [item['sinf'] for item in stats_data]
+    avg_scores = [item['avg_score'] for item in stats_data]
+    
+    # Grafik yaratish
+    plt.figure(figsize=(10, 6))
+    bars = plt.bar(classes, avg_scores, color='#90EE90', alpha=0.8, width=0.6)
+    
+    # Grafikni sozlash
+    plt.title('Sinflar bo\'yicha o\'rtacha ballar', fontsize=16, fontweight='bold', pad=20)
+    plt.xlabel('Sinflar', fontsize=12)
+    plt.ylabel('O\'rtacha ball', fontsize=12)
+    plt.grid(axis='y', alpha=0.3)
+    
+    # Y o'qini sozlash
+    max_score = max(avg_scores) if avg_scores else 100
+    plt.ylim(0, max_score * 1.1)
+    
+    # Har bir bar ustida qiymatni ko'rsatish
+    for bar, score in zip(bars, avg_scores):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1,
+                f'{score:.1f}', ha='center', va='bottom', fontweight='bold')
+    
+    # Grafikni saqlash
+    plt.tight_layout()
+    filename = 'class_stats.png'
+    plt.savefig(filename, dpi=100, bbox_inches='tight')
+    plt.close()
+    
+    return filename
+
+def create_direction_chart(stats_data):
+    """Yo'nalishlar bo'yicha o'rtacha ballar grafigini yasash"""
+    if not stats_data:
+        return None
+    
+    # Ma'lumotlarni tayyorlash
+    directions = [item['yonalish'] or 'Umumiy' for item in stats_data]
+    avg_scores = [item['avg_score'] for item in stats_data]
+    
+    # Grafik yaratish
+    plt.figure(figsize=(12, 6))
+    bars = plt.bar(directions, avg_scores, color='#87CEEB', alpha=0.8, width=0.6)
+    
+    # Grafikni sozlash
+    plt.title('Yo\'nalishlar bo\'yicha o\'rtacha ballar', fontsize=16, fontweight='bold', pad=20)
+    plt.xlabel('Yo\'nalishlar', fontsize=12)
+    plt.ylabel('O\'rtacha ball', fontsize=12)
+    plt.grid(axis='y', alpha=0.3)
+    
+    # Y o'qini sozlash
+    max_score = max(avg_scores) if avg_scores else 100
+    plt.ylim(0, max_score * 1.1)
+    
+    # Har bir bar ustida qiymatni ko'rsatish
+    for bar, score in zip(bars, avg_scores):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1,
+                f'{score:.1f}', ha='center', va='bottom', fontweight='bold')
+    
+    # X o'qidagi yozuvlarni burish
+    plt.xticks(rotation=45, ha='right')
+    
+    # Grafikni saqlash
+    plt.tight_layout()
+    filename = 'direction_stats.png'
+    plt.savefig(filename, dpi=100, bbox_inches='tight')
+    plt.close()
+    
+    return filename
+
 from database import (
     talaba_qosh, natija_qosh, talaba_topish, statistika, ball_hisobla,
     yonalish_ol, yonalish_qosh, yonalish_ochir, talaba_hammasi, get_all_students_for_excel,
@@ -925,14 +1004,29 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
         
         if not stats:
             text = "🎯 <b>Yo'nalishlar bo'yicha o'rtacha ballar:</b>\n\n⚠️ Ma'lumotlar yo'q."
+            await callback.message.edit_text(text, parse_mode="HTML")
         else:
+            # Grafik yasash
+            chart_file = create_direction_chart(stats)
+            
+            # Matnli ma'lumot
             text = "🎯 <b>Yo'nalishlar bo'yicha o'rtacha ballar:</b>\n\n"
             for i, stat in enumerate(stats, 1):
                 yonalish = stat['yonalish'] or 'Umumiy'
                 avg = stat['avg_score']
                 text += f"{i}. <b>{yonalish}</b>: {avg:.1f} ball\n"
-        
-        await callback.message.edit_text(text, parse_mode="HTML")
+            
+            # Grafikni jo'natish
+            if chart_file and os.path.exists(chart_file):
+                await callback.message.answer_photo(
+                    photo=FSInputFile(chart_file),
+                    caption=text,
+                    parse_mode="HTML"
+                )
+                # Faylni o'chirish
+                os.remove(chart_file)
+            else:
+                await callback.message.edit_text(text, parse_mode="HTML")
         
     elif action == "class":
         # Sinflar bo'yicha o'rtacha ballar
@@ -941,14 +1035,29 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
         
         if not stats:
             text = "🏫 <b>Sinflar bo'yicha o'rtacha ballar:</b>\n\n⚠️ Ma'lumotlar yo'q."
+            await callback.message.edit_text(text, parse_mode="HTML")
         else:
+            # Grafik yasash
+            chart_file = create_class_chart(stats)
+            
+            # Matnli ma'lumot
             text = "🏫 <b>Sinflar bo'yicha o'rtacha ballar:</b>\n\n"
             for i, stat in enumerate(stats, 1):
                 sinf = stat['sinf']
                 avg = stat['avg_score']
                 text += f"{i}. <b>{sinf}</b>: {avg:.1f} ball\n"
-        
-        await callback.message.edit_text(text, parse_mode="HTML")
+            
+            # Grafikni jo'natish
+            if chart_file and os.path.exists(chart_file):
+                await callback.message.answer_photo(
+                    photo=FSInputFile(chart_file),
+                    caption=text,
+                    parse_mode="HTML"
+                )
+                # Faylni o'chirish
+                os.remove(chart_file)
+            else:
+                await callback.message.edit_text(text, parse_mode="HTML")
         
     elif action == "improved":
         # Eng ko'p o'sganlar
