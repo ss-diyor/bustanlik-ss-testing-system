@@ -32,7 +32,7 @@ from keyboards import (
     oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard, oqituvchi_ochirish_keyboard,
     reminder_boshqarish_keyboard, maktab_boshqarish_keyboard, guruh_boshqarish_keyboard,
     reminder_list_keyboard, maktab_list_keyboard, maktab_detail_keyboard,
-    appeals_keyboard, appeal_action_keyboard
+    appeals_keyboard, appeal_action_keyboard, stats_keyboard
 )
 
 router = Router()
