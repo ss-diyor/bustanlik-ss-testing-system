@@ -5,7 +5,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile, InlineKeyboardMar
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from config import ADMIN_PASSWORD, MAX_SAVOL
+from config import ADMIN_PASSWORD, MAX_SAVOL, ADMIN_IDS
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
@@ -1739,7 +1739,7 @@ async def ranking_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
     await message.answer("🏆 Reyting bo'limi:", reply_markup=ranking_keyboard(is_admin=True))
 
-@router.callback_query(F.data.startswith("ranking:"))
+@router.callback_query(F.data.startswith("ranking:"), F.from_user.id.in_(ADMIN_IDS))
 async def ranking_admin_callback(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id):
         return
