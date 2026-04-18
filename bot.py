@@ -165,6 +165,14 @@ async def main():
     init_db()
     logging.info("Ma'lumotlar bazasi tayyor va indekslar tekshirildi.")
     
+    # Admin sessiyalari jadvalini yaratish
+    from database import create_admin_sessions_table
+    try:
+        create_admin_sessions_table()
+        logging.info("Admin sessiyalari jadvali yaratildi yoki allaqachon mavjud.")
+    except Exception as e:
+        logging.error(f"Admin sessiyalari jadvalini yaratishda xato: {e}")
+    
     # Scheduler ishga tushirish
     asyncio.create_task(scheduler())
     asyncio.create_task(reminder_scheduler())
