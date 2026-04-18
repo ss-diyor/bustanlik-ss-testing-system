@@ -177,8 +177,8 @@ def _build_students_page(talabalar: list, title: str, page: int = 1, page_size: 
 
     text = f"{title} (jami: {total} ta)\n"
     text += f"📄 Sahifa: {page}/{total_pages}\n\n"
-    for t in visible:
-        text += f"🔹 {t['kod']} | {t['ismlar']} | {t['sinf']}\n"
+    for i, t in enumerate(visible, start=start + 1):
+        text += f"{i}. {t['kod']} | {t['ismlar']} | {t['sinf']}\n"
     return text, page, total_pages
 
 async def guruhlarga_yangi_oquvchi_yuborish(bot: Bot, talaba: dict, natija: dict = None):
