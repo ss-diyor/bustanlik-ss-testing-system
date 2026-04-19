@@ -288,6 +288,7 @@ def stats_keyboard():
         [InlineKeyboardButton(text="🎯 Yo'nalishlar bo'yicha", callback_data="stats:direction")],
         [InlineKeyboardButton(text="🏫 Sinflar bo'yicha", callback_data="stats:class")],
         [InlineKeyboardButton(text="🚀 Eng ko'p o'sganlar", callback_data="stats:improved")],
+        [InlineKeyboardButton(text="📉 Eng ko'p pasayganlar", callback_data="stats:declined")],
     ])
 
 def oquvchilar_filtrlash_keyboard():

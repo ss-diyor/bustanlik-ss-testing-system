@@ -16,6 +16,7 @@ from database import (
     talaba_topish, talaba_natijalari, get_all_user_ids, kalit_ol,
     get_all_in_class, get_overall_ranking, get_student_rank,
     get_avg_score_by_direction, get_class_comparison, get_most_improved_students,
+    get_most_declined_students,
     get_score_difference, get_setting, check_access, add_access_request, get_request_by_user,
     talaba_songi_natija, appeal_qosh
 )
@@ -637,7 +638,17 @@ async def stats_process(callback: CallbackQuery):
             return
         text = "🚀 <b>Eng ko'p o'sishga erishganlar (oxirgi 2 test):</b>\n\n"
         for s in students:
-            text += f"• {s['ismlar']} ({s['sinf']}): <b>+{s['diff']}</b> ball\n"
+            text += f"• {s['ismlar']} ({s['sinf']}): <b>+{s['diff']:.1f}</b> ball\n"
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=stats_keyboard())
+
+    elif action == "declined":
+        students = get_most_declined_students()
+        if not students:
+            await callback.answer("⚠️ Ma'lumotlar yo'q.", show_alert=True)
+            return
+        text = "📉 <b>Eng ko'p pasayganlar (oxirgi 2 test):</b>\n\n"
+        for s in students:
+            text += f"• {s['ismlar']} ({s['sinf']}): <b>{s['diff']:.1f}</b> ball\n"
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=stats_keyboard())
 
     await callback.answer()
@@ -749,10 +760,16 @@ async def profile_callback(callback: CallbackQuery):
             await callback.answer("📜 Hozircha testlar tarixi mavjud emas.", show_alert=True)
             return
         
-        text = f"📜 <b>Oxirgi 10 ta test natijalari:</b>\n\n"
-        for i, res in enumerate(history, 1):
+        text = f"📜 <b>Oxirgi 10 ta test natijalari</b>\n\n"
+        for idx, res in enumerate(history):
             sana = res['test_sanasi'].strftime("%d.%m.%Y")
-            text += f"{i}. {sana} — <b>{res['umumiy_ball']} ball</b>\n"
+            ball = float(res['umumiy_ball'])
+            line = f"{idx + 1}. {sana} — <b>{ball:g} ball</b>"
+            if idx + 1 < len(history):
+                prev_ball = float(history[idx + 1]['umumiy_ball'])
+                delta = ball - prev_ball
+                line += f", avvalgisi bilan: <b>{delta:+.1f} ball</b>"
+            text += line + "\n"
         
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=profile_keyboard())
     

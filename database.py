@@ -876,6 +876,28 @@ def get_most_improved_students():
     release_connection(conn)
     return [dict(r) for r in rows]
 
+def get_most_declined_students():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        WITH student_diffs AS (
+            SELECT talaba_kod,
+                   (SELECT umumiy_ball FROM test_natijalari WHERE talaba_kod = t1.talaba_kod ORDER BY test_sanasi DESC LIMIT 1) -
+                   (SELECT umumiy_ball FROM test_natijalari WHERE talaba_kod = t1.talaba_kod ORDER BY test_sanasi DESC OFFSET 1 LIMIT 1) as diff
+            FROM (SELECT DISTINCT talaba_kod FROM test_natijalari) t1
+        )
+        SELECT t.kod, t.ismlar, t.sinf, sd.diff
+        FROM student_diffs sd
+        JOIN talabalar t ON t.kod = sd.talaba_kod
+        WHERE sd.diff IS NOT NULL AND sd.diff < 0
+        ORDER BY sd.diff ASC
+        LIMIT 10
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
 def appeal_qosh(user_id: int, talaba_kod: str, xabar: str):
     conn = get_connection()
     cur = conn.cursor()

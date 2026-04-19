@@ -98,6 +98,7 @@ from database import (
     appeal_ol_id, delete_all_data, sinf_maktabga_bogla, maktab_sinflari_ol,
     get_student_rank, get_score_difference,
     get_class_comparison, get_avg_score_by_direction, get_most_improved_students,
+    get_most_declined_students,
     get_setting, set_setting, guruhlar_ol, guruh_qosh,
     appeal_qosh, appeal_javob_ber, appeals_ol, oqituvchi_ol, oqituvchi_qosh, oqituvchi_ochir,
     oqituvchilar_hammasi,
@@ -1266,6 +1267,20 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
                 improvement = student['diff']
                 text += f"{i}. <b>{name}</b>: +{improvement:.1f} ball\n"
         
+        await callback.message.edit_text(text, parse_mode="HTML")
+
+    elif action == "declined":
+        students = get_most_declined_students()
+
+        if not students:
+            text = "📉 <b>Eng ko'p pasaygan o'quvchilar:</b>\n\n⚠️ Ma'lumotlar yo'q."
+        else:
+            text = "📉 <b>Eng ko'p pasaygan o'quvchilar (oxirgi test avvalgisiga nisbatan):</b>\n\n"
+            for i, student in enumerate(students[:10], 1):
+                name = student['ismlar']
+                change = student['diff']
+                text += f"{i}. <b>{name}</b>: {change:.1f} ball\n"
+
         await callback.message.edit_text(text, parse_mode="HTML")
     
     await callback.answer()
