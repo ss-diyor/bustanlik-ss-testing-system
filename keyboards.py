@@ -180,7 +180,7 @@ def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
     row3 = []
     if stats_enabled == 'True':
         row3.append(KeyboardButton(text="📈 Statistika"))
-    row3.append(KeyboardButton(text="🧠 AI Analitika"))
+    row3.append(KeyboardButton(text="🧠 AI Tahlili"))
     keyboard.append(row3)
     
     # To'rtinchi qator: Admin bilan bog'lanish
