@@ -868,7 +868,7 @@ async def cancel_callback_handler(callback: CallbackQuery, state: FSMContext):
 # ─────────────────────────────────────────
 from ai_analytics import AIAnalytics
 
-@router.message(F.text == "🧠 AI Analitika")
+@router.message(F.text == "🧠 AI Tahlili")
 async def ai_analytics_handler(message: Message, state: FSMContext):
     # Foydalanuvchi user_id si bo'yicha talabani topamiz
     from database import get_connection, release_connection
@@ -895,13 +895,13 @@ async def ai_analytics_handler(message: Message, state: FSMContext):
         if chart_path and os.path.exists(chart_path):
             await message.answer_photo(
                 FSInputFile(chart_path),
-                caption=f"📊 <b>{talaba['ismlar']} uchun AI Analitika:</b>\n\n{recommendation}",
+                caption=f"📊 <b>{talaba['ismlar']} uchun AI Tahlili xulosasi:</b>\n\n{recommendation}",
                 parse_mode="HTML"
             )
             # Grafikni yuborgandan keyin o'chirish
             os.remove(chart_path)
         else:
-            await message.answer(f"📊 <b>{talaba['ismlar']} uchun AI Analitika:</b>\n\n{recommendation}", parse_mode="HTML")
+            await message.answer(f"📊 <b>{talaba['ismlar']} uchun AI Tahlili xulosasi:</b>\n\n{recommendation}", parse_mode="HTML")
             
     except Exception as e:
         await message.answer(f"❌ <b>Analitika jarayonida xatolik yuz berdi:</b>\n{e}", parse_mode="HTML")
