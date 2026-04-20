@@ -862,3 +862,48 @@ async def cancel_callback_handler(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text("✅ Amal bekor qilindi.")
     
     await callback.answer()
+
+# ─────────────────────────────────────────
+# AI Analitika handler
+# ─────────────────────────────────────────
+from ai_analytics import AIAnalytics
+
+@router.message(F.text == "🧠 AI Analitika")
+async def ai_analytics_handler(message: Message, state: FSMContext):
+    # Foydalanuvchi user_id si bo'yicha talabani topamiz
+    from database import get_connection, release_connection
+    import psycopg2.extras
+    
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT kod, ismlar FROM talabalar WHERE user_id = %s", (message.from_user.id,))
+    talaba = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+
+    if not talaba:
+        await message.answer("❌ <b>Sizning profilingiz tizimga ulanmagan!</b>\n\n"
+                           "Iltimos, avval profilingizni botga ulang (admin bergan kod orqali).", parse_mode="HTML")
+        return
+
+    wait_msg = await message.answer("🧠 <b>AI ma'lumotlarni tahlil qilmoqda...</b>\n\nIltimos, kuting.", parse_mode="HTML")
+    
+    try:
+        analytics = AIAnalytics()
+        chart_path, recommendation = await analytics.get_full_analysis(talaba['kod'])
+        
+        if chart_path and os.path.exists(chart_path):
+            await message.answer_photo(
+                FSInputFile(chart_path),
+                caption=f"📊 <b>{talaba['ismlar']} uchun AI Analitika:</b>\n\n{recommendation}",
+                parse_mode="HTML"
+            )
+            # Grafikni yuborgandan keyin o'chirish
+            os.remove(chart_path)
+        else:
+            await message.answer(f"📊 <b>{talaba['ismlar']} uchun AI Analitika:</b>\n\n{recommendation}", parse_mode="HTML")
+            
+    except Exception as e:
+        await message.answer(f"❌ <b>Analitika jarayonida xatolik yuz berdi:</b>\n{e}", parse_mode="HTML")
+    finally:
+        await wait_msg.delete()
