@@ -176,9 +176,12 @@ def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
     # Ikkinchi qator: Javoblarni tekshirish, Apellyatsiya yuborish
     keyboard.append([KeyboardButton(text="✅ Javoblarni tekshirish"), KeyboardButton(text="⚖️ Apellyatsiya")])
     
-    # Uchinchi qator: Statistika (agar yoqilgan bo'lsa)
+    # Uchinchi qator: Statistika va AI Analitika
+    row3 = []
     if stats_enabled == 'True':
-        keyboard.append([KeyboardButton(text="📈 Statistika")])
+        row3.append(KeyboardButton(text="📈 Statistika"))
+    row3.append(KeyboardButton(text="🧠 AI Analitika"))
+    keyboard.append(row3)
     
     # To'rtinchi qator: Admin bilan bog'lanish
     keyboard.append([KeyboardButton(text="✍️ Admin bilan bog'lanish")])
