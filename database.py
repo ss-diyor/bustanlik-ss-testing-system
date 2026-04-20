@@ -113,9 +113,15 @@ def init_db():
             username TEXT,
             first_name TEXT,
             last_name TEXT,
+            phone_number TEXT,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Eski foydalanuvchilarga phone_number ustunini qo'shish
+    try:
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number TEXT")
+    except Exception:
+        pass
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS yonalishlar (
@@ -597,17 +603,47 @@ def talaba_hammasi():
     return [dict(r) for r in rows]
 
 
-def add_user(user_id: int, username: str = None, first_name: str = None, last_name: str = None):
+def add_user(user_id: int, username: str = None, first_name: str = None, last_name: str = None, phone_number: str = None):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO users (user_id, username, first_name, last_name)
-        VALUES (%s, %s, %s, %s)
-        ON CONFLICT (user_id) DO NOTHING
-    """, (user_id, username, first_name, last_name))
+        INSERT INTO users (user_id, username, first_name, last_name, phone_number)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (user_id) DO UPDATE SET
+            username = EXCLUDED.username,
+            first_name = EXCLUDED.first_name,
+            last_name = EXCLUDED.last_name,
+            phone_number = COALESCE(EXCLUDED.phone_number, users.phone_number)
+    """, (user_id, username, first_name, last_name, phone_number))
     conn.commit()
     cur.close()
     release_connection(conn)
+
+def update_user_phone(user_id: int, phone_number: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET phone_number = %s WHERE user_id = %s", (phone_number, user_id))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def get_user(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return row
+
+def get_all_registered_users():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM users ORDER BY registered_at DESC")
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return rows
 
 def get_all_user_ids():
     conn = get_connection()

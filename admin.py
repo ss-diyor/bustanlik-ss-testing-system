@@ -108,7 +108,7 @@ from database import (
     reminder_qosh, kutilayotgan_reminders_ol, reminder_ochir,
     admin_session_start, admin_session_end, get_active_admin_sessions,
     is_admin_already_active, create_admins_table, add_admin, remove_admin, 
-    get_all_admins, is_admin_in_db
+    get_all_admins, is_admin_in_db, get_all_registered_users
 )
 from keyboards import (
     admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard, baza_tozalash_keyboard,
@@ -2211,12 +2211,34 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
 
 
 
+@router.message(F.text == "📱 Ro'yxatdan o'tganlar")
+async def registered_users_list(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    users = get_all_registered_users()
+    if not users:
+        await message.answer("⚠️ Hozircha ro'yxatdan o'tgan foydalanuvchilar yo'q.")
+        return
+    
+    text = "📱 <b>Ro'yxatdan o'tgan foydalanuvchilar:</b>\n\n"
+    for i, user in enumerate(users, 1):
+        username = f"@{user['username']}" if user['username'] else "yo'q"
+        phone = user['phone_number'] if user['phone_number'] else "kiritilmagan"
+        text += (f"{i}. <b>{user['first_name']} {user['last_name'] or ''}</b>\n"
+                f"   🆔 ID: <code>{user['user_id']}</code>\n"
+                f"   🔗 Username: {username}\n"
+                f"   📞 Tel: <code>{phone}</code>\n"
+                f"   📅 Sana: {user['registered_at'].strftime('%d.%m.%Y %H:%M')}\n\n")
+    
+    # Matn uzun bo'lsa bo'lib yuborish
+    chunks = _split_long_text(text)
+    for chunk in chunks:
+        await message.answer(chunk, parse_mode="HTML")
+
 @router.message(F.text == "🔍 Kod bo'yicha qidirish")
 async def kod_qidirish_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
     await state.set_state(KodQidirish.kod_kutish)
-    await message.answer("🔍 Qidirmoqchi bo'lgan o'quvchi kodini kiriting:")
-
+    await message.answer("🔍 Qidirish uchun o'quvchi <b>kodini</b> kiriting:", parse_mode="HTML")
 
 @router.message(KodQidirish.kod_kutish)
 async def kod_qidirish_process(message: Message, state: FSMContext):

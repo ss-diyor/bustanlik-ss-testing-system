@@ -3,6 +3,7 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton,
     SwitchInlineQueryChosenChat
 )
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from database import yonalish_ol, sinf_ol, kalit_ol, oqituvchilar_hammasi
 
 
@@ -20,6 +21,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="👥 Adminlarni boshqarish")],
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🏆 Reyting")],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
+            [KeyboardButton(text="📱 Ro'yxatdan o'tganlar")],
             [KeyboardButton(text="⏰ Eslatmalar"), KeyboardButton(text="🏫 Maktablarni boshqarish")],
             [KeyboardButton(text="📢 Guruhlarni boshqarish")],
             [KeyboardButton(text="🔔 So'rovlar"), KeyboardButton(text="⚖️ Apellyatsiyalar")],
@@ -183,13 +185,20 @@ def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
     row3.append(KeyboardButton(text="🧠 AI Tahlili"))
     keyboard.append(row3)
     
-    # To'rtinchi qator: Admin bilan bog'lanish
-    keyboard.append([KeyboardButton(text="✍️ Admin bilan bog'lanish")])
+    # To'rtinchi qator: Admin bilan bog'lanish va Chiqish
+    keyboard.append([KeyboardButton(text="✍️ Admin bilan bog'lanish"), KeyboardButton(text="🚪 Chiqish")])
     
     return ReplyKeyboardMarkup(
         keyboard=keyboard,
         resize_keyboard=True
     )
+
+def phone_number_keyboard():
+    """Telefon raqamini yuborish tugmasi"""
+    builder = ReplyKeyboardBuilder()
+    builder.row(KeyboardButton(text="📱 Raqamimni yuborish", request_contact=True))
+    builder.row(KeyboardButton(text="❌ Bekor qilish"))
+    return builder.as_markup(resize_keyboard=True)
 
 
 def test_tanlash_keyboard(yonalish: str = None):
