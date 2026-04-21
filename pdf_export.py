@@ -30,7 +30,7 @@ class PDFExporter:
         pdf.set_font("Arial", '', 12)
         pdf.cell(0, 8, f"Kod: {talaba['kod']}", ln=True)
         pdf.cell(0, 8, f"Sinf: {talaba['sinf']}", ln=True)
-        pdf.cell(0, 8, f"Yo'nalish: {talaba['yonalish']}", ln=True)
+        pdf.cell(0, 8, f"Yo'nalish: {talaba.get('yonalish') or '-'}", ln=True)
         pdf.ln(10)
         
         # Natijalar jadvali
@@ -180,7 +180,7 @@ class PDFExporter:
                 pdf.cell(15, 8, str(i), border=1)
                 pdf.cell(60, 8, talaba['ismlar'][:20], border=1)
                 pdf.cell(30, 8, talaba['kod'], border=1)
-                pdf.cell(40, 8, talaba['yonalish'][:15], border=1)
+                pdf.cell(40, 8, (talaba.get('yonalish') or '-')[:15], border=1)
                 pdf.cell(30, 8, str(talaba['umumiy_ball']), border=1, ln=True)
             
             pdf.ln(5)
