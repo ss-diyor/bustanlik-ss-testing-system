@@ -706,6 +706,21 @@ def talaba_user_id_yangila(kod: str, user_id: int):
     release_connection(conn)
 
 
+def get_all_students():
+    """Barcha o'quvchilar ro'yxatini qaytarish (faqat asosiy ma'lumotlar)"""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT kod, ismlar, sinf, yonalish, status
+        FROM talabalar
+        WHERE status != 'arxiv'
+        ORDER BY sinf ASC, ismlar ASC
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return rows
+
 def get_all_students_for_excel():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
