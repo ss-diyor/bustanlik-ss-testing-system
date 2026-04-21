@@ -651,6 +651,23 @@ async def no_action_handler(callback: CallbackQuery):
     await callback.answer()
 
 
+@router.callback_query(F.data.startswith("sinf_page:"))
+async def sinf_page_navigate(callback: CallbackQuery):
+    """Sinf tanlash klaviaturasida sahifa almashtirish."""
+    page = int(callback.data.split(":")[1])
+    await callback.message.edit_reply_markup(reply_markup=sinf_keyboard(page=page))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("sinf_ochir_page:"))
+async def sinf_ochir_page_navigate(callback: CallbackQuery, state: FSMContext):
+    """Sinf o'chirish klaviaturasida sahifa almashtirish."""
+    if not await admin_tekshir(state, callback.from_user.id): return
+    page = int(callback.data.split(":")[1])
+    await callback.message.edit_reply_markup(reply_markup=sinf_ochirish_keyboard(page=page))
+    await callback.answer()
+
+
 @router.message(F.text == "🏫 Sinflarni boshqarish")
 async def sinf_boshqar_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
