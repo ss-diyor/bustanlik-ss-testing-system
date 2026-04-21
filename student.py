@@ -18,13 +18,13 @@ from database import (
     get_avg_score_by_direction, get_class_comparison, get_most_improved_students,
     get_most_declined_students,
     get_score_difference, get_setting, check_access, add_access_request, get_request_by_user,
-    talaba_songi_natija, appeal_qosh
+    talaba_songi_natija, appeal_qosh, ai_usage_today_count, ai_usage_log
 )
 from keyboards import (
     user_menu_keyboard, murojaat_bekor_qilish_keyboard, murojaat_javob_keyboard,
     test_tanlash_keyboard, student_ranking_keyboard, stats_keyboard, profile_keyboard
 )
-from config import ADMIN_IDS
+from config import ADMIN_IDS, AI_DAILY_LIMIT
 from certificate import CertificateGenerator
 
 router = Router()
@@ -886,6 +886,15 @@ async def ai_analytics_handler(message: Message, state: FSMContext):
                            "Iltimos, avval profilingizni botga ulang (admin bergan kod orqali).", parse_mode="HTML")
         return
 
+    used_today = ai_usage_today_count()
+    if used_today >= AI_DAILY_LIMIT:
+        await message.answer(
+            "⏳ <b>Bugungi AI tahlili limiti tugadi.</b>\n\n"
+            f"Ertaga qayta urinib ko'ring. (Limit: {AI_DAILY_LIMIT} ta/kun)",
+            parse_mode="HTML"
+        )
+        return
+
     wait_msg = await message.answer("🧠 <b>AI ma'lumotlarni tahlil qilmoqda...</b>\n\nIltimos, kuting.", parse_mode="HTML")
     
     try:
@@ -902,6 +911,7 @@ async def ai_analytics_handler(message: Message, state: FSMContext):
             os.remove(chart_path)
         else:
             await message.answer(f"📊 <b>{talaba['ismlar']} uchun AI Tahlili xulosasi:</b>\n\n{recommendation}", parse_mode="HTML")
+        ai_usage_log(message.from_user.id)
             
     except Exception as e:
         await message.answer(f"❌ <b>Analitika jarayonida xatolik yuz berdi:</b>\n{e}", parse_mode="HTML")

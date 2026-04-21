@@ -268,6 +268,16 @@ def init_db():
         )
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ai_usage_logs (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_created_at ON ai_usage_logs(created_at)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_user_id ON ai_usage_logs(user_id)")
+
     # Mavjud jadvallarga maktab_id qo'shish
     tables_to_update = ['talabalar', 'yonalishlar', 'sinflar', 'test_kalitlari']
     for table in tables_to_update:
@@ -815,6 +825,25 @@ def get_user(user_id: int):
     cur.close()
     release_connection(conn)
     return row
+
+
+def ai_usage_today_count() -> int:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM ai_usage_logs WHERE created_at::date = CURRENT_DATE")
+    count = cur.fetchone()[0]
+    cur.close()
+    release_connection(conn)
+    return count
+
+
+def ai_usage_log(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO ai_usage_logs (user_id) VALUES (%s)", (user_id,))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
 
 def get_all_registered_users():
     conn = get_connection()

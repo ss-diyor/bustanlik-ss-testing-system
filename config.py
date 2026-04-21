@@ -7,6 +7,14 @@ def _env(name: str, default: str | None = None, required: bool = False) -> str:
     return (value or "").strip()
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer") from exc
+
+
 def _parse_admin_ids(raw_value: str) -> list[int]:
     ids = []
     for item in raw_value.split(","):
@@ -43,6 +51,7 @@ MAX_SAVOL = 30             # Har bir guruhda maksimal savol soni
 AI_API_KEY = _env("AI_API_KEY", "")
 AI_MODEL = _env("AI_MODEL", "gpt-4o-mini")
 AI_BASE_URL = _env("AI_BASE_URL", "https://api.openai.com/v1")
+AI_DAILY_LIMIT = _env_int("AI_DAILY_LIMIT", 40)
 
 # Mavjud yo'nalishlar (asosiy fan juftliklari)
 YONALISHLAR = [
