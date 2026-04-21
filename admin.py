@@ -99,6 +99,7 @@ from database import (
     get_student_rank, get_score_difference,
     get_class_comparison, get_avg_score_by_direction, get_most_improved_students,
     get_most_declined_students,
+    get_sorted_students_for_excel,
     get_setting, set_setting, guruhlar_ol, guruh_qosh,
     appeal_qosh, appeal_javob_ber, appeals_ol, oqituvchi_ol, oqituvchi_qosh, oqituvchi_ochir,
     oqituvchilar_hammasi,
@@ -1601,6 +1602,24 @@ async def export_excel(message: Message, state: FSMContext):
     df.to_excel(path, index=False)
     
     await message.answer_document(FSInputFile(path), caption="📊 Barcha o'quvchilar va natijalar ro'yxati (Excel)")
+    if os.path.exists(path):
+        os.remove(path)
+
+@router.message(F.text == "🏆 Reyting Excel")
+async def export_ranking_excel(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    data = get_sorted_students_for_excel()
+    if not data:
+        await message.answer("⚠️ Ma'lumotlar yo'q (Natijalar hali mavjud emas).")
+        return
+    
+    path = f"reyting_{message.from_user.id}.xlsx"
+    df = pd.DataFrame(data)
+    # Ustunlarni chiroyli qilish
+    df.columns = ["Kod", "Sinf", "Yo'nalish", "Ism-sharif", "Majburiy", "1-Asosiy", "2-Asosiy", "Umumiy ball", "Sana"]
+    df.to_excel(path, index=False)
+    
+    await message.answer_document(FSInputFile(path), caption="🏆 Ballar bo'yicha saralangan reyting ro'yxati (Excel)")
     if os.path.exists(path):
         os.remove(path)
 

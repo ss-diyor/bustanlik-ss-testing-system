@@ -583,6 +583,28 @@ def get_all_students_for_excel():
     release_connection(conn)
     return [dict(r) for r in rows]
 
+def get_sorted_students_for_excel():
+    """Barcha o'quvchilarni ballari bo'yicha kamayish tartibida (reyting) oladi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT t.kod, t.sinf, t.yonalish, t.ismlar,
+               n.majburiy, n.asosiy_1, n.asosiy_2, n.umumiy_ball, n.test_sanasi
+        FROM talabalar t
+        LEFT JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        WHERE n.umumiy_ball IS NOT NULL
+        ORDER BY n.umumiy_ball DESC
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
 def talaba_hammasi():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)

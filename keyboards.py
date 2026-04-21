@@ -26,6 +26,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="📢 Guruhlarni boshqarish")],
             [KeyboardButton(text="🔔 So'rovlar"), KeyboardButton(text="⚖️ Apellyatsiyalar")],
             [KeyboardButton(text="⚙️ Sozlamalar"), KeyboardButton(text="📥 Excelga yuklash")],
+            [KeyboardButton(text="🏆 Reyting Excel")],
             [KeyboardButton(text="🧹 Bazani tozalash")],
             [KeyboardButton(text="📢 Xabar yuborish")],
             [KeyboardButton(text="🔍 Kod bo'yicha qidirish")],
