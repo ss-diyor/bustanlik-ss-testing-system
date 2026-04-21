@@ -1,5 +1,3 @@
-from dotenv import load_dotenv
-load_dotenv()
 import asyncio
 import logging
 import os
@@ -236,7 +234,7 @@ async def main():
     await dp.start_polling(
         bot, 
         handle_signals=False,
-        allowed_updates=["message", "callback_query", "edited_message"]
+        allowed_updates=["message", "callback_query", "edited_message", "inline_query"]
     )
 
 
