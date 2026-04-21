@@ -165,6 +165,7 @@ class YonalishBoshqar(StatesGroup):
 
 class SinfBoshqar(StatesGroup):
     nomi_kutish = State()
+    maktab_kutish = State()
 
 class Broadcast(StatesGroup):
     xabar_kutish = State()
@@ -680,15 +681,36 @@ async def sinf_boshqar_actions(callback: CallbackQuery, state: FSMContext):
 
 
 @router.message(SinfBoshqar.nomi_kutish)
-async def sinf_nomi_saqla(message: Message, state: FSMContext):
+async def sinf_nomi_kutish(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
     nomi = message.text.strip()
-    if sinf_qosh(nomi):
-        await message.answer(f"✅ Yangi sinf qo'shildi: <b>{nomi}</b>",
-                             parse_mode="HTML", reply_markup=admin_menu_keyboard())
+    await state.update_data(sinf_nomi=nomi)
+    
+    maktablar = maktablar_ol()
+    await state.set_state(SinfBoshqar.maktab_kutish)
+    from keyboards import maktab_tanlash_keyboard
+    await message.answer(f"🏫 <b>{nomi}</b> sinfi qaysi maktabga tegishli?", 
+                         parse_mode="HTML", 
+                         reply_markup=maktab_tanlash_keyboard(maktablar, "sinf_maktab"))
+
+@router.callback_query(SinfBoshqar.maktab_kutish, F.data.startswith("sinf_maktab:"))
+async def sinf_maktab_saqla(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    maktab_id = int(callback.data.split(":")[1])
+    data = await state.get_data()
+    nomi = data.get("sinf_nomi")
+    
+    if sinf_qosh(nomi, maktab_id):
+        maktablar = maktablar_ol()
+        maktab_nomi = next((m['nomi'] for m in maktablar if m['id'] == maktab_id), "Noma'lum")
+        await callback.message.edit_text(f"✅ Yangi sinf qo'shildi: <b>{nomi} - {maktab_nomi}</b>",
+                                         parse_mode="HTML")
+        await callback.message.answer("Admin menyusi:", reply_markup=admin_menu_keyboard())
     else:
-        await message.answer("❌ Bu sinf allaqachon mavjud.")
-    await state.set_state(None)
+        await callback.message.edit_text("❌ Bu sinf ushbu maktabda allaqachon mavjud.")
+    
+    await state.clear()
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("sinf_ochir:"))

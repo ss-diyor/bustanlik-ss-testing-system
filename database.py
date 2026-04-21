@@ -133,7 +133,9 @@ def init_db():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS sinflar (
             id SERIAL PRIMARY KEY,
-            nomi TEXT UNIQUE NOT NULL
+            nomi TEXT NOT NULL,
+            maktab_id INTEGER DEFAULT 1,
+            UNIQUE (nomi, maktab_id)
         )
     """)
 
@@ -195,7 +197,31 @@ def init_db():
         )
     """)
 
-    cur.execute("INSERT INTO maktablar (nomi) VALUES ('Asosiy maktab') ON CONFLICT DO NOTHING")
+    # Maktablar jadvalini tekshirish va 'Bo'stonliq ITMA' ni yaratish/yangilash
+    cur.execute("SELECT id FROM maktablar WHERE nomi = 'Asosiy maktab' OR nomi = 'Bo''stonliq ITMA' LIMIT 1")
+    row = cur.fetchone()
+    if row:
+        maktab_id = row[0]
+        cur.execute("UPDATE maktablar SET nomi = 'Bo''stonliq ITMA' WHERE id = %s", (maktab_id,))
+    else:
+        cur.execute("INSERT INTO maktablar (nomi) VALUES ('Bo''stonliq ITMA') RETURNING id")
+        maktab_id = cur.fetchone()[0]
+    
+    # Barcha mavjud sinflarni ushbu maktabga biriktirish (agar maktab_id bo'sh bo'lsa)
+    try:
+        cur.execute("UPDATE sinflar SET maktab_id = %s WHERE maktab_id IS NULL", (maktab_id,))
+    except Exception:
+        pass
+
+    # Mavjud talabalarning sinf nomini yangilash (agar formatga tushmasa)
+    try:
+        cur.execute("""
+            UPDATE talabalar 
+            SET sinf = sinf || ' - Bo''stonliq ITMA' 
+            WHERE sinf IS NOT NULL AND sinf NOT LIKE '% - %'
+        """)
+    except Exception:
+        pass
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS reminders (
@@ -291,17 +317,22 @@ def yonalish_ochir(nomi: str):
 def sinf_ol():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT nomi FROM sinflar ORDER BY nomi ASC")
+    cur.execute("""
+        SELECT s.nomi as sinf_nomi, m.nomi as maktab_nomi 
+        FROM sinflar s 
+        JOIN maktablar m ON s.maktab_id = m.id 
+        ORDER BY m.nomi ASC, s.nomi ASC
+    """)
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)
-    return [r["nomi"] for r in rows]
+    return [f"{r['sinf_nomi']} - {r['maktab_nomi']}" for r in rows]
 
-def sinf_qosh(nomi: str) -> bool:
+def sinf_qosh(nomi: str, maktab_id: int = 1) -> bool:
     try:
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("INSERT INTO sinflar (nomi) VALUES (%s)", (nomi,))
+        cur.execute("INSERT INTO sinflar (nomi, maktab_id) VALUES (%s, %s)", (nomi, maktab_id))
         conn.commit()
         cur.close()
         release_connection(conn)
@@ -309,13 +340,21 @@ def sinf_qosh(nomi: str) -> bool:
     except Exception:
         return False
 
-def sinf_ochir(nomi: str):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM sinflar WHERE nomi = %s", (nomi,))
-    conn.commit()
-    cur.close()
-    release_connection(conn)
+def sinf_ochir(full_name: str):
+    # full_name format: "Sinf nomi - Maktab nomi"
+    try:
+        sinf_nomi, maktab_nomi = full_name.split(" - ")
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            DELETE FROM sinflar 
+            WHERE nomi = %s AND maktab_id = (SELECT id FROM maktablar WHERE nomi = %s)
+        """, (sinf_nomi, maktab_nomi))
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+    except Exception:
+        pass
 
 
 def kalit_qosh(test_nomi: str, kalitlar: str, yonalish: str = None) -> bool:
@@ -1368,13 +1407,32 @@ def maktab_ochir(maktab_id: int):
     cur.close()
     release_connection(conn)
 
-def sinf_maktabga_bogla(sinf_nomi: str, maktab_id: int):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE sinflar SET maktab_id = %s WHERE nomi = %s", (maktab_id, sinf_nomi))
-    conn.commit()
-    cur.close()
-    release_connection(conn)
+def sinf_maktabga_bogla(full_name: str, maktab_id: int):
+    # full_name format: "Sinf nomi - Maktab nomi"
+    try:
+        parts = full_name.split(" - ")
+        sinf_nomi = parts[0]
+        
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        # Yangi maktab nomini olish
+        cur.execute("SELECT nomi FROM maktablar WHERE id = %s", (maktab_id,))
+        yangi_maktab_nomi = cur.fetchone()[0]
+        yangi_full_name = f"{sinf_nomi} - {yangi_maktab_nomi}"
+        
+        # Sinflar jadvalini yangilash
+        cur.execute("UPDATE sinflar SET maktab_id = %s WHERE nomi = %s AND maktab_id = (SELECT id FROM maktablar WHERE nomi = %s)", 
+                    (maktab_id, sinf_nomi, parts[1]))
+        
+        # Talabalar jadvalini yangilash
+        cur.execute("UPDATE talabalar SET sinf = %s WHERE sinf = %s", (yangi_full_name, full_name))
+        
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+    except Exception:
+        pass
 
 def maktab_sinflari_ol(maktab_id: int):
     conn = get_connection()

@@ -473,3 +473,10 @@ def appeal_action_keyboard(appeal_id):
         [InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"appeal_reply:{appeal_id}")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="appeal_list")]
     ])
+
+def maktab_tanlash_keyboard(maktablar, prefix="select_maktab"):
+    buttons = []
+    for m in maktablar:
+        buttons.append([InlineKeyboardButton(text=f"🏫 {m['nomi']}", callback_data=f"{prefix}:{m['id']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Bekor qilish", callback_data="cancel:admin_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
