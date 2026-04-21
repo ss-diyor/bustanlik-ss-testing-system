@@ -131,7 +131,7 @@ from keyboards import (
     talaba_tahrirlash_keyboard, talaba_edit_options_keyboard, maktab_statistikasi_keyboard,
     maktab_solishtirish_keyboard, maktab_comp2_keyboard, natijalar_ochirish_keyboard,
     sinf_transferi_keyboard, sinf_tanlash_transfer_keyboard, yangi_sinf_tanlash_keyboard,
-    bitiruvchilarni_arxivlash_keyboard, sinf_arxivlash_keyboard,
+    bitiruvchilar_arxivlash_keyboard, sinf_arxivlash_keyboard,
     dublikatlar_keyboard, dublikat_birlashtirish_keyboard,
     # PDF export klaviaturalar
     pdf_export_keyboard, sinf_tanlash_pdf_keyboard
