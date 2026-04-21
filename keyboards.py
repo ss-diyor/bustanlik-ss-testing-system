@@ -59,33 +59,80 @@ def yonalish_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def sinf_keyboard():
+SINF_PAGE_SIZE = 8  # Bir sahifada nechta sinf ko'rsatiladi
+
+
+def _build_sinf_page_buttons(sinflar: list, page: int, page_callback: str, sinf_callback_prefix: str, back_callback: str) -> InlineKeyboardMarkup:
     """
-    Sinflarni inline tugmalar sifatida chiqaradi.
-    callback_data: sinf_id:{id}  — nom emas, ID ishlatiladi (xavfsiz, 64-byte limit yo'q).
-    Sinflar maktab bo'yicha guruhlangan.
+    Umumiy pagination klaviatura quruvchi.
+    sinflar        — sinf_ol_batafsil() natijasi
+    page           — joriy sahifa (0 dan boshlanadi)
+    page_callback  — sahifa almashtirish uchun prefix (masalan: 'sinf_page')
+    sinf_callback_prefix — sinf bosilganda prefix (masalan: 'sinf_id')
+    back_callback  — Orqaga tugmasi callback
+    """
+    total = len(sinflar)
+    total_pages = max(1, (total + SINF_PAGE_SIZE - 1) // SINF_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+
+    start = page * SINF_PAGE_SIZE
+    end = start + SINF_PAGE_SIZE
+    sahifadagi_sinflar = sinflar[start:end]
+
+    buttons = []
+
+    # Maktab sarlavhasi + sinf tugmalari
+    joriy_maktab = None
+    for s in sahifadagi_sinflar:
+        if s['maktab_nomi'] != joriy_maktab:
+            joriy_maktab = s['maktab_nomi']
+            buttons.append([InlineKeyboardButton(
+                text=f"🏫 {joriy_maktab}",
+                callback_data="no_action"
+            )])
+        label = s.get("button_text", f"  📚 {s['nomi']}")
+        buttons.append([InlineKeyboardButton(
+            text=label,
+            callback_data=f"{sinf_callback_prefix}:{s['id']}"
+        )])
+
+    # Navigatsiya qatori
+    if total_pages > 1:
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton(text="◀️ Oldingi", callback_data=f"{page_callback}:{page - 1}"))
+        nav.append(InlineKeyboardButton(
+            text=f"📄 {page + 1}/{total_pages}",
+            callback_data="no_action"
+        ))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton(text="Keyingi ▶️", callback_data=f"{page_callback}:{page + 1}"))
+        buttons.append(nav)
+
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data=back_callback)])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def sinf_keyboard(page: int = 0) -> InlineKeyboardMarkup:
+    """
+    Sinf tanlash klaviaturasi (sahifalangan).
+    callback_data: sinf_id:{id}
+    Sahifa navigatsiyasi: sinf_page:{page}
     """
     sinflar = sinf_ol_batafsil()
     if not sinflar:
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="⚠️ Sinflar yo'q", callback_data="no_action")]
         ])
-
-    buttons = []
-    joriy_maktab = None
     for s in sinflar:
-        if s['maktab_nomi'] != joriy_maktab:
-            joriy_maktab = s['maktab_nomi']
-            # Maktab sarlavhasi (bosilmaydi)
-            buttons.append([InlineKeyboardButton(
-                text=f"🏫 {joriy_maktab}",
-                callback_data="no_action"
-            )])
-        buttons.append([InlineKeyboardButton(
-            text=f"  📚 {s['nomi']}",
-            callback_data=f"sinf_id:{s['id']}"
-        )])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+        s["button_text"] = f"  📚 {s['nomi']}"
+    return _build_sinf_page_buttons(
+        sinflar=sinflar,
+        page=page,
+        page_callback="sinf_page",
+        sinf_callback_prefix="sinf_id",
+        back_callback="cancel:admin_menu"
+    )
 
 
 def yonalish_boshqarish_keyboard():
@@ -156,10 +203,11 @@ def yonalish_ochirish_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def sinf_ochirish_keyboard():
+def sinf_ochirish_keyboard(page: int = 0) -> InlineKeyboardMarkup:
     """
-    Sinflarni o'chirish uchun ro'yxat.
+    Sinflarni o'chirish klaviaturasi (sahifalangan).
     callback_data: sinf_ochir_id:{id}
+    Sahifa navigatsiyasi: sinf_ochir_page:{page}
     """
     sinflar = sinf_ol_batafsil()
     if not sinflar:
@@ -167,21 +215,15 @@ def sinf_ochirish_keyboard():
             [InlineKeyboardButton(text="⚠️ Sinflar yo'q", callback_data="no_action")],
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_boshqar:orqaga")]
         ])
-    buttons = []
-    joriy_maktab = None
     for s in sinflar:
-        if s['maktab_nomi'] != joriy_maktab:
-            joriy_maktab = s['maktab_nomi']
-            buttons.append([InlineKeyboardButton(
-                text=f"🏫 {joriy_maktab}",
-                callback_data="no_action"
-            )])
-        buttons.append([InlineKeyboardButton(
-            text=f"❌ {s['nomi']}",
-            callback_data=f"sinf_ochir_id:{s['id']}"
-        )])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_boshqar:orqaga")])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+        s["button_text"] = f"❌ {s['nomi']}"
+    return _build_sinf_page_buttons(
+        sinflar=sinflar,
+        page=page,
+        page_callback="sinf_ochir_page",
+        sinf_callback_prefix="sinf_ochir_id",
+        back_callback="sinf_boshqar:orqaga"
+    )
 
 
 def tasdiqlash_keyboard():
