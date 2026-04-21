@@ -135,7 +135,7 @@ from keyboards import (
     dublikatlar_keyboard, dublikat_birlashtirish_keyboard,
     # PDF export klaviaturalar
     pdf_export_keyboard, sinf_tanlash_pdf_keyboard,
-    maktab_tanlash_keyboard
+    maktab_tanlash_keyboard, broadcast_cancel_keyboard, broadcast_confirm_keyboard
 )
 
 router = Router()
@@ -199,6 +199,7 @@ class SinfBoshqar(StatesGroup):
 
 class Broadcast(StatesGroup):
     xabar_kutish = State()
+    tasdiq_kutish = State()
 
 class MurojaatJavob(StatesGroup):
     javob_kutish = State()
@@ -1958,23 +1959,71 @@ async def ranking_admin_callback(callback: CallbackQuery, state: FSMContext):
 async def broadcast_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
     await state.set_state(Broadcast.xabar_kutish)
-    await message.answer("📢 Barcha foydalanuvchilarga yuboriladigan xabarni yozing:")
+    await message.answer(
+        "📢 Barcha foydalanuvchilarga yuboriladigan xabarni yuboring.\n"
+        "Bekor qilish uchun tugmani bosing.",
+        reply_markup=broadcast_cancel_keyboard()
+    )
+
+
+@router.message(Broadcast.xabar_kutish, F.text == "❌ Xabar yuborishni bekor qilish")
+async def broadcast_cancel_during_input(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    await state.clear()
+    await message.answer("❌ Xabar yuborish bekor qilindi.", reply_markup=admin_menu_keyboard())
 
 
 @router.message(Broadcast.xabar_kutish)
 async def broadcast_process(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
+    preview = message.text or message.caption or f"{message.content_type} formatdagi xabar"
+    await state.update_data(
+        broadcast_source_chat_id=message.chat.id,
+        broadcast_source_message_id=message.message_id
+    )
+    await state.set_state(Broadcast.tasdiq_kutish)
+    await message.answer(
+        f"📨 Xabar tayyor:\n\n{preview}\n\nJo'natishni tasdiqlaysizmi?",
+        reply_markup=broadcast_confirm_keyboard()
+    )
+
+
+@router.callback_query(Broadcast.tasdiq_kutish, F.data == "broadcast:cancel")
+async def broadcast_cancel_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    await state.clear()
+    await callback.message.edit_text("❌ Xabar yuborish bekor qilindi.")
+    await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(Broadcast.tasdiq_kutish, F.data == "broadcast:confirm")
+async def broadcast_confirm_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    data = await state.get_data()
+    src_chat_id = data.get("broadcast_source_chat_id")
+    src_message_id = data.get("broadcast_source_message_id")
+    if not src_chat_id or not src_message_id:
+        await state.clear()
+        await callback.message.edit_text("❌ Xabar topilmadi. Qaytadan urinib ko'ring.")
+        await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
+        await callback.answer()
+        return
+
     user_ids = get_all_user_ids()
     count = 0
     for uid in user_ids:
         try:
-            await message.copy_to(uid)
+            await callback.bot.copy_message(chat_id=uid, from_chat_id=src_chat_id, message_id=src_message_id)
             count += 1
             await asyncio.sleep(0.05)
         except Exception:
             continue
-    await message.answer(f"✅ Xabar <b>{count}</b> ta foydalanuvchiga yuborildi.", parse_mode="HTML")
-    await state.set_state(None)
+
+    await state.clear()
+    await callback.message.edit_text(f"✅ Xabar <b>{count}</b> ta foydalanuvchiga yuborildi.", parse_mode="HTML")
+    await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
+    await callback.answer()
 
 
 @router.message(F.text == "⚖️ Apellyatsiyalar")
@@ -2506,6 +2555,32 @@ async def talaba_yonalish_tahrirlash_process(message: Message, state: FSMContext
         await message.answer("Xatolik yuz berdi.")
     
     await state.set_state(None)
+
+
+@router.callback_query(TalabaTahrirlash.yonalish_kutish, F.data.startswith("yonalish:"))
+async def talaba_yonalish_tahrirlash_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+
+    data = await state.get_data()
+    kod = data.get('talaba_kod')
+    if not kod:
+        await callback.message.edit_text("Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+        await state.clear()
+        await callback.answer()
+        return
+
+    yangi_yonalish = callback.data.split(":", 1)[1]
+
+    if talaba_tahrirlash(kod, yonalish=yangi_yonalish):
+        await callback.message.edit_text(
+            f"✅ O'quvchi yo'nalishi muvaffaqiyatli o'zgartirildi: <b>{yangi_yonalish}</b>",
+            parse_mode="HTML"
+        )
+    else:
+        await callback.message.edit_text("❌ Xatolik yuz berdi.")
+
+    await state.clear()
+    await callback.answer()
 
 # =====================================================================
 # TUZATILGAN: Ishlamayotgan 6 ta tugma uchun F.text handlerlari

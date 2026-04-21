@@ -242,6 +242,24 @@ def tasdiqlash_keyboard():
     ])
 
 
+def broadcast_cancel_keyboard():
+    """Xabar yuborishni bekor qilish uchun vaqtinchalik keyboard."""
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="❌ Xabar yuborishni bekor qilish")]],
+        resize_keyboard=True
+    )
+
+
+def broadcast_confirm_keyboard():
+    """Xabar yuborishni tasdiqlash/rad etish tugmalari."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Jo'natish", callback_data="broadcast:confirm"),
+            InlineKeyboardButton(text="❌ Bekor qilish", callback_data="broadcast:cancel"),
+        ]
+    ])
+
+
 def baza_tozalash_keyboard():
     """Bazani tozalashni tasdiqlash uchun inline tugmalar."""
     return InlineKeyboardMarkup(inline_keyboard=[
