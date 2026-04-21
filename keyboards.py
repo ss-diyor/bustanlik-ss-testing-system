@@ -274,8 +274,8 @@ def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
     """Foydalanuvchi asosiy menyusi (Dinamik)."""
     keyboard = []
     
-    # Birinchi qator: Mening natijalarim, Shaxsiy kabinet, Mening o'rnim
-    row1 = [KeyboardButton(text="📊 Mening natijalarim"), KeyboardButton(text="👤 Shaxsiy kabinet")]
+    # Birinchi qator: Mening natijam, Shaxsiy kabinet, Mening o'rnim
+    row1 = [KeyboardButton(text="📊 Mening natijam"), KeyboardButton(text="👤 Shaxsiy kabinet")]
     if ranking_enabled == 'True':
         row1.append(KeyboardButton(text="🏆 Mening o'rnim"))
     keyboard.append(row1)
