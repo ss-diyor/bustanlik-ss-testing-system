@@ -102,20 +102,20 @@ class PDFExporter:
         pdf.ln(10)
         
         # Jadval
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(50, 8, "Maktab", border=1)
-        pdf.cell(30, 8, "Sinf", border=1)
-        pdf.cell(40, 8, "O'quvchilar", border=1)
-        pdf.cell(40, 8, "O'rtacha", border=1)
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(55, 8, "Maktab", border=1)
+        pdf.cell(70, 8, "Sinf", border=1)
+        pdf.cell(28, 8, "O'quvchilar", border=1)
+        pdf.cell(30, 8, "O'rtacha", border=1)
         pdf.cell(30, 8, "Eng yuqori", border=1)
         pdf.cell(30, 8, "Eng past", border=1, ln=True)
         
-        pdf.set_font("Arial", '', 10)
+        pdf.set_font("Arial", '', 9)
         for stat in stats:
-            pdf.cell(50, 8, stat['maktab_nomi'][:15], border=1)
-            pdf.cell(30, 8, stat['sinf'], border=1)
-            pdf.cell(40, 8, str(stat['oquvchilar_soni']), border=1)
-            pdf.cell(40, 8, f"{stat['ortacha_ball']:.1f}", border=1)
+            pdf.cell(55, 8, stat['maktab_nomi'], border=1)
+            pdf.cell(70, 8, stat['sinf'], border=1)
+            pdf.cell(28, 8, str(stat['oquvchilar_soni']), border=1)
+            pdf.cell(30, 8, f"{stat['ortacha_ball']:.1f}", border=1)
             pdf.cell(30, 8, f"{stat['eng_yuqori_ball']:.1f}", border=1)
             pdf.cell(30, 8, f"{stat['eng_past_ball']:.1f}", border=1, ln=True)
         
@@ -149,7 +149,8 @@ class PDFExporter:
         elif not sinf:
             sinflar = sinflar
         
-        pdf = FPDF()
+        # Reyting jadvalida yo'nalish matni to'liq ko'rinishi uchun landscape
+        pdf = FPDF(orientation='L')
         pdf.add_page()
         pdf.set_font("Arial", 'B', 16)
         
@@ -169,19 +170,19 @@ class PDFExporter:
             pdf.set_font("Arial", 'B', 10)
             
             # Jadval sarlavhalari
-            pdf.cell(15, 8, "No", border=1)
-            pdf.cell(60, 8, "Ism", border=1)
-            pdf.cell(30, 8, "Kod", border=1)
-            pdf.cell(40, 8, "Yo'nalish", border=1)
-            pdf.cell(30, 8, "Ball", border=1, ln=True)
+            pdf.cell(12, 8, "No", border=1)
+            pdf.cell(80, 8, "Ism", border=1)
+            pdf.cell(35, 8, "Kod", border=1)
+            pdf.cell(95, 8, "Yo'nalish", border=1)
+            pdf.cell(25, 8, "Ball", border=1, ln=True)
             
             pdf.set_font("Arial", '', 9)
             for i, talaba in enumerate(talabalar[:20], 1):  # Top 20
-                pdf.cell(15, 8, str(i), border=1)
-                pdf.cell(60, 8, talaba['ismlar'][:20], border=1)
-                pdf.cell(30, 8, talaba['kod'], border=1)
-                pdf.cell(40, 8, (talaba.get('yonalish') or '-')[:15], border=1)
-                pdf.cell(30, 8, str(talaba['umumiy_ball']), border=1, ln=True)
+                pdf.cell(12, 8, str(i), border=1)
+                pdf.cell(80, 8, talaba['ismlar'][:35], border=1)
+                pdf.cell(35, 8, talaba['kod'], border=1)
+                pdf.cell(95, 8, talaba.get('yonalish') or '-', border=1)
+                pdf.cell(25, 8, str(talaba['umumiy_ball']), border=1, ln=True)
             
             pdf.ln(5)
         
