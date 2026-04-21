@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 
