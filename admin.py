@@ -113,7 +113,7 @@ from database import (
 get_all_admins, is_admin_in_db, get_all_registered_users,
     # Yangi funktsiyalar
     talaba_tahrirlash, maktab_statistikasi, bitta_natija_ochir, sinf_transferi, 
-    bitiruvchilarni_arxivlash, dublikatlarni_topish, dublikatlarni_birlashtir, 
+    bitiruvchilarni_arxivlash, bitiruvchilarni_arxivdan_chiqarish, dublikatlarni_topish, dublikatlarni_birlashtir,
     talaba_natijalari, maktablar_ol, get_all_students
 )
 from keyboards import (
@@ -131,7 +131,7 @@ from keyboards import (
     talaba_tahrirlash_keyboard, talaba_edit_options_keyboard, maktab_statistikasi_keyboard,
     maktab_solishtirish_keyboard, maktab_comp2_keyboard, natijalar_ochirish_keyboard,
     sinf_transferi_keyboard, sinf_tanlash_transfer_keyboard, yangi_sinf_tanlash_keyboard,
-    bitiruvchilar_arxivlash_keyboard, sinf_arxivlash_keyboard,
+    bitiruvchilar_arxivlash_keyboard, sinf_arxivlash_keyboard, sinf_arxivdan_chiqarish_keyboard,
     dublikatlar_keyboard, dublikat_birlashtirish_keyboard,
     # PDF export klaviaturalar
     pdf_export_keyboard, sinf_tanlash_pdf_keyboard,
@@ -2524,7 +2524,7 @@ async def talaba_malumot_tahrirlash_start(message: Message, state: FSMContext):
     await message.answer(
         "✏️ <b>Tahrirlash uchun o'quvchini tanlang:</b>",
         parse_mode="HTML",
-        reply_markup=talaba_tahrirlash_keyboard(talabalar)
+        reply_markup=talaba_tahrirlash_keyboard(talabalar, page=1)
     )
 
 
@@ -2749,7 +2749,31 @@ async def talaba_tahrirlash_back_callback(callback: CallbackQuery, state: FSMCon
     await callback.message.edit_text(
         "✏️ <b>Tahrirlash uchun o'quvchini tanlang:</b>",
         parse_mode="HTML",
-        reply_markup=talaba_tahrirlash_keyboard(talabalar)
+        reply_markup=talaba_tahrirlash_keyboard(talabalar, page=1)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("talaba_edit_page:"))
+async def talaba_tahrirlash_page_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    page_value = callback.data.split(":", 1)[1]
+    if page_value == "noop":
+        await callback.answer()
+        return
+
+    talabalar = get_all_students()
+    if not talabalar:
+        await callback.message.edit_text("❌ O'quvchilar topilmadi.")
+        await callback.answer()
+        return
+
+    await callback.message.edit_text(
+        "✏️ <b>Tahrirlash uchun o'quvchini tanlang:</b>",
+        parse_mode="HTML",
+        reply_markup=talaba_tahrirlash_keyboard(talabalar, page=int(page_value))
     )
     await callback.answer()
 
@@ -2769,7 +2793,7 @@ async def maktab_stat_barchasi_callback(callback: CallbackQuery, state: FSMConte
         text += (
             f"🏫 <b>{stat['maktab_nomi']}</b> - {stat['sinf']}\n"
             f"👥 O'quvchilar: {stat['oquvchilar_soni']} ta\n"
-            f"📈 O'rtacha ball: {stat['o\'rtacha_ball']:.1f}\n"
+            f"📈 O'rtacha ball: {stat['ortacha_ball']:.1f}\n"
             f"🏆 Eng yuqori: {stat['eng_yuqori_ball']:.1f}\n"
             f"📉 Eng past: {stat['eng_past_ball']:.1f}\n\n"
         )
@@ -2804,7 +2828,7 @@ async def maktab_stat_ayrim_callback(callback: CallbackQuery, state: FSMContext)
         text += (
             f"🏫 {stat['sinf']}\n"
             f"👥 O'quvchilar: {stat['oquvchilar_soni']} ta\n"
-            f"📈 O'rtacha ball: {stat['o\'rtacha_ball']:.1f}\n"
+            f"📈 O'rtacha ball: {stat['ortacha_ball']:.1f}\n"
             f"🏆 Eng yuqori: {stat['eng_yuqori_ball']:.1f}\n"
             f"📉 Eng past: {stat['eng_past_ball']:.1f}\n\n"
         )
@@ -2868,6 +2892,19 @@ async def sinf_transfer_tanlash_callback(callback: CallbackQuery, state: FSMCont
     )
     await callback.answer()
 
+
+@router.callback_query(F.data == "sinf_transfer:menu")
+async def sinf_transfer_menu_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    await callback.message.edit_text(
+        "🔄 <b>Sinf transferi</b>\n\nQaysi amalni bajarmoqchisiz?",
+        parse_mode="HTML",
+        reply_markup=sinf_transferi_keyboard()
+    )
+    await callback.answer()
+
 @router.callback_query(F.data.startswith("sinf_transfer_eski:"))
 async def sinf_transfer_eski_callback(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id): return
@@ -2915,6 +2952,18 @@ async def arxivlash_tanlash_callback(callback: CallbackQuery, state: FSMContext)
     )
     await callback.answer()
 
+
+@router.callback_query(F.data == "arxivlash:chiqarish")
+async def arxivdan_chiqarish_tanlash_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    await callback.message.edit_text(
+        "📤 Arxivdan chiqarish uchun sinfni tanlang:",
+        reply_markup=sinf_arxivdan_chiqarish_keyboard()
+    )
+    await callback.answer()
+
 @router.callback_query(F.data.startswith("arxivlash_sinf:"))
 async def arxivlash_sinf_callback(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id): return
@@ -2924,6 +2973,20 @@ async def arxivlash_sinf_callback(callback: CallbackQuery, state: FSMContext):
     
     await callback.message.edit_text(
         f"{sinf} sinfidan {count} ta o'quvchi arxivlandi."
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("arxivdan_chiqarish_sinf:"))
+async def arxivdan_chiqarish_sinf_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    sinf = callback.data.split(":")[1]
+    count = bitiruvchilarni_arxivdan_chiqarish(sinf)
+
+    await callback.message.edit_text(
+        f"{sinf} sinfidan {count} ta o'quvchi arxivdan chiqarildi."
     )
     await callback.answer()
 
@@ -3021,8 +3084,8 @@ async def maktab_comp2_callback(callback: CallbackQuery, state: FSMContext):
     # Umumiy statistikani solishtirish
     total1 = sum(s['oquvchilar_soni'] for s in stats1)
     total2 = sum(s['oquvchilar_soni'] for s in stats2)
-    avg1 = sum(s['o\'rtacha_ball'] * s['oquvchilar_soni'] for s in stats1) / total1 if total1 > 0 else 0
-    avg2 = sum(s['o\'rtacha_ball'] * s['oquvchilar_soni'] for s in stats2) / total2 if total2 > 0 else 0
+    avg1 = sum(s['ortacha_ball'] * s['oquvchilar_soni'] for s in stats1) / total1 if total1 > 0 else 0
+    avg2 = sum(s['ortacha_ball'] * s['oquvchilar_soni'] for s in stats2) / total2 if total2 > 0 else 0
     
     text += f"👥 O'quvchilar soni: {total1} vs {total2}\n"
     text += f"📈 O'rtacha ball: {avg1:.1f} vs {avg2:.1f}\n\n"
@@ -3038,7 +3101,7 @@ async def maktab_comp2_callback(callback: CallbackQuery, state: FSMContext):
         for sinf in sorted(common_sinflar):
             s1 = sinflar1[sinf]
             s2 = sinflar2[sinf]
-            text += f"📌 {sinf}: {s1['o\'rtacha_ball']:.1f} vs {s2['o\'rtacha_ball']:.1f}\n"
+            text += f"📌 {sinf}: {s1['ortacha_ball']:.1f} vs {s2['ortacha_ball']:.1f}\n"
     
     await callback.message.edit_text(text, parse_mode="HTML")
     await callback.answer()

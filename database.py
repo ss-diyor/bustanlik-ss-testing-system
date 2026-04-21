@@ -1586,6 +1586,22 @@ def bitiruvchilarni_arxivlash(sinf: str = None):
     release_connection(conn)
     return affected_rows
 
+
+def bitiruvchilarni_arxivdan_chiqarish(sinf: str = None):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    if sinf:
+        cur.execute("UPDATE talabalar SET status = 'aktiv' WHERE sinf = %s AND status = 'arxiv'", (sinf,))
+    else:
+        cur.execute("UPDATE talabalar SET status = 'aktiv' WHERE status = 'arxiv'")
+
+    affected_rows = cur.rowcount
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+    return affected_rows
+
 # 6. Dublikatlarni topish
 def dublikatlarni_topish():
     conn = get_connection()

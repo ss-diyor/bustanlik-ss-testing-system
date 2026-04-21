@@ -331,12 +331,29 @@ def murojaat_javob_keyboard(user_id):
 # Yangi funktsiyalar uchun klaviaturalar
 # ─────────────────────────────────────────
 
-def talaba_tahrirlash_keyboard(talabalar):
-    """O'quvchini tahrirlash uchun ro'yxat."""
+def talaba_tahrirlash_keyboard(talabalar, page=1, per_page=15):
+    """O'quvchini tahrirlash uchun ro'yxat (pagination)."""
     buttons = []
-    for talaba in talabalar:
+    total = len(talabalar)
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = max(1, min(page, total_pages))
+
+    start = (page - 1) * per_page
+    end = start + per_page
+
+    for talaba in talabalar[start:end]:
         text = f"{talaba['ismlar']} ({talaba['sinf']}) - {talaba['kod']}"
         buttons.append([InlineKeyboardButton(text=text, callback_data=f"talaba_edit:{talaba['kod']}")])
+
+    if total_pages > 1:
+        nav = []
+        if page > 1:
+            nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"talaba_edit_page:{page-1}"))
+        nav.append(InlineKeyboardButton(text=f"{page}/{total_pages}", callback_data="talaba_edit_page:noop"))
+        if page < total_pages:
+            nav.append(InlineKeyboardButton(text="➡️", callback_data=f"talaba_edit_page:{page+1}"))
+        buttons.append(nav)
+
     buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -416,7 +433,7 @@ def sinf_tanlash_transfer_keyboard():
     buttons = []
     for sinf in sinflar:
         buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"sinf_transfer_eski:{sinf}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_transfer:barchasi")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_transfer:menu")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def yangi_sinf_tanlash_keyboard(eski_sinf):
@@ -435,6 +452,7 @@ def bitiruvchilar_arxivlash_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🎓 Barcha 11-sinflarni arxivlash", callback_data="arxivlash:barcha_11")],
         [InlineKeyboardButton(text="🎯 Tanlab sinfni arxivlash", callback_data="arxivlash:tanlash")],
+        [InlineKeyboardButton(text="📤 Arxivdan chiqarish", callback_data="arxivlash:chiqarish")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")],
     ])
 
@@ -446,6 +464,17 @@ def sinf_arxivlash_keyboard():
     for sinf in sinflar:
         buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"arxivlash_sinf:{sinf}")])
     buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="arxivlash:tanlash")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def sinf_arxivdan_chiqarish_keyboard():
+    """Arxivdan chiqarish uchun sinf tanlash."""
+    from database import sinf_ol
+    sinflar = sinf_ol()
+    buttons = []
+    for sinf in sinflar:
+        buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"arxivdan_chiqarish_sinf:{sinf}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="arxivlash:chiqarish")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def dublikatlar_keyboard(dublikatlar):

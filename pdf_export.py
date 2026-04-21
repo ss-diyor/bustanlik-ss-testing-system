@@ -115,7 +115,7 @@ class PDFExporter:
             pdf.cell(50, 8, stat['maktab_nomi'][:15], border=1)
             pdf.cell(30, 8, stat['sinf'], border=1)
             pdf.cell(40, 8, str(stat['oquvchilar_soni']), border=1)
-            pdf.cell(40, 8, f"{stat['o\'rtacha_ball']:.1f}", border=1)
+            pdf.cell(40, 8, f"{stat['ortacha_ball']:.1f}", border=1)
             pdf.cell(30, 8, f"{stat['eng_yuqori_ball']:.1f}", border=1)
             pdf.cell(30, 8, f"{stat['eng_past_ball']:.1f}", border=1, ln=True)
         
@@ -126,7 +126,7 @@ class PDFExporter:
         pdf.set_font("Arial", '', 12)
         
         jami_oquvchilar = sum(s['oquvchilar_soni'] for s in stats)
-        umumiy_ortacha = sum(s['o\'rtacha_ball'] * s['oquvchilar_soni'] for s in stats) / jami_oquvchilar if jami_oquvchilar > 0 else 0
+        umumiy_ortacha = sum(s['ortacha_ball'] * s['oquvchilar_soni'] for s in stats) / jami_oquvchilar if jami_oquvchilar > 0 else 0
         
         pdf.cell(0, 8, f"Jami o'quvchilar: {jami_oquvchilar} ta", ln=True)
         pdf.cell(0, 8, f"Umumiy o'rtacha ball: {umumiy_ortacha:.1f}", ln=True)
