@@ -2011,17 +2011,40 @@ async def broadcast_confirm_callback(callback: CallbackQuery, state: FSMContext)
         return
 
     user_ids = get_all_user_ids()
-    count = 0
+    total = len(user_ids)
+    sent_count = 0
+    fail_count = 0
+    processed = 0
+    progress_step = 25
+
+    await callback.message.edit_text(
+        f"📤 Xabar yuborish boshlandi...\n0/{total} ta foydalanuvchi ko'rib chiqildi."
+    )
+
     for uid in user_ids:
         try:
             await callback.bot.copy_message(chat_id=uid, from_chat_id=src_chat_id, message_id=src_message_id)
-            count += 1
+            sent_count += 1
             await asyncio.sleep(0.05)
         except Exception:
-            continue
+            fail_count += 1
+        finally:
+            processed += 1
+
+        if processed % progress_step == 0 or processed == total:
+            await callback.message.edit_text(
+                "📤 Xabar yuborilmoqda...\n"
+                f"{processed}/{total} ta foydalanuvchi ko'rib chiqildi.\n"
+                f"✅ Yuborildi: {sent_count} | ❌ Xatolik: {fail_count}"
+            )
 
     await state.clear()
-    await callback.message.edit_text(f"✅ Xabar <b>{count}</b> ta foydalanuvchiga yuborildi.", parse_mode="HTML")
+    await callback.message.edit_text(
+        "✅ Xabar yuborish yakunlandi.\n"
+        f"📊 Jami: {total}\n"
+        f"✅ Yuborildi: {sent_count}\n"
+        f"❌ Xatolik: {fail_count}"
+    )
     await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
     await callback.answer()
 
