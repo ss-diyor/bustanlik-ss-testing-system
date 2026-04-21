@@ -797,20 +797,61 @@ async def inline_result_handler(inline_query: InlineQuery):
     if not res:
         return
 
+    bot_username = (await inline_query.bot.get_me()).username
+
+    # Ball foizlarini hisoblash
+    m_max = 30 * 1.1
+    a1_max = 30 * 3.1
+    a2_max = 30 * 2.1
+    umumiy_max = m_max + a1_max + a2_max  # 189.0
+
+    m_ball = float(res.get('majburiy', 0)) * 1.1
+    a1_ball = float(res.get('asosiy_1', 0)) * 3.1
+    a2_ball = float(res.get('asosiy_2', 0)) * 2.1
+    umumiy = float(res['umumiy_ball'])
+    foiz = round((umumiy / umumiy_max) * 100, 1)
+
+    # Progress bar (10 ta blok)
+    filled = round(foiz / 10)
+    bar = "🟩" * filled + "⬜" * (10 - filled)
+
+    # Trend (oxirgi 2 natija taqqoslash)
+    all_results = talaba_natijalari(talaba['kod'], limit=2)
+    trend_text = ""
+    if len(all_results) >= 2:
+        delta = float(all_results[0]['umumiy_ball']) - float(all_results[1]['umumiy_ball'])
+        if delta > 0:
+            trend_text = f"\n📈 O'sish: <b>+{delta:g} ball</b> (oldingi testga nisbatan)"
+        elif delta < 0:
+            trend_text = f"\n📉 Pasayish: <b>{delta:g} ball</b> (oldingi testga nisbatan)"
+        else:
+            trend_text = f"\n➡️ Natija o'zgarmadi"
+
+    sana = res['test_sanasi'].strftime('%d.%m.%Y')
+
     text = (
-        f"📊 <b>Mening test natijam!</b>\n\n"
-        f"👤 O'quvchi: <b>{talaba['ismlar']}</b>\n"
-        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
-        f"📈 Umumiy ball: <b>{res['umumiy_ball']}</b>\n"
-        f"📅 Sana: <b>{res['test_sanasi'].strftime('%d.%m.%Y')}</b>\n\n"
-        f"🤖 @{(await inline_query.bot.get_me()).username}"
+        f"🎓 <b>DTM Test Natijasi</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>{talaba['ismlar']}</b>\n"
+        f"🏫 {talaba['sinf']}  •  🎯 {talaba.get('yonalish', '')}\n"
+        f"📅 {sana}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📊 Umumiy ball: <b>{umumiy:g} / {umumiy_max:g}</b> ({foiz}%)\n"
+        f"{bar}\n"
+        f"\n"
+        f"📌 Majburiy fanlar: <b>{m_ball:g}</b> / {m_max:g}\n"
+        f"📌 1-asosiy fan:    <b>{a1_ball:g}</b> / {a1_max:g}\n"
+        f"📌 2-asosiy fan:    <b>{a2_ball:g}</b> / {a2_max:g}"
+        f"{trend_text}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🤖 @{bot_username}"
     )
 
     results = [
         InlineQueryResultArticle(
             id="my_res",
-            title="Mening natijamni ulashish",
-            description=f"Oxirgi ball: {res['umumiy_ball']}",
+            title=f"📊 {talaba['ismlar']} — {umumiy:g} ball ({foiz}%)",
+            description=f"{sana} • {talaba['sinf']} • {bar}",
             input_message_content=InputTextMessageContent(message_text=text, parse_mode="HTML")
         )
     ]
