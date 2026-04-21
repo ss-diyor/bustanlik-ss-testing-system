@@ -90,7 +90,8 @@ def create_direction_chart(stats_data):
 from database import (
     init_db, talaba_topish, talaba_qosh, talaba_ochir, 
     talaba_user_id_ol, talaba_user_id_yangila, talaba_hammasi, statistika,
-    yonalish_ol, yonalish_qosh, yonalish_ochir, sinf_ol, sinf_qosh, sinf_ochir,
+    yonalish_ol, yonalish_qosh, yonalish_ochir, sinf_ol, sinf_ol_batafsil,
+    sinf_qosh, sinf_ochir, sinf_ochir_id, sinf_talabalar_soni, sinf_id_dan_full_nomi,
     kalit_ol, kalit_qosh, kalit_ochir, kalit_holat_ozgartir, kalit_tahrirla,
     ball_hisobla,
     natija_qosh, talaba_filtrlangan, get_all_students_for_excel, get_all_user_ids,
@@ -644,6 +645,12 @@ async def yonalish_ochir_tasdiq(callback: CallbackQuery, state: FSMContext):
 # Sinflarni boshqarish
 # ─────────────────────────────────────────
 
+@router.callback_query(F.data == "no_action")
+async def no_action_handler(callback: CallbackQuery):
+    """Sarlavha tugmalar uchun — hech narsa qilmaydi."""
+    await callback.answer()
+
+
 @router.message(F.text == "🏫 Sinflarni boshqarish")
 async def sinf_boshqar_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
@@ -656,28 +663,39 @@ async def sinf_boshqar_actions(callback: CallbackQuery, state: FSMContext):
     action = callback.data.split(":")[1]
 
     if action == "ro'yxat":
-        sinflar = sinf_ol()
+        sinflar = sinf_ol_batafsil()
         if not sinflar:
             text = "⚠️ Hozircha sinflar yo'q."
         else:
             text = "📋 <b>Mavjud sinflar ro'yxati:</b>\n\n"
-            for i, s in enumerate(sinflar, 1):
-                text += f"{i}. {s}\n"
+            joriy_maktab = None
+            num = 0
+            for s in sinflar:
+                if s['maktab_nomi'] != joriy_maktab:
+                    joriy_maktab = s['maktab_nomi']
+                    text += f"\n🏫 <b>{joriy_maktab}</b>\n"
+                num += 1
+                text += f"  {num}. {s['nomi']}\n"
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=sinf_boshqarish_keyboard())
 
     elif action == "qosh":
         await state.set_state(SinfBoshqar.nomi_kutish)
-        await callback.message.edit_text("📝 Yangi sinf nomini kiriting:\n(Masalan: 11-A)")
+        await callback.message.edit_text("📝 Yangi sinf nomini kiriting:\n(Masalan: 11-A, 10-B)")
 
     elif action == "ochir":
-        await callback.message.edit_text("❌ O'chirmoqchi bo'lgan sinfni tanlang:",
-                                         reply_markup=sinf_ochirish_keyboard())
+        await callback.message.edit_text(
+            "❌ O'chirmoqchi bo'lgan sinfni tanlang:\n\n"
+            "⚠️ <i>Agar sinfda o'quvchilar bo'lsa, o'chirish tasdiqlanadi.</i>",
+            parse_mode="HTML",
+            reply_markup=sinf_ochirish_keyboard()
+        )
 
     elif action == "orqaga":
         await state.set_state(None)
         await callback.message.edit_text("Sinflarni boshqarish menyusi:",
                                          reply_markup=sinf_boshqarish_keyboard())
     await callback.answer()
+
 
 
 @router.message(SinfBoshqar.nomi_kutish)
@@ -713,14 +731,58 @@ async def sinf_maktab_saqla(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("sinf_ochir:"))
+@router.callback_query(F.data.startswith("sinf_ochir_id:"))
 async def sinf_ochir_tasdiq(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id): return
-    nomi = callback.data.split(":")[1]
-    sinf_ochir(nomi)
-    await callback.answer(f"✅ {nomi} o'chirildi")
-    await callback.message.edit_text("❌ O'chirmoqchi bo'lgan sinfni tanlang:",
-                                     reply_markup=sinf_ochirish_keyboard())
+    sinf_id = int(callback.data.split(":")[1])
+    
+    # Sinf to'liq nomini olamiz
+    full_nomi = sinf_id_dan_full_nomi(sinf_id)
+    if not full_nomi:
+        await callback.answer("❌ Sinf topilmadi.", show_alert=True)
+        return
+    
+    # O'quvchilar sonini tekshiramiz
+    talabalar_soni = sinf_talabalar_soni(sinf_id)
+    
+    if talabalar_soni > 0:
+        # Tasdiqlash so'raymiz
+        await state.update_data(ochiriladigan_sinf_id=sinf_id, ochiriladigan_sinf_nomi=full_nomi)
+        await callback.message.edit_text(
+            f"⚠️ <b>{full_nomi}</b> sinfida <b>{talabalar_soni} ta o'quvchi</b> mavjud.\n\n"
+            f"O'quvchilar ma'lumotlari saqlanadi, faqat sinf o'chiriladi.\n\n"
+            f"Davom etasizmi?",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="✅ Ha, o'chirish", callback_data=f"sinf_ochir_tasdiqlandi:{sinf_id}"),
+                    InlineKeyboardButton(text="❌ Bekor qilish", callback_data="sinf_boshqar:ochir"),
+                ]
+            ])
+        )
+    else:
+        # To'g'ridan-to'g'ri o'chiramiz
+        sinf_ochir_id(sinf_id)
+        await callback.answer(f"✅ {full_nomi} o'chirildi")
+        await callback.message.edit_text(
+            "❌ O'chirmoqchi bo'lgan sinfni tanlang:",
+            reply_markup=sinf_ochirish_keyboard()
+        )
+
+
+@router.callback_query(F.data.startswith("sinf_ochir_tasdiqlandi:"))
+async def sinf_ochir_tasdiqlandi(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    sinf_id = int(callback.data.split(":")[1])
+    full_nomi = sinf_id_dan_full_nomi(sinf_id) or "Sinf"
+    sinf_ochir_id(sinf_id)
+    await callback.answer(f"✅ {full_nomi} o'chirildi", show_alert=True)
+    await callback.message.edit_text(
+        "❌ O'chirmoqchi bo'lgan sinfni tanlang:",
+        reply_markup=sinf_ochirish_keyboard()
+    )
+
+
 
 # ─────────────────────────────────────────
 # Test kalitlarini boshqarish
@@ -900,10 +962,14 @@ async def talaba_yonalish(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.callback_query(TalabaQosh.sinf_kutish, F.data.startswith("sinf:"))
+@router.callback_query(TalabaQosh.sinf_kutish, F.data.startswith("sinf_id:"))
 async def talaba_sinf(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id): return
-    sinf = callback.data.split(":", 1)[1]
+    sinf_id = int(callback.data.split(":")[1])
+    sinf = sinf_id_dan_full_nomi(sinf_id)
+    if not sinf:
+        await callback.answer("❌ Sinf topilmadi.", show_alert=True)
+        return
     await state.update_data(sinf=sinf)
     await state.set_state(TalabaQosh.ismlar_kutish)
     await callback.message.edit_text(f"🏫 Sinf: <b>{sinf}</b>\n\n👤 O'quvchining ism-familiyasini kiriting:",
@@ -1714,10 +1780,14 @@ async def oqituvchi_ism_get(message: Message, state: FSMContext):
     await message.answer("🏫 O'qituvchi mas'ul bo'lgan sinfni kiriting (masalan: 11-A):", reply_markup=sinf_keyboard())
 
 
-@router.callback_query(F.data.startswith("sinf:"), OqituvchiQosh.sinf_kutish)
+@router.callback_query(F.data.startswith("sinf_id:"), OqituvchiQosh.sinf_kutish)
 async def oqituvchi_sinf_get(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id): return
-    sinf = callback.data.split(":")[1]
+    sinf_id = int(callback.data.split(":")[1])
+    sinf = sinf_id_dan_full_nomi(sinf_id)
+    if not sinf:
+        await callback.answer("❌ Sinf topilmadi.", show_alert=True)
+        return
     data = await state.get_data()
     if oqituvchi_qosh(data['teacher_id'], data['teacher_name'], sinf):
         await callback.message.answer(f"✅ O'qituvchi {data['teacher_name']} ({sinf}) muvaffaqiyatli qo'shildi!")
@@ -2138,16 +2208,18 @@ async def maktab_sinf_add_start(call: CallbackQuery, state: FSMContext):
     await call.message.edit_text("🏫 Qaysi sinfni bog'lamoqchisiz?", reply_markup=sinf_keyboard())
     await call.answer()
 
-@router.callback_query(MaktabSinfAdd.sinf_nomi, F.data.startswith("sinf:"))
+@router.callback_query(MaktabSinfAdd.sinf_nomi, F.data.startswith("sinf_id:"))
 async def maktab_sinf_add_save(call: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, call.from_user.id): return
-    sinf_nomi = call.data.split(":", 1)[1]
+    sinf_id = int(call.data.split(":")[1])
+    sinf_full_nomi = sinf_id_dan_full_nomi(sinf_id)
     data = await state.get_data()
     maktab_id = data.get("maktab_id")
     if not maktab_id:
         await call.answer("❌ Maktab ID topilmadi.", show_alert=True)
         return
-    sinf_maktabga_bogla(sinf_nomi, maktab_id)
+    if sinf_full_nomi:
+        sinf_maktabga_bogla(sinf_full_nomi, maktab_id)
     await state.set_state(None)
     maktablar = maktablar_ol()
     maktab = next((m for m in maktablar if m["id"] == maktab_id), None)
@@ -2164,9 +2236,15 @@ async def maktab_sinf_add_save(call: CallbackQuery, state: FSMContext):
 async def maktab_delete(call: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, call.from_user.id): return
     maktab_id = int(call.data.split(":")[1])
-    maktab_ochir(maktab_id)
-    await call.answer("✅ Maktab o'chirildi")
-    await call.message.edit_text("🏫 Maktablarni boshqarish bo'limi:", reply_markup=maktab_boshqarish_keyboard())
+    muvaffaqiyat = maktab_ochir(maktab_id)
+    if muvaffaqiyat:
+        await call.answer("✅ Maktab o'chirildi", show_alert=True)
+        await call.message.edit_text("🏫 Maktablarni boshqarish bo'limi:", reply_markup=maktab_boshqarish_keyboard())
+    else:
+        await call.answer(
+            "❌ Bu maktabda sinflar mavjud!\nAvval sinflarni o'chiring yoki boshqa maktabga ko'chiring.",
+            show_alert=True
+        )
 
 
 @router.message(MaktabAdd.nomi_kutish)
