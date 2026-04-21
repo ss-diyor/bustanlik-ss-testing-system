@@ -25,7 +25,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="👨‍🏫 O'qituvchilarni boshqarish")],
             [KeyboardButton(text="👥 Adminlarni boshqarish")],
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🏫 Maktab statistikasi")],
-            [KeyboardButton(text="🏆 Reyting")],
+            [KeyboardButton(text="🏆 Reyting"), KeyboardButton(text="📄 PDF Hisobot")],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
             [KeyboardButton(text="📱 Ro'yxatdan o'tganlar")],
             [KeyboardButton(text="⏰ Eslatmalar"), KeyboardButton(text="🏫 Maktablarni boshqarish")],
@@ -702,6 +702,26 @@ def appeal_action_keyboard(appeal_id):
 def maktab_tanlash_keyboard(maktablar, prefix="select_maktab"):
     buttons = []
     for m in maktablar:
-        buttons.append([InlineKeyboardButton(text=f"🏫 {m['nomi']}", callback_data=f"{prefix}:{m['id']}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Bekor qilish", callback_data="cancel:admin_menu")])
+        buttons.append([InlineKeyboardButton(text=f" {m['nomi']}", callback_data=f"{prefix}:{m['id']}")])
+    buttons.append([InlineKeyboardButton(text=" Bekor qilish", callback_data="cancel:admin_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def pdf_export_keyboard():
+    """PDF export menyusi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=" O'quvchi hisoboti", callback_data="pdf:student")],
+        [InlineKeyboardButton(text=" Maktab statistikasi", callback_data="pdf:maktab_stat")],
+        [InlineKeyboardButton(text=" Sinf reytingi", callback_data="pdf:sinf_reyting")],
+        [InlineKeyboardButton(text=" Orqaga", callback_data="cancel:admin_menu")],
+    ])
+
+def sinf_tanlash_pdf_keyboard():
+    """PDF uchun sinf tanlash."""
+    from database import sinf_ol
+    sinflar = sinf_ol()
+    buttons = []
+    for sinf in sinflar:
+        buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"pdf_sinf:{sinf}")])
+    buttons.append([InlineKeyboardButton(text=" Barcha sinflar", callback_data="pdf_sinf:all")])
+    buttons.append([InlineKeyboardButton(text=" Orqaga", callback_data="pdf:menu")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)

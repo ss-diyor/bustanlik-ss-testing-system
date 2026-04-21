@@ -129,10 +129,12 @@ from keyboards import (
     appeals_keyboard, appeal_action_keyboard, stats_keyboard, admin_management_keyboard,
     # Yangi klaviaturalar
     talaba_tahrirlash_keyboard, talaba_edit_options_keyboard, maktab_statistikasi_keyboard,
-    maktablar_tanlash_keyboard, maktab_solishtirish_keyboard, maktab_comp2_keyboard,
-    natijalar_ochirish_keyboard, sinf_transferi_keyboard, sinf_tanlash_transfer_keyboard,
-    yangi_sinf_tanlash_keyboard, bitiruvchilar_arxivlash_keyboard, sinf_arxivlash_keyboard,
-    dublikatlar_keyboard, dublikat_birlashtirish_keyboard
+    maktab_solishtirish_keyboard, maktab_comp2_keyboard, natijalar_ochirish_keyboard,
+    sinf_transferi_keyboard, sinf_tanlash_transfer_keyboard, yangi_sinf_tanlash_keyboard,
+    bitiruvchilarni_arxivlash_keyboard, sinf_arxivlash_keyboard,
+    dublikatlar_keyboard, dublikat_birlashtirish_keyboard,
+    # PDF export klaviaturalar
+    pdf_export_keyboard, sinf_tanlash_pdf_keyboard
 )
 
 router = Router()
@@ -2368,12 +2370,6 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
                 os.remove(filename)
         await call.answer(f"✅ Backup {sent} ta guruhga yuborildi.", show_alert=True)
         return
-
-    await call.answer()
-
-
-
-@router.message(F.text == "📱 Ro'yxatdan o'tganlar")
 async def registered_users_list(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
     users = get_all_registered_users()
@@ -2924,3 +2920,133 @@ async def maktab_comp2_callback(callback: CallbackQuery, state: FSMContext):
     
     await callback.message.edit_text(text, parse_mode="HTML")
     await callback.answer()
+
+# PDF export callback handlerlari
+@router.callback_query(F.data.startswith("pdf:"))
+async def pdf_export_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    action = callback.data.split(":")[1]
+    
+    if action == "student":
+        await state.set_state(PDFStudentKod.kod_kutish)
+        await callback.message.edit_text("?? PDF hisobotini yaratmoqchi bo'lgan o'quvchi kodini kiriting:")
+        
+    elif action == "maktab_stat":
+        await callback.message.edit_text(
+            "?? Maktab statistikasi uchun maktabni tanlang:",
+            reply_markup=maktab_tanlash_keyboard(maktablar_ol(), "pdf_maktab")
+        )
+        
+    elif action == "sinf_reyting":
+        await callback.message.edit_text(
+            "?? Sinf reytingi uchun sinfni tanlang:",
+            reply_markup=sinf_tanlash_pdf_keyboard()
+        )
+        
+    elif action == "menu":
+        await callback.message.edit_text(
+            "?? <b>PDF Hisobot:</b>\n\n"
+            "Qaysi turdagi hisobotni yaratasiz?",
+            reply_markup=pdf_export_keyboard()
+        )
+    
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("pdf_maktab:"))
+async def pdf_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    maktab_id = int(callback.data.split(":")[1])
+    
+    wait_msg = await callback.message.answer("?? PDF yaratilmoqda...")
+    
+    try:
+        from pdf_export import PDFExporter
+        exporter = PDFExporter()
+        pdf_path = exporter.create_maktab_statistika_pdf(maktab_id)
+        
+        if pdf_path and os.path.exists(pdf_path):
+            await callback.bot.send_document(
+                callback.from_user.id,
+                FSInputFile(pdf_path),
+                caption="?? Maktab statistikasi PDF hisoboti"
+            )
+            await wait_msg.delete()
+            await callback.answer("?? PDF muvaffaqiyatli yaratildi!", show_alert=True)
+        else:
+            await wait_msg.delete()
+            await callback.answer("?? PDF yaratishda xatolik!", show_alert=True)
+            
+    except Exception as e:
+        await wait_msg.delete()
+        await callback.answer(f"?? Xatolik: {str(e)}", show_alert=True)
+
+@router.callback_query(F.data.startswith("pdf_sinf:"))
+async def pdf_sinf_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    sinf = callback.data.split(":")[1]
+    
+    wait_msg = await callback.message.answer("?? PDF yaratilmoqda...")
+    
+    try:
+        from pdf_export import PDFExporter
+        exporter = PDFExporter()
+        pdf_path = exporter.create_sinf_reyting_pdf(sinf if sinf != "all" else None)
+        
+        if pdf_path and os.path.exists(pdf_path):
+            await callback.bot.send_document(
+                callback.from_user.id,
+                FSInputFile(pdf_path),
+                caption="?? Sinf reytingi PDF hisoboti"
+            )
+            await wait_msg.delete()
+            await callback.answer("?? PDF muvaffaqiyatli yaratildi!", show_alert=True)
+        else:
+            await wait_msg.delete()
+            await callback.answer("?? PDF yaratishda xatolik!", show_alert=True)
+            
+    except Exception as e:
+        await wait_msg.delete()
+        await callback.answer(f"?? Xatolik: {str(e)}", show_alert=True)
+
+# PDF student kod uchun handler
+class PDFStudentKod(StatesGroup):
+    kod_kutish = State()
+
+@router.message(PDFStudentKod.kod_kutish)
+async def pdf_student_kod_handler(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    
+    kod = message.text.strip().upper()
+    talaba = talaba_topish(kod)
+    
+    if not talaba:
+        await message.answer("?? O'quvchi topilmadi. Qaytadan urinib ko'ring:")
+        return
+    
+    wait_msg = await message.answer("?? PDF yaratilmoqda...")
+    
+    try:
+        from pdf_export import PDFExporter
+        exporter = PDFExporter()
+        pdf_path = exporter.create_student_pdf(kod)
+        
+        if pdf_path and os.path.exists(pdf_path):
+            await message.bot.send_document(
+                message.from_user.id,
+                FSInputFile(pdf_path),
+                caption=f"?? {talaba['ismlar']} uchun PDF hisoboti"
+            )
+            await wait_msg.delete()
+            await message.answer("?? PDF muvaffaqiyatli yaratildi!")
+        else:
+            await wait_msg.delete()
+            await message.answer("?? PDF yaratishda xatolik!")
+            
+    except Exception as e:
+        await wait_msg.delete()
+        await message.answer(f"?? Xatolik: {str(e)}")
+    
+    await state.set_state(None)
