@@ -4,7 +4,7 @@ from aiogram.types import (
     SwitchInlineQueryChosenChat
 )
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
-from database import yonalish_ol, sinf_ol, kalit_ol, oqituvchilar_hammasi
+from database import yonalish_ol, sinf_ol, sinf_ol_batafsil, kalit_ol, oqituvchilar_hammasi
 
 
 def admin_menu_keyboard():
@@ -60,11 +60,31 @@ def yonalish_keyboard():
 
 
 def sinf_keyboard():
-    """Sinflarni inline tugmalar sifatida chiqaradi (dinamik)."""
+    """
+    Sinflarni inline tugmalar sifatida chiqaradi.
+    callback_data: sinf_id:{id}  — nom emas, ID ishlatiladi (xavfsiz, 64-byte limit yo'q).
+    Sinflar maktab bo'yicha guruhlangan.
+    """
+    sinflar = sinf_ol_batafsil()
+    if not sinflar:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⚠️ Sinflar yo'q", callback_data="no_action")]
+        ])
+
     buttons = []
-    sinflar = sinf_ol()
+    joriy_maktab = None
     for s in sinflar:
-        buttons.append([InlineKeyboardButton(text=s, callback_data=f"sinf:{s}")])
+        if s['maktab_nomi'] != joriy_maktab:
+            joriy_maktab = s['maktab_nomi']
+            # Maktab sarlavhasi (bosilmaydi)
+            buttons.append([InlineKeyboardButton(
+                text=f"🏫 {joriy_maktab}",
+                callback_data="no_action"
+            )])
+        buttons.append([InlineKeyboardButton(
+            text=f"  📚 {s['nomi']}",
+            callback_data=f"sinf_id:{s['id']}"
+        )])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -137,11 +157,29 @@ def yonalish_ochirish_keyboard():
 
 
 def sinf_ochirish_keyboard():
-    """Sinflarni o'chirish uchun ro'yxat."""
+    """
+    Sinflarni o'chirish uchun ro'yxat.
+    callback_data: sinf_ochir_id:{id}
+    """
+    sinflar = sinf_ol_batafsil()
+    if not sinflar:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⚠️ Sinflar yo'q", callback_data="no_action")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_boshqar:orqaga")]
+        ])
     buttons = []
-    sinflar = sinf_ol()
+    joriy_maktab = None
     for s in sinflar:
-        buttons.append([InlineKeyboardButton(text=f"❌ {s}", callback_data=f"sinf_ochir:{s}")])
+        if s['maktab_nomi'] != joriy_maktab:
+            joriy_maktab = s['maktab_nomi']
+            buttons.append([InlineKeyboardButton(
+                text=f"🏫 {joriy_maktab}",
+                callback_data="no_action"
+            )])
+        buttons.append([InlineKeyboardButton(
+            text=f"❌ {s['nomi']}",
+            callback_data=f"sinf_ochir_id:{s['id']}"
+        )])
     buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_boshqar:orqaga")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
