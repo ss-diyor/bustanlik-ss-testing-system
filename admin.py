@@ -2504,6 +2504,94 @@ async def talaba_yonalish_tahrirlash_process(message: Message, state: FSMContext
     
     await state.set_state(None)
 
+# =====================================================================
+# TUZATILGAN: Ishlamayotgan 6 ta tugma uchun F.text handlerlari
+# =====================================================================
+
+@router.message(F.text == "✏️ O'quvchi ma'lumotlarini tahrirlash")
+async def talaba_malumot_tahrirlash_start(message: Message, state: FSMContext):
+    """O'quvchi ma'lumotlarini tahrirlash — tugma handleri"""
+    if not await admin_tekshir(state, message.from_user.id): return
+
+    talabalar = get_all_students()
+    if not talabalar:
+        await message.answer("❌ Hozircha o'quvchilar mavjud emas.")
+        return
+
+    await message.answer(
+        "✏️ <b>Tahrirlash uchun o'quvchini tanlang:</b>",
+        parse_mode="HTML",
+        reply_markup=talaba_tahrirlash_keyboard(talabalar)
+    )
+
+
+@router.message(F.text == "🗑️ Bitta natijani o'chirish")
+async def bitta_natija_ochirish_start(message: Message, state: FSMContext):
+    """Bitta natijani o'chirish — tugma handleri"""
+    if not await admin_tekshir(state, message.from_user.id): return
+
+    await state.set_state(BittaNatijaOchirish.kod_kutish)
+    await message.answer(
+        "🗑️ <b>Natijani o'chirmoqchi bo'lgan o'quvchining kodini kiriting:</b>",
+        parse_mode="HTML"
+    )
+
+
+@router.message(F.text == "🔄 Sinf transferi")
+async def sinf_transferi_start(message: Message, state: FSMContext):
+    """Sinf transferi — tugma handleri"""
+    if not await admin_tekshir(state, message.from_user.id): return
+
+    await message.answer(
+        "🔄 <b>Sinf transferi</b>\n\nQaysi amalni bajarmoqchisiz?",
+        parse_mode="HTML",
+        reply_markup=sinf_transferi_keyboard()
+    )
+
+
+@router.message(F.text == "📦 Bitiruvchilarni arxivlash")
+async def bitiruvchilar_arxivlash_start(message: Message, state: FSMContext):
+    """Bitiruvchilarni arxivlash — tugma handleri"""
+    if not await admin_tekshir(state, message.from_user.id): return
+
+    await message.answer(
+        "📦 <b>Bitiruvchilarni arxivlash</b>\n\nQaysi sinfni arxivlamoqchisiz?",
+        parse_mode="HTML",
+        reply_markup=bitiruvchilar_arxivlash_keyboard()
+    )
+
+
+@router.message(F.text == "🔍 Dublikatlarni topish")
+async def dublikatlarni_topish_start(message: Message, state: FSMContext):
+    """Dublikatlarni topish — tugma handleri"""
+    if not await admin_tekshir(state, message.from_user.id): return
+
+    dublikatlar = dublikatlarni_topish()
+    if not dublikatlar:
+        await message.answer("✅ Dublikat o'quvchilar topilmadi.")
+        return
+
+    await message.answer(
+        f"🔍 <b>{len(dublikatlar)} ta dublikat topildi.</b>\n\nBirlashtirmoqchi bo'lgan o'quvchini tanlang:",
+        parse_mode="HTML",
+        reply_markup=dublikatlar_keyboard(dublikatlar)
+    )
+
+
+@router.message(F.text == "📄 PDF Hisobot")
+async def pdf_hisobot_start(message: Message, state: FSMContext):
+    """PDF Hisobot — tugma handleri"""
+    if not await admin_tekshir(state, message.from_user.id): return
+
+    await message.answer(
+        "📄 <b>PDF Hisobot</b>\n\nQanday hisobot yaratmoqchisiz?",
+        parse_mode="HTML",
+        reply_markup=pdf_export_keyboard()
+    )
+
+
+# =====================================================================
+
 @router.message(F.text == "/cancel")
 async def cancel_handler(message: Message, state: FSMContext):
     """Barcha faol FSM holatlarini bekor qilish"""
