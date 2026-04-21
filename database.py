@@ -1628,15 +1628,25 @@ def dublikatlarni_birlashtir(asosiy_kod: str, qoshimcha_kodlar: list):
     return success
 
 # 8. O'quvchining barcha natijalarini olish
-def talaba_natijalari(talaba_kod: str):
+def talaba_natijalari(talaba_kod: str, limit: int = None):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
-        SELECT id, majburiy, asosiy_1, asosiy_2, umumiy_ball, test_sanasi 
-        FROM test_natijalari 
-        WHERE talaba_kod = %s 
-        ORDER BY test_sanasi DESC
-    """, (talaba_kod,))
+    
+    if limit:
+        cur.execute("""
+            SELECT id, majburiy, asosiy_1, asosiy_2, umumiy_ball, test_sanasi 
+            FROM test_natijalari 
+            WHERE talaba_kod = %s 
+            ORDER BY test_sanasi DESC
+            LIMIT %s
+        """, (talaba_kod, limit))
+    else:
+        cur.execute("""
+            SELECT id, majburiy, asosiy_1, asosiy_2, umumiy_ball, test_sanasi 
+            FROM test_natijalari 
+            WHERE talaba_kod = %s 
+            ORDER BY test_sanasi DESC
+        """, (talaba_kod,))
     
     rows = cur.fetchall()
     cur.close()
