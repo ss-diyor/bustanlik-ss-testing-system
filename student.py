@@ -62,7 +62,7 @@ ADMIN_TUGMALAR = {
     "✍️ Admin bilan bog'lanish",
     "❌ Bekor qilish",
     "✅ Javoblarni tekshirish",
-    "📊 Mening natijalarim"
+    "📊 Mening natijam"
 }
 
 # ─────────────────────────────────────────
@@ -657,7 +657,7 @@ async def stats_process(callback: CallbackQuery):
 # Profil ma'lumotlari
 # ─────────────────────────────────────────
 
-@router.message(F.text == "📊 Mening natijalarim")
+@router.message(F.text == "📊 Mening natijam")
 async def my_results(message: Message, state: FSMContext):
     # Foydalanuvchini user_id orqali topish
     from database import get_connection, release_connection
