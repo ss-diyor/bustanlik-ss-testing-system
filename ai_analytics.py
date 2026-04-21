@@ -1,6 +1,10 @@
 import matplotlib.pyplot as plt
 import os
+import json
+import asyncio
+import urllib.request
 from database import talaba_natijalari
+from config import AI_API_KEY, AI_BASE_URL, AI_MODEL
 
 class AIAnalytics:
     def __init__(self):
@@ -87,6 +91,76 @@ class AIAnalytics:
             
         return "\n".join(recommendations)
 
+    def _build_prompt(self, results):
+        last = results[0]
+        prev = results[1] if len(results) > 1 else None
+
+        recent = []
+        for r in results[:5]:
+            recent.append({
+                "majburiy": r["majburiy"],
+                "asosiy_1": r["asosiy_1"],
+                "asosiy_2": r["asosiy_2"],
+                "umumiy_ball": r["umumiy_ball"],
+                "test_sanasi": str(r["test_sanasi"])
+            })
+
+        trend = None
+        if prev:
+            trend = round(last["umumiy_ball"] - prev["umumiy_ball"], 2)
+
+        system = (
+            "Sen ta'lim analitigi sifatida ishlaysan. "
+            "Javobni aniq, qisqa va amaliy yoz. "
+            "Outputni oddiy HTML-safe matn sifatida qaytar (faqat <b> tegidan foydalansang bo'ladi). "
+            "4 bo'lim chiqarsin: 1) Qisqa xulosa, 2) Kuchsiz nuqtalar, 3) Kuchli nuqtalar, 4) 7 kunlik reja."
+        )
+        user = {
+            "oxirgi_natija": {
+                "majburiy": last["majburiy"],
+                "asosiy_1": last["asosiy_1"],
+                "asosiy_2": last["asosiy_2"],
+                "umumiy_ball": last["umumiy_ball"],
+            },
+            "trend_ball": trend,
+            "oxirgi_5_test": recent
+        }
+        return system, user
+
+    def _call_llm_sync(self, results):
+        system_text, user_payload = self._build_prompt(results)
+        url = AI_BASE_URL.rstrip("/") + "/chat/completions"
+        payload = {
+            "model": AI_MODEL,
+            "temperature": 0.3,
+            "messages": [
+                {"role": "system", "content": system_text},
+                {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)}
+            ],
+        }
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url=url,
+            data=data,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {AI_API_KEY}",
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            response_body = resp.read().decode("utf-8")
+        parsed = json.loads(response_body)
+        return parsed["choices"][0]["message"]["content"].strip()
+
+    async def get_llm_recommendation(self, results):
+        if not AI_API_KEY:
+            return None
+        try:
+            return await asyncio.to_thread(self._call_llm_sync, results)
+        except Exception:
+            return None
+
     async def get_full_analysis(self, kod):
         """Barcha tahlillarni birlashtirib qaytaradi."""
         results = talaba_natijalari(kod)
@@ -97,6 +171,8 @@ class AIAnalytics:
         
         last_result = sorted_results[0]
         chart_path = self.generate_bar_chart(last_result, kod)
-        recommendation = self.get_ai_recommendation(sorted_results)
+        recommendation = await self.get_llm_recommendation(sorted_results)
+        if not recommendation:
+            recommendation = self.get_ai_recommendation(sorted_results)
         
         return chart_path, recommendation

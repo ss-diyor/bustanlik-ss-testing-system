@@ -39,6 +39,11 @@ ASOSIY_2_KOEFF = 2.1       # 2-asosiy fan (30 savol)
 
 MAX_SAVOL = 30             # Har bir guruhda maksimal savol soni
 
+# AI tahlil uchun optional LLM sozlamalari
+AI_API_KEY = _env("AI_API_KEY", "")
+AI_MODEL = _env("AI_MODEL", "gpt-4o-mini")
+AI_BASE_URL = _env("AI_BASE_URL", "https://api.openai.com/v1")
+
 # Mavjud yo'nalishlar (asosiy fan juftliklari)
 YONALISHLAR = [
     "Matematika + Fizika",

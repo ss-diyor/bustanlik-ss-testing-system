@@ -56,12 +56,12 @@ def oqituvchi_menu_keyboard():
     )
 
 
-def yonalish_keyboard():
-    """Yo'nalishlarni inline tugmalar sifatida chiqaradi (dinamik)."""
+def yonalish_keyboard(prefix="yonalish_idx"):
+    """Yo'nalishlarni inline tugmalar sifatida chiqaradi (dinamik, safe callback)."""
     buttons = []
     yonalishlar = yonalish_ol()
-    for y in yonalishlar:
-        buttons.append([InlineKeyboardButton(text=y, callback_data=f"yonalish:{y}")])
+    for idx, y in enumerate(yonalishlar):
+        buttons.append([InlineKeyboardButton(text=y, callback_data=f"{prefix}:{idx}")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 

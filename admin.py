@@ -998,10 +998,16 @@ async def talaba_kod(message: Message, state: FSMContext):
     await state.set_state(TalabaQosh.yonalish_kutish)
     await message.answer(f"✅ Kod: <b>{kod}</b>\n\nYo'nalishni tanlang:",
                          reply_markup=yonalish_keyboard(), parse_mode="HTML")
-@router.callback_query(TalabaQosh.yonalish_kutish, F.data.startswith("yonalish:"))
+@router.callback_query(TalabaQosh.yonalish_kutish, F.data.startswith("yonalish_idx:"))
 async def talaba_yonalish(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id): return
-    yonalish = callback.data.split(":", 1)[1]
+    try:
+        idx = int(callback.data.split(":", 1)[1])
+        yonalishlar = yonalish_ol()
+        yonalish = yonalishlar[idx]
+    except (ValueError, IndexError):
+        await callback.answer("❌ Yo'nalish topilmadi.", show_alert=True)
+        return
     await state.update_data(yonalish=yonalish)
     await state.set_state(TalabaQosh.sinf_kutish)
     await callback.message.edit_text(f"🎯 Yo'nalish: <b>{yonalish}</b>\n\nSinfni tanlang:",
@@ -2580,7 +2586,7 @@ async def talaba_yonalish_tahrirlash_process(message: Message, state: FSMContext
     await state.set_state(None)
 
 
-@router.callback_query(TalabaTahrirlash.yonalish_kutish, F.data.startswith("yonalish:"))
+@router.callback_query(TalabaTahrirlash.yonalish_kutish, F.data.startswith("yonalish_idx:"))
 async def talaba_yonalish_tahrirlash_callback(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id): return
 
@@ -2592,7 +2598,15 @@ async def talaba_yonalish_tahrirlash_callback(callback: CallbackQuery, state: FS
         await callback.answer()
         return
 
-    yangi_yonalish = callback.data.split(":", 1)[1]
+    try:
+        idx = int(callback.data.split(":", 1)[1])
+        yonalishlar = yonalish_ol()
+        yangi_yonalish = yonalishlar[idx]
+    except (ValueError, IndexError):
+        await callback.message.edit_text("❌ Yo'nalish topilmadi.")
+        await state.clear()
+        await callback.answer()
+        return
 
     if talaba_tahrirlash(kod, yonalish=yangi_yonalish):
         await callback.message.edit_text(
