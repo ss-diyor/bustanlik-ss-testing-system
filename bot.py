@@ -229,8 +229,13 @@ async def main():
     await bot.delete_webhook(drop_pending_updates=True)
     logging.info("Bot ishga tushdi!")
     
-    # Fast polling config
-    await dp.start_polling(bot, handle_signals=False)
+    # Fast polling config with conflict resolution
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(
+        bot, 
+        handle_signals=False,
+        allowed_updates=["message", "callback_query", "edited_message"]
+    )
 
 
 if __name__ == "__main__":

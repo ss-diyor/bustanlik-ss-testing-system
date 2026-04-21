@@ -2980,7 +2980,8 @@ async def pdf_maktab_callback(callback: CallbackQuery, state: FSMContext):
             
     except Exception as e:
         await wait_msg.delete()
-        await callback.answer(f"?? Xatolik: {str(e)}", show_alert=True)
+        error_msg = str(e)[:50] + "..." if len(str(e)) > 50 else str(e)
+        await callback.answer(f"?? Xatolik: {error_msg}", show_alert=True)
 
 @router.callback_query(F.data.startswith("pdf_sinf:"))
 async def pdf_sinf_callback(callback: CallbackQuery, state: FSMContext):
@@ -3009,7 +3010,8 @@ async def pdf_sinf_callback(callback: CallbackQuery, state: FSMContext):
             
     except Exception as e:
         await wait_msg.delete()
-        await callback.answer(f"?? Xatolik: {str(e)}", show_alert=True)
+        error_msg = str(e)[:50] + "..." if len(str(e)) > 50 else str(e)
+        await callback.answer(f"?? Xatolik: {error_msg}", show_alert=True)
 
 # PDF student kod uchun handler
 class PDFStudentKod(StatesGroup):

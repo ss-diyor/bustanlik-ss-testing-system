@@ -1531,7 +1531,7 @@ def maktab_statistikasi(maktab_id: int = None):
             m.nomi as maktab_nomi,
             t.sinf,
             COUNT(*) as oquvchilar_soni,
-            AVG(COALESCE(tn.umumiy_ball, 0)) as o'rtacha_ball,
+            AVG(COALESCE(tn.umumiy_ball, 0)) as ortacha_ball,
             MAX(COALESCE(tn.umumiy_ball, 0)) as eng_yuqori_ball,
             MIN(COALESCE(tn.umumiy_ball, 0)) as eng_past_ball
         FROM talabalar t
