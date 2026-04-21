@@ -4,14 +4,14 @@ import os
 from datetime import datetime
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
-from database import init_db, add_user, talaba_topish, talaba_user_id_yangila, get_setting, guruh_qosh
+from database import init_db, add_user, talaba_topish, talaba_user_id_yangila, get_setting, guruh_qosh, get_user, update_user_phone
 from aiogram import F
-from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_keyboard
+from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_keyboard, phone_number_keyboard
 import admin
 import student
 
@@ -33,9 +33,20 @@ dp.include_router(student.router)
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     """/start buyrug'i"""
-    # add_user endi pool orqali tezroq ishlaydi
-    add_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
+    user = get_user(message.from_user.id)
     
+    # Agar foydalanuvchi birinchi marta kirayotgan bo'lsa yoki telefon raqami bo'lmasa
+    if not user or not user.get('phone_number'):
+        add_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
+        await message.answer(
+            "📱 <b>Telefon raqamingizni yuboring:</b>\n\n"
+            "Quyidagi tugmani bosib avtomatik yuborishingiz yoki qo'lda kiritishingiz mumkin.\n"
+            "Format: +998901234567",
+            parse_mode="HTML",
+            reply_markup=phone_number_keyboard()
+        )
+        return
+
     # Admin tekshiruvi
     from admin import is_admin_id
     from database import oqituvchi_ol
@@ -65,6 +76,43 @@ async def start_handler(message: Message):
         parse_mode="HTML",
         reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled)
     )
+
+@dp.message(F.contact)
+async def contact_handler(message: Message):
+    """Telefon raqamini qabul qilish"""
+    phone_number = message.contact.phone_number
+    if not phone_number.startswith("+"):
+        phone_number = "+" + phone_number
+    
+    update_user_phone(message.from_user.id, phone_number)
+    await message.answer("✅ Telefon raqamingiz muvaffaqiyatli saqlandi!", reply_markup=ReplyKeyboardRemove())
+    await start_handler(message)
+
+@dp.message(F.text == "❌ Bekor qilish")
+async def cancel_handler(message: Message):
+    await message.answer("❌ Amallar bekor qilindi.", reply_markup=ReplyKeyboardRemove())
+
+@dp.message(F.text == "🚪 Chiqish")
+async def logout_handler(message: Message):
+    """O'quvchi shaxsiy kabinetidan chiqish"""
+    from database import talaba_user_id_yangila
+    # User ID ni talabalar jadvalidan olib tashlaymiz (lekin talaba ma'lumotlari qoladi)
+    # Buning uchun barcha o'sha user_id ga bog'langan talabalarni topib, user_id sini NULL qilamiz
+    from database import get_connection, release_connection
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE talabalar SET user_id = NULL WHERE user_id = %s", (message.from_user.id,))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+    
+    await message.answer(
+        "🚪 <b>Siz shaxsiy kabinetdan chiqdingiz.</b>\n\n"
+        "Qayta kirish uchun shaxsiy kodingizni yuboring yoki <code>ULASH_KOD</code> buyrug'idan foydalaning.",
+        parse_mode="HTML",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await start_handler(message)
 
 @dp.message(F.chat.type.in_({"group", "supergroup"}))
 async def handle_group_message(message: Message):

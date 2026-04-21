@@ -3,7 +3,8 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton,
     SwitchInlineQueryChosenChat
 )
-from database import yonalish_ol, sinf_ol, kalit_ol, oqituvchilar_hammasi
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
+from database import yonalish_ol, sinf_ol, sinf_ol_batafsil, kalit_ol, oqituvchilar_hammasi
 
 
 def admin_menu_keyboard():
@@ -18,7 +19,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="✏️ Natijani tahrirlash")],
             [KeyboardButton(text="⚙️ Yo'nalishlarni boshqarish")],
             [KeyboardButton(text="🏫 Sinflarni boshqarish")],
-            [KeyboardButton(text="� Sinf transferi")],
+            [KeyboardButton(text="🔄 Sinf transferi")],
             [KeyboardButton(text="📦 Bitiruvchilarni arxivlash")],
             [KeyboardButton(text="🔍 Dublikatlarni topish")],
             [KeyboardButton(text="👨‍🏫 O'qituvchilarni boshqarish")],
@@ -26,10 +27,12 @@ def admin_menu_keyboard():
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🏫 Maktab statistikasi")],
             [KeyboardButton(text="🏆 Reyting")],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
+            [KeyboardButton(text="📱 Ro'yxatdan o'tganlar")],
             [KeyboardButton(text="⏰ Eslatmalar"), KeyboardButton(text="🏫 Maktablarni boshqarish")],
             [KeyboardButton(text="📢 Guruhlarni boshqarish")],
             [KeyboardButton(text="🔔 So'rovlar"), KeyboardButton(text="⚖️ Apellyatsiyalar")],
             [KeyboardButton(text="⚙️ Sozlamalar"), KeyboardButton(text="📥 Excelga yuklash")],
+            [KeyboardButton(text="🏆 Reyting Excel")],
             [KeyboardButton(text="🧹 Bazani tozalash")],
             [KeyboardButton(text="📢 Xabar yuborish")],
             [KeyboardButton(text="🔍 Kod bo'yicha qidirish")],
@@ -62,13 +65,80 @@ def yonalish_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def sinf_keyboard():
-    """Sinflarni inline tugmalar sifatida chiqaradi (dinamik)."""
+SINF_PAGE_SIZE = 8  # Bir sahifada nechta sinf ko'rsatiladi
+
+
+def _build_sinf_page_buttons(sinflar: list, page: int, page_callback: str, sinf_callback_prefix: str, back_callback: str) -> InlineKeyboardMarkup:
+    """
+    Umumiy pagination klaviatura quruvchi.
+    sinflar        — sinf_ol_batafsil() natijasi
+    page           — joriy sahifa (0 dan boshlanadi)
+    page_callback  — sahifa almashtirish uchun prefix (masalan: 'sinf_page')
+    sinf_callback_prefix — sinf bosilganda prefix (masalan: 'sinf_id')
+    back_callback  — Orqaga tugmasi callback
+    """
+    total = len(sinflar)
+    total_pages = max(1, (total + SINF_PAGE_SIZE - 1) // SINF_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+
+    start = page * SINF_PAGE_SIZE
+    end = start + SINF_PAGE_SIZE
+    sahifadagi_sinflar = sinflar[start:end]
+
     buttons = []
-    sinflar = sinf_ol()
-    for s in sinflar:
-        buttons.append([InlineKeyboardButton(text=s, callback_data=f"sinf:{s}")])
+
+    # Maktab sarlavhasi + sinf tugmalari
+    joriy_maktab = None
+    for s in sahifadagi_sinflar:
+        if s['maktab_nomi'] != joriy_maktab:
+            joriy_maktab = s['maktab_nomi']
+            buttons.append([InlineKeyboardButton(
+                text=f"🏫 {joriy_maktab}",
+                callback_data="no_action"
+            )])
+        label = s.get("button_text", f"  📚 {s['nomi']}")
+        buttons.append([InlineKeyboardButton(
+            text=label,
+            callback_data=f"{sinf_callback_prefix}:{s['id']}"
+        )])
+
+    # Navigatsiya qatori
+    if total_pages > 1:
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton(text="◀️ Oldingi", callback_data=f"{page_callback}:{page - 1}"))
+        nav.append(InlineKeyboardButton(
+            text=f"📄 {page + 1}/{total_pages}",
+            callback_data="no_action"
+        ))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton(text="Keyingi ▶️", callback_data=f"{page_callback}:{page + 1}"))
+        buttons.append(nav)
+
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data=back_callback)])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def sinf_keyboard(page: int = 0) -> InlineKeyboardMarkup:
+    """
+    Sinf tanlash klaviaturasi (sahifalangan).
+    callback_data: sinf_id:{id}
+    Sahifa navigatsiyasi: sinf_page:{page}
+    """
+    sinflar = sinf_ol_batafsil()
+    if not sinflar:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⚠️ Sinflar yo'q", callback_data="no_action")]
+        ])
+    for s in sinflar:
+        s["button_text"] = f"  📚 {s['nomi']}"
+    return _build_sinf_page_buttons(
+        sinflar=sinflar,
+        page=page,
+        page_callback="sinf_page",
+        sinf_callback_prefix="sinf_id",
+        back_callback="cancel:admin_menu"
+    )
 
 
 def yonalish_boshqarish_keyboard():
@@ -139,14 +209,27 @@ def yonalish_ochirish_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def sinf_ochirish_keyboard():
-    """Sinflarni o'chirish uchun ro'yxat."""
-    buttons = []
-    sinflar = sinf_ol()
+def sinf_ochirish_keyboard(page: int = 0) -> InlineKeyboardMarkup:
+    """
+    Sinflarni o'chirish klaviaturasi (sahifalangan).
+    callback_data: sinf_ochir_id:{id}
+    Sahifa navigatsiyasi: sinf_ochir_page:{page}
+    """
+    sinflar = sinf_ol_batafsil()
+    if not sinflar:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⚠️ Sinflar yo'q", callback_data="no_action")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_boshqar:orqaga")]
+        ])
     for s in sinflar:
-        buttons.append([InlineKeyboardButton(text=f"❌ {s}", callback_data=f"sinf_ochir:{s}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_boshqar:orqaga")])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+        s["button_text"] = f"❌ {s['nomi']}"
+    return _build_sinf_page_buttons(
+        sinflar=sinflar,
+        page=page,
+        page_callback="sinf_ochir_page",
+        sinf_callback_prefix="sinf_ochir_id",
+        back_callback="sinf_boshqar:orqaga"
+    )
 
 
 def tasdiqlash_keyboard():
@@ -182,17 +265,27 @@ def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
     # Ikkinchi qator: Javoblarni tekshirish, Apellyatsiya yuborish
     keyboard.append([KeyboardButton(text="✅ Javoblarni tekshirish"), KeyboardButton(text="⚖️ Apellyatsiya")])
     
-    # Uchinchi qator: Statistika (agar yoqilgan bo'lsa)
+    # Uchinchi qator: Statistika va AI Analitika
+    row3 = []
     if stats_enabled == 'True':
-        keyboard.append([KeyboardButton(text="📈 Statistika")])
+        row3.append(KeyboardButton(text="📈 Statistika"))
+    row3.append(KeyboardButton(text="🧠 AI Tahlili"))
+    keyboard.append(row3)
     
-    # To'rtinchi qator: Admin bilan bog'lanish
-    keyboard.append([KeyboardButton(text="✍️ Admin bilan bog'lanish")])
+    # To'rtinchi qator: Admin bilan bog'lanish va Chiqish
+    keyboard.append([KeyboardButton(text="✍️ Admin bilan bog'lanish"), KeyboardButton(text="🚪 Chiqish")])
     
     return ReplyKeyboardMarkup(
         keyboard=keyboard,
         resize_keyboard=True
     )
+
+def phone_number_keyboard():
+    """Telefon raqamini yuborish tugmasi"""
+    builder = ReplyKeyboardBuilder()
+    builder.row(KeyboardButton(text="📱 Raqamimni yuborish", request_contact=True))
+    builder.row(KeyboardButton(text="❌ Bekor qilish"))
+    return builder.as_markup(resize_keyboard=True)
 
 
 def test_tanlash_keyboard(yonalish: str = None):
@@ -397,6 +490,14 @@ def ranking_keyboard(is_admin=False):
         ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+
+def student_ranking_keyboard():
+    """User panel reyting menyusi (student-prefiks)."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🌍 Umumiy Top 50", callback_data="student_ranking:overall_top50")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="student_ranking:back")],
+    ])
+
 def sinf_tanlash_ranking_keyboard():
     """Admin uchun reyting ko'rishda sinf tanlash."""
     buttons = []
@@ -425,6 +526,7 @@ def stats_keyboard():
         [InlineKeyboardButton(text="🎯 Yo'nalishlar bo'yicha", callback_data="stats:direction")],
         [InlineKeyboardButton(text="🏫 Sinflar bo'yicha", callback_data="stats:class")],
         [InlineKeyboardButton(text="🚀 Eng ko'p o'sganlar", callback_data="stats:improved")],
+        [InlineKeyboardButton(text="📉 Eng ko'p pasayganlar", callback_data="stats:declined")],
     ])
 
 def oquvchilar_filtrlash_keyboard():
@@ -596,3 +698,10 @@ def appeal_action_keyboard(appeal_id):
         [InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"appeal_reply:{appeal_id}")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="appeal_list")]
     ])
+
+def maktab_tanlash_keyboard(maktablar, prefix="select_maktab"):
+    buttons = []
+    for m in maktablar:
+        buttons.append([InlineKeyboardButton(text=f"🏫 {m['nomi']}", callback_data=f"{prefix}:{m['id']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Bekor qilish", callback_data="cancel:admin_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

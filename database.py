@@ -2,6 +2,7 @@ import psycopg2
 import psycopg2.extras
 from psycopg2 import pool
 import os
+import logging
 from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -32,6 +33,8 @@ connection_pool = None
 def _get_pool():
     global connection_pool
     if connection_pool is None:
+        if not DATABASE_URL:
+            raise RuntimeError("DATABASE_URL environment variable is not set")
         import time
         for attempt in range(5):
             try:
@@ -40,13 +43,13 @@ def _get_pool():
                     sslmode='require',
                     connect_timeout=10
                 )
-                print("✅ Connection pool muvaffaqiyatli yaratildi")
+                logging.info("Connection pool created successfully")
                 break
             except Exception as e:
-                print(f"⚠️ Pool yaratish urinish {attempt+1}/5: {e}")
+                logging.warning("Pool creation attempt %s/5 failed: %s", attempt + 1, e)
                 time.sleep(3)
         if connection_pool is None:
-            raise Exception("❌ Supabase ga ulanib bo'lmadi!")
+            raise Exception("Failed to connect to PostgreSQL")
     return connection_pool
 
 def get_connection():
@@ -111,9 +114,15 @@ def init_db():
             username TEXT,
             first_name TEXT,
             last_name TEXT,
+            phone_number TEXT,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Eski foydalanuvchilarga phone_number ustunini qo'shish
+    try:
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number TEXT")
+    except Exception:
+        pass
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS yonalishlar (
@@ -125,7 +134,9 @@ def init_db():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS sinflar (
             id SERIAL PRIMARY KEY,
-            nomi TEXT UNIQUE NOT NULL
+            nomi TEXT NOT NULL,
+            maktab_id INTEGER DEFAULT 1,
+            UNIQUE (nomi, maktab_id)
         )
     """)
 
@@ -193,7 +204,37 @@ def init_db():
         )
     """)
 
-    cur.execute("INSERT INTO maktablar (nomi) VALUES ('Asosiy maktab') ON CONFLICT DO NOTHING")
+    # Maktablar jadvalini tekshirish va 'Bo'stonliq ITMA' ni yaratish/yangilash
+    cur.execute("SELECT id FROM maktablar WHERE nomi = 'Asosiy maktab' OR nomi = 'Bo''stonliq ITMA' LIMIT 1")
+    row = cur.fetchone()
+    if row:
+        maktab_id = row[0]
+        cur.execute("UPDATE maktablar SET nomi = 'Bo''stonliq ITMA' WHERE id = %s", (maktab_id,))
+    else:
+        cur.execute("INSERT INTO maktablar (nomi) VALUES ('Bo''stonliq ITMA') RETURNING id")
+        maktab_id = cur.fetchone()[0]
+    
+    # Barcha mavjud sinflarni ushbu maktabga biriktirish:
+    # 1) maktab_id IS NULL bo'lganlar
+    # 2) maktab_id si maktablar jadvalida mavjud bo'lmaganlar ("yetim" sinflar) — asosiy bug fix
+    try:
+        cur.execute("UPDATE sinflar SET maktab_id = %s WHERE maktab_id IS NULL", (maktab_id,))
+        cur.execute("""
+            UPDATE sinflar SET maktab_id = %s
+            WHERE maktab_id NOT IN (SELECT id FROM maktablar)
+        """, (maktab_id,))
+    except Exception:
+        pass
+
+    # Mavjud talabalarning sinf nomini yangilash (agar formatga tushmasa)
+    try:
+        cur.execute("""
+            UPDATE talabalar 
+            SET sinf = sinf || ' - Bo''stonliq ITMA' 
+            WHERE sinf IS NOT NULL AND sinf NOT LIKE '% - %'
+        """)
+    except Exception:
+        pass
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS reminders (
@@ -287,19 +328,52 @@ def yonalish_ochir(nomi: str):
     release_connection(conn)
 
 def sinf_ol():
+    """
+    Barcha sinflarni qaytaradi.
+    LEFT JOIN ishlatiladi — maktab_id to'g'ri bo'lmasa ham sinf ko'rinadi.
+    Qaytariladi: ["11-A - Bo'stonliq ITMA", ...]
+    """
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT nomi FROM sinflar ORDER BY nomi ASC")
+    cur.execute("""
+        SELECT s.id, s.nomi AS sinf_nomi, 
+               COALESCE(m.nomi, 'Noma''lum maktab') AS maktab_nomi
+        FROM sinflar s
+        LEFT JOIN maktablar m ON s.maktab_id = m.id
+        ORDER BY maktab_nomi ASC, s.nomi ASC
+    """)
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)
-    return [r["nomi"] for r in rows]
+    return [f"{r['sinf_nomi']} - {r['maktab_nomi']}" for r in rows]
 
-def sinf_qosh(nomi: str) -> bool:
+
+def sinf_ol_batafsil():
+    """
+    Barcha sinflarni to'liq ma'lumot bilan qaytaradi.
+    Qaytariladi: [{"id": 1, "nomi": "11-A", "maktab_id": 2, "maktab_nomi": "..."}, ...]
+    """
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT s.id, s.nomi, s.maktab_id,
+               COALESCE(m.nomi, 'Noma''lum maktab') AS maktab_nomi
+        FROM sinflar s
+        LEFT JOIN maktablar m ON s.maktab_id = m.id
+        ORDER BY maktab_nomi ASC, s.nomi ASC
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+
+def sinf_qosh(nomi: str, maktab_id: int) -> bool:
+    """Yangi sinf qo'shadi. maktab_id majburiy."""
     try:
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("INSERT INTO sinflar (nomi) VALUES (%s)", (nomi,))
+        cur.execute("INSERT INTO sinflar (nomi, maktab_id) VALUES (%s, %s)", (nomi, maktab_id))
         conn.commit()
         cur.close()
         release_connection(conn)
@@ -307,13 +381,84 @@ def sinf_qosh(nomi: str) -> bool:
     except Exception:
         return False
 
-def sinf_ochir(nomi: str):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM sinflar WHERE nomi = %s", (nomi,))
-    conn.commit()
-    cur.close()
-    release_connection(conn)
+
+def sinf_ochir(full_name: str):
+    """Nom bo'yicha o'chirish (meros — ishlatilmaydi). sinf_ochir_id ishlatish tavsiya etiladi."""
+    try:
+        parts = full_name.split(" - ", 1)
+        sinf_nomi = parts[0]
+        maktab_nomi = parts[1] if len(parts) > 1 else None
+        conn = get_connection()
+        cur = conn.cursor()
+        if maktab_nomi:
+            cur.execute("""
+                DELETE FROM sinflar
+                WHERE nomi = %s AND maktab_id = (SELECT id FROM maktablar WHERE nomi = %s LIMIT 1)
+            """, (sinf_nomi, maktab_nomi))
+        else:
+            cur.execute("DELETE FROM sinflar WHERE nomi = %s", (sinf_nomi,))
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+    except Exception:
+        pass
+
+
+def sinf_ochir_id(sinf_id: int) -> bool:
+    """Sinf ID bo'yicha o'chiradi. Xavfsiz va aniq."""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM sinflar WHERE id = %s", (sinf_id,))
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+        return True
+    except Exception:
+        return False
+
+
+def sinf_talabalar_soni(sinf_id: int) -> int:
+    """Sinfga tegishli o'quvchilar sonini qaytaradi (o'chirishdan oldin tekshirish uchun)."""
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        # Sinf nomini olamiz
+        cur.execute("SELECT s.nomi, COALESCE(m.nomi,'') AS maktab_nomi FROM sinflar s LEFT JOIN maktablar m ON s.maktab_id=m.id WHERE s.id=%s", (sinf_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            release_connection(conn)
+            return 0
+        full_name = f"{row['nomi']} - {row['maktab_nomi']}" if row['maktab_nomi'] else row['nomi']
+        cur.execute("SELECT COUNT(*) FROM talabalar WHERE sinf = %s", (full_name,))
+        count = cur.fetchone()[0]
+        cur.close()
+        release_connection(conn)
+        return count
+    except Exception:
+        return 0
+
+
+def sinf_id_dan_full_nomi(sinf_id: int) -> str | None:
+    """Sinf ID dan to'liq nom qaytaradi: '11-A - Bo'stonliq ITMA'"""
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT s.nomi, COALESCE(m.nomi, 'Noma''lum maktab') AS maktab_nomi
+            FROM sinflar s
+            LEFT JOIN maktablar m ON s.maktab_id = m.id
+            WHERE s.id = %s
+        """, (sinf_id,))
+        row = cur.fetchone()
+        cur.close()
+        release_connection(conn)
+        if row:
+            return f"{row['nomi']} - {row['maktab_nomi']}"
+        return None
+    except Exception:
+        return None
 
 
 def kalit_qosh(test_nomi: str, kalitlar: str, yonalish: str = None) -> bool:
@@ -581,6 +726,28 @@ def get_all_students_for_excel():
     release_connection(conn)
     return [dict(r) for r in rows]
 
+def get_sorted_students_for_excel():
+    """Barcha o'quvchilarni ballari bo'yicha kamayish tartibida (reyting) oladi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT t.kod, t.sinf, t.yonalish, t.ismlar,
+               n.majburiy, n.asosiy_1, n.asosiy_2, n.umumiy_ball, n.test_sanasi
+        FROM talabalar t
+        LEFT JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        WHERE n.umumiy_ball IS NOT NULL
+        ORDER BY n.umumiy_ball DESC
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
 def talaba_hammasi():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -601,17 +768,47 @@ def talaba_hammasi():
     return [dict(r) for r in rows]
 
 
-def add_user(user_id: int, username: str = None, first_name: str = None, last_name: str = None):
+def add_user(user_id: int, username: str = None, first_name: str = None, last_name: str = None, phone_number: str = None):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO users (user_id, username, first_name, last_name)
-        VALUES (%s, %s, %s, %s)
-        ON CONFLICT (user_id) DO NOTHING
-    """, (user_id, username, first_name, last_name))
+        INSERT INTO users (user_id, username, first_name, last_name, phone_number)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (user_id) DO UPDATE SET
+            username = EXCLUDED.username,
+            first_name = EXCLUDED.first_name,
+            last_name = EXCLUDED.last_name,
+            phone_number = COALESCE(EXCLUDED.phone_number, users.phone_number)
+    """, (user_id, username, first_name, last_name, phone_number))
     conn.commit()
     cur.close()
     release_connection(conn)
+
+def update_user_phone(user_id: int, phone_number: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET phone_number = %s WHERE user_id = %s", (phone_number, user_id))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def get_user(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return row
+
+def get_all_registered_users():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM users ORDER BY registered_at DESC")
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return rows
 
 def get_all_user_ids():
     conn = get_connection()
@@ -873,6 +1070,28 @@ def get_most_improved_students():
         JOIN talabalar t ON t.kod = sd.talaba_kod
         WHERE sd.diff IS NOT NULL AND sd.diff > 0
         ORDER BY sd.diff DESC
+        LIMIT 10
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+def get_most_declined_students():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        WITH student_diffs AS (
+            SELECT talaba_kod,
+                   (SELECT umumiy_ball FROM test_natijalari WHERE talaba_kod = t1.talaba_kod ORDER BY test_sanasi DESC LIMIT 1) -
+                   (SELECT umumiy_ball FROM test_natijalari WHERE talaba_kod = t1.talaba_kod ORDER BY test_sanasi DESC OFFSET 1 LIMIT 1) as diff
+            FROM (SELECT DISTINCT talaba_kod FROM test_natijalari) t1
+        )
+        SELECT t.kod, t.ismlar, t.sinf, sd.diff
+        FROM student_diffs sd
+        JOIN talabalar t ON t.kod = sd.talaba_kod
+        WHERE sd.diff IS NOT NULL AND sd.diff < 0
+        ORDER BY sd.diff ASC
         LIMIT 10
     """)
     rows = cur.fetchall()
@@ -1452,21 +1671,51 @@ def maktablar_ol():
     release_connection(conn)
     return [dict(r) for r in rows]
 
-def maktab_ochir(maktab_id: int):
+def maktab_ochir(maktab_id: int) -> bool:
+    """
+    Maktabni o'chiradi. Agar maktabda sinflar bo'lsa, False qaytaradi va o'chirmaydi.
+    """
     conn = get_connection()
     cur = conn.cursor()
+    # Avval bu maktabga tegishli sinflar borligini tekshiramiz
+    cur.execute("SELECT COUNT(*) FROM sinflar WHERE maktab_id = %s", (maktab_id,))
+    count = cur.fetchone()[0]
+    if count > 0:
+        cur.close()
+        release_connection(conn)
+        return False  # Sinflar bor, o'chirib bo'lmaydi
     cur.execute("DELETE FROM maktablar WHERE id = %s", (maktab_id,))
     conn.commit()
     cur.close()
     release_connection(conn)
+    return True
 
-def sinf_maktabga_bogla(sinf_nomi: str, maktab_id: int):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE sinflar SET maktab_id = %s WHERE nomi = %s", (maktab_id, sinf_nomi))
-    conn.commit()
-    cur.close()
-    release_connection(conn)
+def sinf_maktabga_bogla(full_name: str, maktab_id: int):
+    # full_name format: "Sinf nomi - Maktab nomi"
+    try:
+        parts = full_name.split(" - ")
+        sinf_nomi = parts[0]
+        
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        # Yangi maktab nomini olish
+        cur.execute("SELECT nomi FROM maktablar WHERE id = %s", (maktab_id,))
+        yangi_maktab_nomi = cur.fetchone()[0]
+        yangi_full_name = f"{sinf_nomi} - {yangi_maktab_nomi}"
+        
+        # Sinflar jadvalini yangilash
+        cur.execute("UPDATE sinflar SET maktab_id = %s WHERE nomi = %s AND maktab_id = (SELECT id FROM maktablar WHERE nomi = %s)", 
+                    (maktab_id, sinf_nomi, parts[1]))
+        
+        # Talabalar jadvalini yangilash
+        cur.execute("UPDATE talabalar SET sinf = %s WHERE sinf = %s", (yangi_full_name, full_name))
+        
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+    except Exception:
+        pass
 
 def maktab_sinflari_ol(maktab_id: int):
     conn = get_connection()

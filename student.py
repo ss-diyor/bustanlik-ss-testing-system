@@ -16,12 +16,13 @@ from database import (
     talaba_topish, talaba_natijalari, get_all_user_ids, kalit_ol,
     get_all_in_class, get_overall_ranking, get_student_rank,
     get_avg_score_by_direction, get_class_comparison, get_most_improved_students,
+    get_most_declined_students,
     get_score_difference, get_setting, check_access, add_access_request, get_request_by_user,
     talaba_songi_natija, appeal_qosh
 )
 from keyboards import (
     user_menu_keyboard, murojaat_bekor_qilish_keyboard, murojaat_javob_keyboard,
-    test_tanlash_keyboard, ranking_keyboard, stats_keyboard, profile_keyboard
+    test_tanlash_keyboard, student_ranking_keyboard, stats_keyboard, profile_keyboard
 )
 from config import ADMIN_IDS
 from certificate import CertificateGenerator
@@ -386,15 +387,16 @@ async def ranking_menu(event):
         )
         
         if isinstance(event, CallbackQuery):
-            await event.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+            await event.message.edit_text(text, parse_mode="HTML", reply_markup=student_ranking_keyboard())
         else:
-            await event.answer(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+            await event.answer(text, parse_mode="HTML", reply_markup=student_ranking_keyboard())
     except Exception as e:
         await message.answer(f"❌ Reytingni yuklashda xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.")
 
 @router.callback_query(F.data.startswith("ranking:"))
+@router.callback_query(F.data.startswith("student_ranking:"))
 async def ranking_process(callback: CallbackQuery):
-    action = callback.data.split(":")[1]
+    action = callback.data.split(":", 1)[1]
     
     # Admin tekshiruvi
     from admin import is_admin_id
@@ -412,6 +414,19 @@ async def ranking_process(callback: CallbackQuery):
 
     if action == "overall_top50":
         if not is_admin and not check_access(callback.from_user.id):
+            if not talaba:
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔙 Orqaga", callback_data="student_ranking:back")]
+                ])
+                await callback.message.edit_text(
+                    "⚠️ <b>Avval profilingizni ulashing.</b>\n\n"
+                    "Masalan: <code>ULASH_A-001</code>\n"
+                    "Shundan keyin Umumiy Top 50 uchun admin ruxsatini so'rashingiz mumkin.",
+                    parse_mode="HTML",
+                    reply_markup=kb
+                )
+                await callback.answer()
+                return
             # Ruxsat yo'q bo'lsa, so'rov yuborish tugmasini ko'rsatish
             req = get_request_by_user(callback.from_user.id)
             if req and req['status'] == 'pending':
@@ -420,7 +435,7 @@ async def ranking_process(callback: CallbackQuery):
             
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🙋‍♂️ Ruxsat so'rash", callback_data=f"request_access:{talaba['kod']}")],
-                [InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back")]
+                [InlineKeyboardButton(text="🔙 Orqaga", callback_data="student_ranking:back")]
             ])
             await callback.message.edit_text(
                 "🔒 <b>Umumiy Top ro'yxatini ko'rish uchun admin ruxsati kerak.</b>\n\n"
@@ -448,7 +463,7 @@ async def ranking_process(callback: CallbackQuery):
             emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
             text += f"{emoji} {t['ismlar']} ({t['sinf']}) — <b>{t['umumiy_ball']}</b> ball\n"
         
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=ranking_keyboard(is_admin=False))
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=student_ranking_keyboard())
 
     elif action == "back":
         await ranking_menu(callback)
@@ -623,7 +638,17 @@ async def stats_process(callback: CallbackQuery):
             return
         text = "🚀 <b>Eng ko'p o'sishga erishganlar (oxirgi 2 test):</b>\n\n"
         for s in students:
-            text += f"• {s['ismlar']} ({s['sinf']}): <b>+{s['diff']}</b> ball\n"
+            text += f"• {s['ismlar']} ({s['sinf']}): <b>+{s['diff']:.1f}</b> ball\n"
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=stats_keyboard())
+
+    elif action == "declined":
+        students = get_most_declined_students()
+        if not students:
+            await callback.answer("⚠️ Ma'lumotlar yo'q.", show_alert=True)
+            return
+        text = "📉 <b>Eng ko'p pasayganlar (oxirgi 2 test):</b>\n\n"
+        for s in students:
+            text += f"• {s['ismlar']} ({s['sinf']}): <b>{s['diff']:.1f}</b> ball\n"
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=stats_keyboard())
 
     await callback.answer()
@@ -735,10 +760,16 @@ async def profile_callback(callback: CallbackQuery):
             await callback.answer("📜 Hozircha testlar tarixi mavjud emas.", show_alert=True)
             return
         
-        text = f"📜 <b>Oxirgi 10 ta test natijalari:</b>\n\n"
-        for i, res in enumerate(history, 1):
+        text = f"📜 <b>Oxirgi 10 ta test natijalari</b>\n\n"
+        for idx, res in enumerate(history):
             sana = res['test_sanasi'].strftime("%d.%m.%Y")
-            text += f"{i}. {sana} — <b>{res['umumiy_ball']} ball</b>\n"
+            ball = float(res['umumiy_ball'])
+            line = f"{idx + 1}. {sana} — <b>{ball:g} ball</b>"
+            if idx + 1 < len(history):
+                prev_ball = float(history[idx + 1]['umumiy_ball'])
+                delta = ball - prev_ball
+                line += f", avvalgisi bilan: <b>{delta:+.1f} ball</b>"
+            text += line + "\n"
         
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=profile_keyboard())
     
@@ -831,3 +862,48 @@ async def cancel_callback_handler(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text("✅ Amal bekor qilindi.")
     
     await callback.answer()
+
+# ─────────────────────────────────────────
+# AI Analitika handler
+# ─────────────────────────────────────────
+from ai_analytics import AIAnalytics
+
+@router.message(F.text == "🧠 AI Tahlili")
+async def ai_analytics_handler(message: Message, state: FSMContext):
+    # Foydalanuvchi user_id si bo'yicha talabani topamiz
+    from database import get_connection, release_connection
+    import psycopg2.extras
+    
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT kod, ismlar FROM talabalar WHERE user_id = %s", (message.from_user.id,))
+    talaba = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+
+    if not talaba:
+        await message.answer("❌ <b>Sizning profilingiz tizimga ulanmagan!</b>\n\n"
+                           "Iltimos, avval profilingizni botga ulang (admin bergan kod orqali).", parse_mode="HTML")
+        return
+
+    wait_msg = await message.answer("🧠 <b>AI ma'lumotlarni tahlil qilmoqda...</b>\n\nIltimos, kuting.", parse_mode="HTML")
+    
+    try:
+        analytics = AIAnalytics()
+        chart_path, recommendation = await analytics.get_full_analysis(talaba['kod'])
+        
+        if chart_path and os.path.exists(chart_path):
+            await message.answer_photo(
+                FSInputFile(chart_path),
+                caption=f"📊 <b>{talaba['ismlar']} uchun AI Tahlili xulosasi:</b>\n\n{recommendation}",
+                parse_mode="HTML"
+            )
+            # Grafikni yuborgandan keyin o'chirish
+            os.remove(chart_path)
+        else:
+            await message.answer(f"📊 <b>{talaba['ismlar']} uchun AI Tahlili xulosasi:</b>\n\n{recommendation}", parse_mode="HTML")
+            
+    except Exception as e:
+        await message.answer(f"❌ <b>Analitika jarayonida xatolik yuz berdi:</b>\n{e}", parse_mode="HTML")
+    finally:
+        await wait_msg.delete()
