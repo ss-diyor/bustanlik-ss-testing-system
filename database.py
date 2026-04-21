@@ -911,7 +911,7 @@ def get_all_in_class(sinf: str):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
-        SELECT t.kod, t.ismlar, n.umumiy_ball
+        SELECT t.kod, t.ismlar, t.yonalish, n.umumiy_ball
         FROM talabalar t
         JOIN test_natijalari n ON n.id = (
             SELECT id FROM test_natijalari
