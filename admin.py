@@ -134,7 +134,8 @@ from keyboards import (
     bitiruvchilar_arxivlash_keyboard, sinf_arxivlash_keyboard,
     dublikatlar_keyboard, dublikat_birlashtirish_keyboard,
     # PDF export klaviaturalar
-    pdf_export_keyboard, sinf_tanlash_pdf_keyboard
+    pdf_export_keyboard, sinf_tanlash_pdf_keyboard,
+    maktab_tanlash_keyboard
 )
 
 router = Router()
