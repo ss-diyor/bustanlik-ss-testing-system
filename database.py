@@ -82,6 +82,7 @@ def init_db():
             sinf TEXT,
             ismlar TEXT,
             user_id BIGINT DEFAULT NULL,
+            status TEXT DEFAULT 'aktiv',
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -149,6 +150,12 @@ def init_db():
     # Eski bazalarda expires_at ustuni bo'lmasligi mumkin, uni qo'shib qo'yamiz
     try:
         cur.execute("ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT NULL")
+    except Exception:
+        pass
+    
+    # Eski bazalarda status ustuni bo'lmasligi mumkin, uni qo'shib qo'yamiz
+    try:
+        cur.execute("ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'aktiv'")
     except Exception:
         pass
 
@@ -1243,6 +1250,174 @@ def reminder_ochir(reminder_id: int):
     conn.commit()
     cur.close()
     release_connection(conn)
+
+# ─────────────────────────────────────────
+# Yangi funktsiyalar uchun ma'lumotlar bazasi funksiyalari
+# ─────────────────────────────────────────
+
+# 1. O'quvchi ma'lumotlarini tahrirlash
+def talaba_tahrirlash(kod: str, ismlar: str = None, sinf: str = None, yonalish: str = None):
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    update_fields = []
+    params = []
+    
+    if ismlar is not None:
+        update_fields.append("ismlar = %s")
+        params.append(ismlar)
+    if sinf is not None:
+        update_fields.append("sinf = %s")
+        params.append(sinf)
+    if yonalish is not None:
+        update_fields.append("yonalish = %s")
+        params.append(yonalish)
+    
+    if update_fields:
+        params.append(kod)
+        query = f"UPDATE talabalar SET {', '.join(update_fields)} WHERE kod = %s"
+        cur.execute(query, params)
+        conn.commit()
+    
+    cur.close()
+    release_connection(conn)
+    return len(update_fields) > 0
+
+# 2. Maktab bo'yicha statistika
+def maktab_statistikasi(maktab_id: int = None):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    where_clause = "WHERE t.status = 'aktiv'"
+    if maktab_id:
+        where_clause += f" AND t.maktab_id = {maktab_id}"
+    
+    cur.execute(f"""
+        SELECT 
+            m.nomi as maktab_nomi,
+            t.sinf,
+            COUNT(*) as oquvchilar_soni,
+            AVG(COALESCE(tn.umumiy_ball, 0)) as o'rtacha_ball,
+            MAX(COALESCE(tn.umumiy_ball, 0)) as eng_yuqori_ball,
+            MIN(COALESCE(tn.umumiy_ball, 0)) as eng_past_ball
+        FROM talabalar t
+        LEFT JOIN test_natijalari tn ON t.kod = tn.talaba_kod
+        LEFT JOIN maktablar m ON t.maktab_id = m.id
+        {where_clause}
+        GROUP BY m.nomi, t.sinf
+        ORDER BY m.nomi, t.sinf
+    """)
+    
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+# 3. Faqat bitta natijani o'chirish
+def bitta_natija_ochir(talaba_kod: str, natija_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM test_natijalari WHERE id = %s AND talaba_kod = %s", (natija_id, talaba_kod))
+    affected_rows = cur.rowcount
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+    return affected_rows > 0
+
+# 4. Ommaviy sinf transferi
+def sinf_transferi(eski_sinf: str, yangi_sinf: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE talabalar SET sinf = %s WHERE sinf = %s", (yangi_sinf, eski_sinf))
+    affected_rows = cur.rowcount
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+    return affected_rows
+
+# 5. Bitiruvchilarni arxivlash
+def bitiruvchilarni_arxivlash(sinf: str = None):
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    if sinf:
+        cur.execute("UPDATE talabalar SET status = 'arxiv' WHERE sinf = %s", (sinf,))
+    else:
+        # Barcha bitiruvchilarni (11-sinf) arxivlash
+        cur.execute("UPDATE talabalar SET status = 'arxiv' WHERE sinf LIKE '11%'")
+    
+    affected_rows = cur.rowcount
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+    return affected_rows
+
+# 6. Dublikatlarni topish
+def dublikatlarni_topish():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    cur.execute("""
+        SELECT ismlar, COUNT(*) as soni, STRING_AGG(kod, ', ') as kodlar
+        FROM talabalar 
+        WHERE status = 'aktiv'
+        GROUP BY ismlar 
+        HAVING COUNT(*) > 1
+        ORDER BY soni DESC
+    """)
+    
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+# 7. Dublikatlarni birlashtirish
+def dublikatlarni_birlashtir(asosiy_kod: str, qoshimcha_kodlar: list):
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    try:
+        # Qo'shimcha talabalarning test natijalarini asosiy talabaga o'tkazish
+        for kod in qoshimcha_kodlar:
+            cur.execute("UPDATE test_natijalari SET talaba_kod = %s WHERE talaba_kod = %s", (asosiy_kod, kod))
+            # Qo'shimcha talabani o'chirish
+            cur.execute("DELETE FROM talabalar WHERE kod = %s", (kod,))
+        
+        conn.commit()
+        success = True
+    except Exception:
+        conn.rollback()
+        success = False
+    
+    cur.close()
+    release_connection(conn)
+    return success
+
+# 8. O'quvchining barcha natijalarini olish
+def talaba_natijalari(talaba_kod: str):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT id, majburiy, asosiy_1, asosiy_2, umumiy_ball, test_sanasi 
+        FROM test_natijalari 
+        WHERE talaba_kod = %s 
+        ORDER BY test_sanasi DESC
+    """, (talaba_kod,))
+    
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+# 9. Maktablar ro'yxatini olish
+def maktablar_ol():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM maktablar ORDER BY nomi ASC")
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
 
 def reminder_holat_yangila(reminder_id: int, holat: str):
     conn = get_connection()

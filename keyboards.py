@@ -12,14 +12,19 @@ def admin_menu_keyboard():
         keyboard=[
             [KeyboardButton(text="➕ O'quvchi qo'shish")],
             [KeyboardButton(text="📥 Exceldan import")],
+            [KeyboardButton(text="✏️ O'quvchi ma'lumotlarini tahrirlash")],
+            [KeyboardButton(text="🗑️ Bitta natijani o'chirish")],
             [KeyboardButton(text="🔑 Test kalitlarini boshqarish")],
             [KeyboardButton(text="✏️ Natijani tahrirlash")],
             [KeyboardButton(text="⚙️ Yo'nalishlarni boshqarish")],
             [KeyboardButton(text="🏫 Sinflarni boshqarish")],
+            [KeyboardButton(text="� Sinf transferi")],
+            [KeyboardButton(text="📦 Bitiruvchilarni arxivlash")],
+            [KeyboardButton(text="🔍 Dublikatlarni topish")],
             [KeyboardButton(text="👨‍🏫 O'qituvchilarni boshqarish")],
-            [KeyboardButton(text="�‍🏫 O'qituvchilarni boshqarish")],
-            [KeyboardButton(text="�👥 Adminlarni boshqarish")],
-            [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🏆 Reyting")],
+            [KeyboardButton(text="👥 Adminlarni boshqarish")],
+            [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🏫 Maktab statistikasi")],
+            [KeyboardButton(text="🏆 Reyting")],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
             [KeyboardButton(text="⏰ Eslatmalar"), KeyboardButton(text="🏫 Maktablarni boshqarish")],
             [KeyboardButton(text="📢 Guruhlarni boshqarish")],
@@ -228,6 +233,145 @@ def murojaat_javob_keyboard(user_id):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"murojaat_javob:{user_id}")]
     ])
+
+# ─────────────────────────────────────────
+# Yangi funktsiyalar uchun klaviaturalar
+# ─────────────────────────────────────────
+
+def talaba_tahrirlash_keyboard(talabalar):
+    """O'quvchini tahrirlash uchun ro'yxat."""
+    buttons = []
+    for talaba in talabalar:
+        text = f"{talaba['ismlar']} ({talaba['sinf']}) - {talaba['kod']}"
+        buttons.append([InlineKeyboardButton(text=text, callback_data=f"talaba_edit:{talaba['kod']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def talaba_edit_options_keyboard(kod):
+    """O'quvchini tahrirlash variantlari."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✏️ Ismni o'zgartirish", callback_data=f"talaba_edit_ism:{kod}")],
+        [InlineKeyboardButton(text="🏫 Sinfni o'zgartirish", callback_data=f"talaba_edit_sinf:{kod}")],
+        [InlineKeyboardButton(text="🎯 Yo'nalishni o'zgartirish", callback_data=f"talaba_edit_yonalish:{kod}")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="talaba_tahrirlash:back")],
+    ])
+
+def maktab_statistikasi_keyboard():
+    """Maktab statistikasi menyusi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📊 Barcha maktablar statistikasi", callback_data="maktab_stat:barchasi")],
+        [InlineKeyboardButton(text="📈 Maktablarni solishtirish", callback_data="maktab_stat:solishtirish")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")],
+    ])
+
+def maktablar_tanlash_keyboard():
+    """Maktabni tanlash uchun ro'yxat."""
+    from database import maktablar_ol
+    maktablar = maktablar_ol()
+    buttons = []
+    for maktab in maktablar:
+        buttons.append([InlineKeyboardButton(text=maktab['nomi'], callback_data=f"maktab_stat:{maktab['id']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="maktab_stat:barchasi")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def maktab_solishtirish_keyboard():
+    """Maktablar solishtirish uchun tanlash."""
+    from database import maktablar_ol
+    maktablar = maktablar_ol()
+    buttons = []
+    # Birinchi maktabni tanlash
+    for i, maktab in enumerate(maktablar):
+        buttons.append([InlineKeyboardButton(text=f"1️⃣ {maktab['nomi']}", callback_data=f"maktab_comp1:{maktab['id']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def maktab_comp2_keyboard(maktab1_id):
+    """Ikkinchi maktabni tanlash uchun."""
+    from database import maktablar_ol
+    maktablar = maktablar_ol()
+    buttons = []
+    for maktab in maktablar:
+        if maktab['id'] != maktab1_id:
+            buttons.append([InlineKeyboardButton(text=f"2️⃣ {maktab['nomi']}", callback_data=f"maktab_comp2:{maktab1_id}:{maktab['id']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="maktab_stat:solishtirish")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def natijalar_ochirish_keyboard(talaba_kod):
+    """O'quvchining natijalarini o'chirish uchun ro'yxat."""
+    from database import talaba_natijalari
+    natijalar = talaba_natijalari(talaba_kod)
+    buttons = []
+    for natija in natijalar:
+        sana = natija['test_sanasi'].strftime('%d.%m.%Y %H:%M')
+        text = f"📊 {natija['umumiy_ball']} ball - {sana}"
+        buttons.append([InlineKeyboardButton(text=text, callback_data=f"natija_ochir:{talaba_kod}:{natija['id']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def sinf_transferi_keyboard():
+    """Sinf transferi menyusi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Barcha sinflarni yuqoriga ko'chirish", callback_data="sinf_transfer:barchasi")],
+        [InlineKeyboardButton(text="🎯 Tanlab sinfni ko'chirish", callback_data="sinf_transfer:tanlash")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")],
+    ])
+
+def sinf_tanlash_transfer_keyboard():
+    """Transfer uchun sinf tanlash."""
+    from database import sinf_ol
+    sinflar = sinf_ol()
+    buttons = []
+    for sinf in sinflar:
+        buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"sinf_transfer_eski:{sinf}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_transfer:barchasi")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def yangi_sinf_tanlash_keyboard(eski_sinf):
+    """Yangi sinfni tanlash."""
+    from database import sinf_ol
+    sinflar = sinf_ol()
+    buttons = []
+    for sinf in sinflar:
+        if sinf != eski_sinf:
+            buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"sinf_transfer_yangi:{eski_sinf}:{sinf}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_transfer:tanlash")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def bitiruvchilar_arxivlash_keyboard():
+    """Bitiruvchilarni arxivlash menyusi."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎓 Barcha 11-sinflarni arxivlash", callback_data="arxivlash:barcha_11")],
+        [InlineKeyboardButton(text="🎯 Tanlab sinfni arxivlash", callback_data="arxivlash:tanlash")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")],
+    ])
+
+def sinf_arxivlash_keyboard():
+    """Arxivlash uchun sinf tanlash."""
+    from database import sinf_ol
+    sinflar = sinf_ol()
+    buttons = []
+    for sinf in sinflar:
+        buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"arxivlash_sinf:{sinf}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="arxivlash:tanlash")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def dublikatlar_keyboard(dublikatlar):
+    """Dublikat o'quvchilar ro'yxati."""
+    buttons = []
+    for dublikat in dublikatlar:
+        text = f"👥 {dublikat['ismlar']} ({dublikat['soni']} ta)"
+        buttons.append([InlineKeyboardButton(text=text, callback_data=f"dublikat_tanlash:{dublikat['ismlar']}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def dublikat_birlashtirish_keyboard(ism, kodlar):
+    """Dublikatlarni birlashtirish uchun."""
+    kod_list = kodlar.split(', ')
+    buttons = []
+    for kod in kod_list:
+        buttons.append([InlineKeyboardButton(text=f"👤 {kod}", callback_data=f"dublikat_asosiy:{ism}:{kod}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="dublikatlar:back")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def admin_management_keyboard():

@@ -103,7 +103,11 @@ from database import (
     reminder_qosh, reminder_ol, reminder_ochir,
     send_backup, admin_session_start, admin_session_end, get_active_admin_sessions,
     is_admin_already_active, create_admins_table, add_admin, remove_admin, 
-    get_all_admins, is_admin_in_db
+    get_all_admins, is_admin_in_db,
+    # Yangi funktsiyalar
+    talaba_tahrirlash, maktab_statistikasi, bitta_natija_ochir, sinf_transferi, 
+    bitiruvchilarni_arxivlash, dublikatlarni_topish, dublikatlarni_birlashtir, 
+    talaba_natijalari, maktablar_ol, get_all_students
 )
 from keyboards import (
     admin_menu_keyboard, yonalish_keyboard, tasdiqlash_keyboard, baza_tozalash_keyboard,
@@ -115,7 +119,13 @@ from keyboards import (
     oqituvchi_boshqarish_keyboard, oqituvchi_menu_keyboard, oqituvchi_ochirish_keyboard,
     reminder_boshqarish_keyboard, maktab_boshqarish_keyboard, guruh_boshqarish_keyboard,
     reminder_list_keyboard, maktab_list_keyboard, maktab_detail_keyboard,
-    appeals_keyboard, appeal_action_keyboard, stats_keyboard, admin_management_keyboard
+    appeals_keyboard, appeal_action_keyboard, stats_keyboard, admin_management_keyboard,
+    # Yangi klaviaturalar
+    talaba_tahrirlash_keyboard, talaba_edit_options_keyboard, maktab_statistikasi_keyboard,
+    maktablar_tanlash_keyboard, maktab_solishtirish_keyboard, maktab_comp2_keyboard,
+    natijalar_ochirish_keyboard, sinf_transferi_keyboard, sinf_tanlash_transfer_keyboard,
+    yangi_sinf_tanlash_keyboard, bitiruvchilar_arxivlash_keyboard, sinf_arxivlash_keyboard,
+    dublikatlar_keyboard, dublikat_birlashtirish_keyboard
 )
 
 router = Router()
@@ -146,6 +156,22 @@ class KalitBoshqar(StatesGroup):
     edit_kalit_kutish = State()
     yonalish_nomi_kutish = State()   # Yo'nalishga kalit: test nomi
     yonalish_kalit_kutish = State()  # Yo'nalishga kalit: kalitlar matni
+
+class BittaNatijaOchirish(StatesGroup):
+    kod_kutish = State()
+
+class TalabaTahrirlash(StatesGroup):
+    tanlash = State()
+    ism_kutish = State()
+    sinf_kutish = State()
+    yonalish_kutish = State()
+
+class SinfTransferi(StatesGroup):
+    eski_sinf = State()
+    yangi_sinf = State()
+
+class DublikatBirlashtirish(StatesGroup):
+    tanlash = State()
 
 class KodQidirish(StatesGroup):
     kod_kutish = State()
@@ -2196,7 +2222,7 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
 
 
 @router.message(F.text == "🔍 Kod bo'yicha qidirish")
-async def kod_qidirish_start(message: Message, state: FSMContext):
+async def kod_qidirish_handler(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
     await state.set_state(KodQidirish.kod_kutish)
     await message.answer("🔍 Qidirmoqchi bo'lgan o'quvchi kodini kiriting:")
@@ -2208,24 +2234,105 @@ async def kod_qidirish_process(message: Message, state: FSMContext):
     kod = message.text.strip().upper()
     talaba = talaba_topish(kod)
     if not talaba:
-        await message.answer("❌ O'quvchi topilmadi.")
+        await message.answer("O'quvchi topilmadi.")
     else:
         last_result = talaba_songi_natija(kod)
         text = (
-            f"👤 <b>O'quvchi ma'lumotlari:</b>\n\n"
-            f"🆔 Kod: <b>{talaba['kod']}</b>\n"
-            f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
-            f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
-            f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n"
-            f"🏆 Ball: <b>{last_result['umumiy_ball'] if last_result else 'Mavjud emas'}</b>"
+            f"O'quvchi ma'lumotlari:\n\n"
+            f"Kod: {talaba['kod']}\n"
+            f"Ism: {talaba['ismlar']}\n"
+            f"Sinf: {talaba['sinf']}\n"
+            f"Yo'nalish: {talaba['yonalish']}\n"
+            f"Ball: {last_result['umumiy_ball'] if last_result else 'Mavjud emas'}"
         )
         await message.answer(text, parse_mode="HTML")
     await state.set_state(None)
 
+# Yangi FSM state handlerlar
+@router.message(BittaNatijaOchirish.kod_kutish)
+async def bitta_natija_ochirish_process(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    
+    kod = message.text.strip().upper()
+    talaba = talaba_topish(kod)
+    
+    if not talaba:
+        await message.answer("O'quvchi topilmadi. Qaytadan urinib ko'ring:")
+        return
+    
+    natijalar = talaba_natijalari(kod)
+    
+    if not natijalar:
+        await message.answer(f"{talaba['ismlar']} uchun natijalar topilmadi.")
+        await state.set_state(None)
+        return
+    
+    text = f"O'chirish uchun natijani tanlang ({talaba['ismlar']}):"
+    await message.answer(text, reply_markup=natijalar_ochirish_keyboard(kod))
+    await state.set_state(None)
 
-# ─────────────────────────────────────────
-# Universal cancel buyrug'i
-# ─────────────────────────────────────────
+@router.message(TalabaTahrirlash.ism_kutish)
+async def talaba_ism_tahrirlash_process(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    
+    data = await state.get_data()
+    kod = data.get('talaba_kod')
+    
+    if not kod:
+        await message.answer("Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+        await state.set_state(None)
+        return
+    
+    yangi_ism = message.text.strip()
+    
+    if talaba_tahrirlash(kod, ismlar=yangi_ism):
+        await message.answer(f"O'quvchi ismi muvaffaqiyatli o'zgartirildi: {yangi_ism}")
+    else:
+        await message.answer("Xatolik yuz berdi.")
+    
+    await state.set_state(None)
+
+@router.message(TalabaTahrirlash.sinf_kutish)
+async def talaba_sinf_tahrirlash_process(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    
+    data = await state.get_data()
+    kod = data.get('talaba_kod')
+    
+    if not kod:
+        await message.answer("Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+        await state.set_state(None)
+        return
+    
+    yangi_sinf = message.text.strip()
+    
+    if talaba_tahrirlash(kod, sinf=yangi_sinf):
+        await message.answer(f"O'quvchi sinfi muvaffaqiyatli o'zgartirildi: {yangi_sinf}")
+    else:
+        await message.answer("Xatolik yuz berdi.")
+    
+    await state.set_state(None)
+
+@router.message(TalabaTahrirlash.yonalish_kutish)
+async def talaba_yonalish_tahrirlash_process(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    
+    data = await state.get_data()
+    kod = data.get('talaba_kod')
+    
+    if not kod:
+        await message.answer("Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+        await state.set_state(None)
+        return
+    
+    yangi_yonalish = message.text.strip()
+    
+    if talaba_tahrirlash(kod, yonalish=yangi_yonalish):
+        await message.answer(f"O'quvchi yo'nalishi muvaffaqiyatli o'zgartirildi: {yangi_yonalish}")
+    else:
+        await message.answer("Xatolik yuz berdi.")
+    
+    await state.set_state(None)
 
 @router.message(F.text == "/cancel")
 async def cancel_handler(message: Message, state: FSMContext):
@@ -2267,4 +2374,379 @@ async def cancel_callback_handler(callback: CallbackQuery, state: FSMContext):
     else:
         await callback.message.edit_text("✅ Amal bekor qilindi.")
     
+    await callback.answer()
+
+# ─────────────────────────────────────────
+# Yangi funktsiyalar callback handlerlari
+# ─────────────────────────────────────────
+
+# O'quvchi tahrirlash callbacklari
+@router.callback_query(F.data.startswith("talaba_edit:"))
+async def talaba_edit_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    kod = callback.data.split(":")[1]
+    talaba = talaba_topish(kod)
+    
+    if not talaba:
+        await callback.answer("❌ O'quvchi topilmadi.", show_alert=True)
+        return
+    
+    text = (
+        f"✏️ <b>O'quvchi ma'lumotlari:</b>\n\n"
+        f"🆔 Kod: <b>{talaba['kod']}</b>\n"
+        f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
+        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>"
+    )
+    
+    await callback.message.edit_text(
+        text, 
+        parse_mode="HTML", 
+        reply_markup=talaba_edit_options_keyboard(kod)
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("talaba_edit_ism:"))
+async def talaba_edit_ism_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    kod = callback.data.split(":")[1]
+    await state.update_data(talaba_kod=kod)
+    await state.set_state(TalabaTahrirlash.ism_kutish)
+    await callback.message.edit_text("✏️ <b>Yangi ismni kiriting:</b>", parse_mode="HTML")
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("talaba_edit_sinf:"))
+async def talaba_edit_sinf_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    kod = callback.data.split(":")[1]
+    await state.update_data(talaba_kod=kod)
+    await state.set_state(TalabaTahrirlash.sinf_kutish)
+    await callback.message.edit_text(
+        "🏫 <b>Yangi sinfni tanlang:</b>", 
+        parse_mode="HTML", 
+        reply_markup=sinf_keyboard()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("talaba_edit_yonalish:"))
+async def talaba_edit_yonalish_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    kod = callback.data.split(":")[1]
+    await state.update_data(talaba_kod=kod)
+    await state.set_state(TalabaTahrirlash.yonalish_kutish)
+    await callback.message.edit_text(
+        "🎯 <b>Yangi yo'nalishni tanlang:</b>", 
+        parse_mode="HTML", 
+        reply_markup=yonalish_keyboard()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "talaba_tahrirlash:back")
+async def talaba_tahrirlash_back_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    talabalar = get_all_students()
+    if not talabalar:
+        await callback.message.edit_text("❌ O'quvchilar topilmadi.")
+        return
+    
+    await callback.message.edit_text(
+        "✏️ <b>Tahrirlash uchun o'quvchini tanlang:</b>",
+        parse_mode="HTML",
+        reply_markup=talaba_tahrirlash_keyboard(talabalar)
+    )
+    await callback.answer()
+
+# Maktab statistikasi callbacklari
+@router.callback_query(F.data == "maktab_stat:barchasi")
+async def maktab_stat_barchasi_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    stats = maktab_statistikasi()
+    
+    if not stats:
+        await callback.answer("📊 Statistika ma'lumotlari topilmadi.", show_alert=True)
+        return
+    
+    text = "📊 <b>Barcha maktablar statistikasi:</b>\n\n"
+    for stat in stats:
+        text += (
+            f"🏫 <b>{stat['maktab_nomi']}</b> - {stat['sinf']}\n"
+            f"👥 O'quvchilar: {stat['oquvchilar_soni']} ta\n"
+            f"📈 O'rtacha ball: {stat['o\'rtacha_ball']:.1f}\n"
+            f"🏆 Eng yuqori: {stat['eng_yuqori_ball']:.1f}\n"
+            f"📉 Eng past: {stat['eng_past_ball']:.1f}\n\n"
+        )
+    
+    await callback.message.edit_text(text, parse_mode="HTML")
+    await callback.answer()
+
+@router.callback_query(F.data == "maktab_stat:solishtirish")
+async def maktab_stat_solishtirish_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    await callback.message.edit_text(
+        "📈 <b>Solishtirish uchun birinchi maktabni tanlang:</b>",
+        parse_mode="HTML",
+        reply_markup=maktab_solishtirish_keyboard()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("maktab_stat:"))
+async def maktab_stat_ayrim_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    maktab_id = int(callback.data.split(":")[1])
+    stats = maktab_statistikasi(maktab_id)
+    
+    if not stats:
+        await callback.answer("📊 Bu maktab statistikasi topilmadi.", show_alert=True)
+        return
+    
+    text = f"📊 <b>{stats[0]['maktab_nomi']} statistikasi:</b>\n\n"
+    for stat in stats:
+        text += (
+            f"🏫 {stat['sinf']}\n"
+            f"👥 O'quvchilar: {stat['oquvchilar_soni']} ta\n"
+            f"📈 O'rtacha ball: {stat['o\'rtacha_ball']:.1f}\n"
+            f"🏆 Eng yuqori: {stat['eng_yuqori_ball']:.1f}\n"
+            f"📉 Eng past: {stat['eng_past_ball']:.1f}\n\n"
+        )
+    
+    await callback.message.edit_text(text, parse_mode="HTML")
+    await callback.answer()
+
+# Natijalarni o'chirish callbacklari
+@router.callback_query(F.data.startswith("natija_ochir:"))
+async def natija_ochir_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    parts = callback.data.split(":")
+    talaba_kod = parts[1]
+    natija_id = int(parts[2])
+    
+    if bitta_natija_ochir(talaba_kod, natija_id):
+        await callback.answer("Natija muvaffaqiyatli o'chirildi.", show_alert=True)
+        
+        # Yangilangan ro'yxatni ko'rsatish
+        natijalar = talaba_natijalari(talaba_kod)
+        if natijalar:
+            await callback.message.edit_text(
+                f"Natija o'chirildi. Qolgan natijalar:",
+                reply_markup=natijalar_ochirish_keyboard(talaba_kod)
+            )
+        else:
+            await callback.message.edit_text("Barcha natijalar o'chirildi.")
+    else:
+        await callback.answer("Xatolik yuz berdi.", show_alert=True)
+
+# Sinf transferi callbacklari
+@router.callback_query(F.data == "sinf_transfer:barchasi")
+async def sinf_transfer_barchasi_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    await callback.message.edit_text(
+        "Barcha sinflarni yuqoriga ko'chirish amali bajarilmoqda...",
+        reply_markup=None
+    )
+    
+    # 9->10, 10->11 sinflarga ko'chirish
+    transfer_count = 0
+    transfer_count += sinf_transferi("9-A", "10-A")
+    transfer_count += sinf_transferi("9-B", "10-B") 
+    transfer_count += sinf_transferi("10-A", "11-A")
+    transfer_count += sinf_transferi("10-B", "11-B")
+    
+    await callback.message.edit_text(
+        f"Jami {transfer_count} ta o'quvchi yuqori sinfga ko'chirildi."
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "sinf_transfer:tanlash")
+async def sinf_transfer_tanlash_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    await callback.message.edit_text(
+        "Ko'chirish uchun eski sinfni tanlang:",
+        reply_markup=sinf_tanlash_transfer_keyboard()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("sinf_transfer_eski:"))
+async def sinf_transfer_eski_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    eski_sinf = callback.data.split(":")[1]
+    await callback.message.edit_text(
+        f"Yangi sinfni tanlang ({eski_sinf} -> ?):",
+        reply_markup=yangi_sinf_tanlash_keyboard(eski_sinf)
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("sinf_transfer_yangi:"))
+async def sinf_transfer_yangi_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    parts = callback.data.split(":")
+    eski_sinf = parts[1]
+    yangi_sinf = parts[2]
+    
+    count = sinf_transferi(eski_sinf, yangi_sinf)
+    
+    await callback.message.edit_text(
+        f"{eski_sinf} sinfidan {yangi_sinf} sinfiga {count} ta o'quvchi ko'chirildi."
+    )
+    await callback.answer()
+
+# Arxivlash callbacklari
+@router.callback_query(F.data == "arxivlash:barcha_11")
+async def arxivlash_barcha_11_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    count = bitiruvchilarni_arxivlash()
+    await callback.message.edit_text(
+        f"Jami {count} ta 11-sinf o'quvchisi arxivlandi."
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "arxivlash:tanlash")
+async def arxivlash_tanlash_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    await callback.message.edit_text(
+        "Arxivlash uchun sinfni tanlang:",
+        reply_markup=sinf_arxivlash_keyboard()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("arxivlash_sinf:"))
+async def arxivlash_sinf_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    sinf = callback.data.split(":")[1]
+    count = bitiruvchilarni_arxivlash(sinf)
+    
+    await callback.message.edit_text(
+        f"{sinf} sinfidan {count} ta o'quvchi arxivlandi."
+    )
+    await callback.answer()
+
+# Dublikatlar callbacklari
+@router.callback_query(F.data.startswith("dublikat_tanlash:"))
+async def dublikat_tanlash_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    ism = callback.data.split(":", 1)[1]
+    
+    from database import dublikatlarni_topish
+    dublikatlar = dublikatlarni_topish()
+    dublikat = next((d for d in dublikatlar if d['ismlar'] == ism), None)
+    
+    if not dublikat:
+        await callback.answer("Dublikat topilmadi.", show_alert=True)
+        return
+    
+    await callback.message.edit_text(
+        f"Qaysi o'quvchini asosiy qilib saqlashni xohlaysiz?\n\n"
+        f"ism: {dublikat['ismlar']}\n"
+        f"kodlar: {dublikat['kodlar']}",
+        reply_markup=dublikat_birlashtirish_keyboard(ism, dublikat['kodlar'])
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("dublikat_asosiy:"))
+async def dublikat_asosiy_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    parts = callback.data.split(":")
+    ism = parts[1]
+    asosiy_kod = parts[2]
+    
+    from database import dublikatlarni_topish
+    dublikatlar = dublikatlarni_topish()
+    dublikat = next((d for d in dublikatlar if d['ismlar'] == ism), None)
+    
+    if not dublikat:
+        await callback.answer("Dublikat topilmadi.", show_alert=True)
+        return
+    
+    # Asosiy kodni olib tashlab, qolganlarini qo'shimcha qilish
+    barcha_kodlar = dublikat['kodlar'].split(', ')
+    qoshimcha_kodlar = [kod for kod in barcha_kodlar if kod != asosiy_kod]
+    
+    if dublikatlarni_birlashtir(asosiy_kod, qoshimcha_kodlar):
+        await callback.message.edit_text(
+            f"O'quvchilar muvaffaqiyatli birlashtirildi!\n"
+            f"Asosiy kod: {asosiy_kod}\n"
+            f"Birlashtirilgan: {len(qoshimcha_kodlar)} ta"
+        )
+        await callback.answer("Birlashtirish muvaffaqiyatli!", show_alert=True)
+    else:
+        await callback.answer("Xatolik yuz berdi.", show_alert=True)
+
+# Maktablar solishtirish callbacklari
+@router.callback_query(F.data.startswith("maktab_comp1:"))
+async def maktab_comp1_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    maktab1_id = int(callback.data.split(":")[1])
+    await callback.message.edit_text(
+        "2-maktabni tanlang:",
+        reply_markup=maktab_comp2_keyboard(maktab1_id)
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("maktab_comp2:"))
+async def maktab_comp2_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id): return
+    
+    parts = callback.data.split(":")
+    maktab1_id = int(parts[1])
+    maktab2_id = int(parts[2])
+    
+    # Ikkala maktab statistikasini olish
+    stats1 = maktab_statistikasi(maktab1_id)
+    stats2 = maktab_statistikasi(maktab2_id)
+    
+    if not stats1 or not stats2:
+        await callback.answer("Maktablar statistikasi topilmadi.", show_alert=True)
+        return
+    
+    # Maktab nomlarini olish
+    from database import maktablar_ol
+    maktablar = maktablar_ol()
+    maktab1 = next((m for m in maktablar if m["id"] == maktab1_id), None)
+    maktab2 = next((m for m in maktablar if m["id"] == maktab2_id), None)
+    
+    text = f"?? <b>Maktablar solishtirish:</b>\n\n"
+    text += f"?? {maktab1['nomi'] if maktab1 else 'Maktab 1'}\n"
+    text += f"?? {maktab2['nomi'] if maktab2 else 'Maktab 2'}\n\n"
+    
+    # Umumiy statistikani solishtirish
+    total1 = sum(s['oquvchilar_soni'] for s in stats1)
+    total2 = sum(s['oquvchilar_soni'] for s in stats2)
+    avg1 = sum(s['o\'rtacha_ball'] * s['oquvchilar_soni'] for s in stats1) / total1 if total1 > 0 else 0
+    avg2 = sum(s['o\'rtacha_ball'] * s['oquvchilar_soni'] for s in stats2) / total2 if total2 > 0 else 0
+    
+    text += f"?? O'quvchilar soni: {total1} vs {total2}\n"
+    text += f"?? O'rtacha ball: {avg1:.1f} vs {avg2:.1f}\n\n"
+    
+    # Sinf bo'yicha solishtirish
+    sinflar1 = {s['sinf']: s for s in stats1}
+    sinflar2 = {s['sinf']: s for s in stats2}
+    
+    common_sinflar = set(sinflar1.keys()) & set(sinflar2.keys())
+    
+    if common_sinflar:
+        text += "?? <b>Sinf bo'yicha solishtirish:</b>\n"
+        for sinf in sorted(common_sinflar):
+            s1 = sinflar1[sinf]
+            s2 = sinflar2[sinf]
+            text += f"?? {sinf}: {s1['o\'rtacha_ball']:.1f} vs {s2['o\'rtacha_ball']:.1f}\n"
+    
+    await callback.message.edit_text(text, parse_mode="HTML")
     await callback.answer()
