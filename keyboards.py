@@ -1,10 +1,18 @@
 from aiogram.types import (
-    ReplyKeyboardMarkup, KeyboardButton,
-    InlineKeyboardMarkup, InlineKeyboardButton,
-    SwitchInlineQueryChosenChat
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    SwitchInlineQueryChosenChat,
 )
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
-from database import yonalish_ol, sinf_ol, sinf_ol_batafsil, kalit_ol, oqituvchilar_hammasi
+from database import (
+    yonalish_ol,
+    sinf_ol,
+    sinf_ol_batafsil,
+    kalit_ol,
+    oqituvchilar_hammasi,
+)
 
 
 def admin_menu_keyboard():
@@ -24,14 +32,29 @@ def admin_menu_keyboard():
             [KeyboardButton(text="🔍 Dublikatlarni topish")],
             [KeyboardButton(text="👨‍🏫 O'qituvchilarni boshqarish")],
             [KeyboardButton(text="👥 Adminlarni boshqarish")],
-            [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🏫 Maktab statistikasi")],
-            [KeyboardButton(text="🏆 Reyting"), KeyboardButton(text="📄 PDF Hisobot")],
+            [
+                KeyboardButton(text="📊 Statistika"),
+                KeyboardButton(text="🏫 Maktab statistikasi"),
+            ],
+            [
+                KeyboardButton(text="🏆 Reyting"),
+                KeyboardButton(text="📄 PDF Hisobot"),
+            ],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
             [KeyboardButton(text="📱 Ro'yxatdan o'tganlar")],
-            [KeyboardButton(text="⏰ Eslatmalar"), KeyboardButton(text="🏫 Maktablarni boshqarish")],
+            [
+                KeyboardButton(text="⏰ Eslatmalar"),
+                KeyboardButton(text="🏫 Maktablarni boshqarish"),
+            ],
             [KeyboardButton(text="📢 Guruhlarni boshqarish")],
-            [KeyboardButton(text="🔔 So'rovlar"), KeyboardButton(text="⚖️ Apellyatsiyalar")],
-            [KeyboardButton(text="⚙️ Sozlamalar"), KeyboardButton(text="📥 Excelga yuklash")],
+            [
+                KeyboardButton(text="🔔 So'rovlar"),
+                KeyboardButton(text="⚖️ Apellyatsiyalar"),
+            ],
+            [
+                KeyboardButton(text="⚙️ Sozlamalar"),
+                KeyboardButton(text="📥 Excelga yuklash"),
+            ],
             [KeyboardButton(text="🏆 Reyting Excel")],
             [KeyboardButton(text="🧹 Bazani tozalash")],
             [KeyboardButton(text="📢 Xabar yuborish")],
@@ -41,6 +64,7 @@ def admin_menu_keyboard():
         resize_keyboard=True,
         one_time_keyboard=False,
     )
+
 
 def oqituvchi_menu_keyboard():
     """O'qituvchi (cheklangan admin) menyusi."""
@@ -52,7 +76,7 @@ def oqituvchi_menu_keyboard():
             [KeyboardButton(text="📥 Sinfim natijalari (Excel)")],
             [KeyboardButton(text="🚪 Chiqish")],
         ],
-        resize_keyboard=True
+        resize_keyboard=True,
     )
 
 
@@ -61,14 +85,22 @@ def yonalish_keyboard(prefix="yonalish_idx"):
     buttons = []
     yonalishlar = yonalish_ol()
     for idx, y in enumerate(yonalishlar):
-        buttons.append([InlineKeyboardButton(text=y, callback_data=f"{prefix}:{idx}")])
+        buttons.append(
+            [InlineKeyboardButton(text=y, callback_data=f"{prefix}:{idx}")]
+        )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 SINF_PAGE_SIZE = 8  # Bir sahifada nechta sinf ko'rsatiladi
 
 
-def _build_sinf_page_buttons(sinflar: list, page: int, page_callback: str, sinf_callback_prefix: str, back_callback: str) -> InlineKeyboardMarkup:
+def _build_sinf_page_buttons(
+    sinflar: list,
+    page: int,
+    page_callback: str,
+    sinf_callback_prefix: str,
+    back_callback: str,
+) -> InlineKeyboardMarkup:
     """
     Umumiy pagination klaviatura quruvchi.
     sinflar        — sinf_ol_batafsil() natijasi
@@ -90,32 +122,52 @@ def _build_sinf_page_buttons(sinflar: list, page: int, page_callback: str, sinf_
     # Maktab sarlavhasi + sinf tugmalari
     joriy_maktab = None
     for s in sahifadagi_sinflar:
-        if s['maktab_nomi'] != joriy_maktab:
-            joriy_maktab = s['maktab_nomi']
-            buttons.append([InlineKeyboardButton(
-                text=f"🏫 {joriy_maktab}",
-                callback_data="no_action"
-            )])
+        if s["maktab_nomi"] != joriy_maktab:
+            joriy_maktab = s["maktab_nomi"]
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"🏫 {joriy_maktab}", callback_data="no_action"
+                    )
+                ]
+            )
         label = s.get("button_text", f"  📚 {s['nomi']}")
-        buttons.append([InlineKeyboardButton(
-            text=label,
-            callback_data=f"{sinf_callback_prefix}:{s['id']}"
-        )])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=label,
+                    callback_data=f"{sinf_callback_prefix}:{s['id']}",
+                )
+            ]
+        )
 
     # Navigatsiya qatori
     if total_pages > 1:
         nav = []
         if page > 0:
-            nav.append(InlineKeyboardButton(text="◀️ Oldingi", callback_data=f"{page_callback}:{page - 1}"))
-        nav.append(InlineKeyboardButton(
-            text=f"📄 {page + 1}/{total_pages}",
-            callback_data="no_action"
-        ))
+            nav.append(
+                InlineKeyboardButton(
+                    text="◀️ Oldingi",
+                    callback_data=f"{page_callback}:{page - 1}",
+                )
+            )
+        nav.append(
+            InlineKeyboardButton(
+                text=f"📄 {page + 1}/{total_pages}", callback_data="no_action"
+            )
+        )
         if page < total_pages - 1:
-            nav.append(InlineKeyboardButton(text="Keyingi ▶️", callback_data=f"{page_callback}:{page + 1}"))
+            nav.append(
+                InlineKeyboardButton(
+                    text="Keyingi ▶️",
+                    callback_data=f"{page_callback}:{page + 1}",
+                )
+            )
         buttons.append(nav)
 
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data=back_callback)])
+    buttons.append(
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data=back_callback)]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -127,9 +179,15 @@ def sinf_keyboard(page: int = 0) -> InlineKeyboardMarkup:
     """
     sinflar = sinf_ol_batafsil()
     if not sinflar:
-        return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⚠️ Sinflar yo'q", callback_data="no_action")]
-        ])
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="⚠️ Sinflar yo'q", callback_data="no_action"
+                    )
+                ]
+            ]
+        )
     for s in sinflar:
         s["button_text"] = f"  📚 {s['nomi']}"
     return _build_sinf_page_buttons(
@@ -137,29 +195,75 @@ def sinf_keyboard(page: int = 0) -> InlineKeyboardMarkup:
         page=page,
         page_callback="sinf_page",
         sinf_callback_prefix="sinf_id",
-        back_callback="cancel:admin_menu"
+        back_callback="cancel:admin_menu",
     )
 
 
 def yonalish_boshqarish_keyboard():
     """Yo'nalishlarni boshqarish menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Mavjud yo'nalishlar", callback_data="yonalish_boshqar:ro'yxat")],
-        [InlineKeyboardButton(text="➕ Yangi yo'nalish qo'shish", callback_data="yonalish_boshqar:qosh")],
-        [InlineKeyboardButton(text="❌ Yo'nalishni o'chirish", callback_data="yonalish_boshqar:ochir")],
-        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel:admin_menu")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="yonalish_boshqar:orqaga")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 Mavjud yo'nalishlar",
+                    callback_data="yonalish_boshqar:ro'yxat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="➕ Yangi yo'nalish qo'shish",
+                    callback_data="yonalish_boshqar:qosh",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Yo'nalishni o'chirish",
+                    callback_data="yonalish_boshqar:ochir",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Bekor qilish", callback_data="cancel:admin_menu"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="yonalish_boshqar:orqaga"
+                )
+            ],
+        ]
+    )
 
 
 def sinf_boshqarish_keyboard():
     """Sinflarni boshqarish menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Mavjud sinflar", callback_data="sinf_boshqar:ro'yxat")],
-        [InlineKeyboardButton(text="➕ Yangi sinf qo'shish", callback_data="sinf_boshqar:qosh")],
-        [InlineKeyboardButton(text="❌ Sinfni o'chirish", callback_data="sinf_boshqar:ochir")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_boshqar:orqaga")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 Mavjud sinflar",
+                    callback_data="sinf_boshqar:ro'yxat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="➕ Yangi sinf qo'shish",
+                    callback_data="sinf_boshqar:qosh",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Sinfni o'chirish",
+                    callback_data="sinf_boshqar:ochir",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="sinf_boshqar:orqaga"
+                )
+            ],
+        ]
+    )
 
 
 def kalit_boshqarish_keyboard():
@@ -167,24 +271,69 @@ def kalit_boshqarish_keyboard():
     Test kalitlarini boshqarish menyusi.
     Umumiy kalit + Yo'nalish bo'yicha kalit qo'shish imkoni.
     """
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Mavjud kalitlar", callback_data="kalit_boshqar:ro'yxat")],
-        [InlineKeyboardButton(text="➕ Umumiy kalit qo'shish", callback_data="kalit_boshqar:qosh")],
-        [InlineKeyboardButton(text="🎯 Yo'nalishga kalit qo'shish", callback_data="kalit_boshqar:yonalish_qosh")],
-        [InlineKeyboardButton(text="❌ Mavjud kalitlarni o'chirish", callback_data="kalit_boshqar:ochir")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 Mavjud kalitlar",
+                    callback_data="kalit_boshqar:ro'yxat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="➕ Umumiy kalit qo'shish",
+                    callback_data="kalit_boshqar:qosh",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🎯 Yo'nalishga kalit qo'shish",
+                    callback_data="kalit_boshqar:yonalish_qosh",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Mavjud kalitlarni o'chirish",
+                    callback_data="kalit_boshqar:ochir",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga"
+                )
+            ],
+        ]
+    )
 
 
 def kalit_actions_keyboard(test_nomi, holat):
     """Har bir kalit uchun amallar."""
     holat_text = "🔓 Ochish" if holat == "yopiq" else "🔒 Yopish"
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✏️ Tahrirlash", callback_data=f"kalit_edit:{test_nomi}")],
-        [InlineKeyboardButton(text=holat_text, callback_data=f"kalit_status:{test_nomi}")],
-        [InlineKeyboardButton(text="❌ O'chirish", callback_data=f"kalit_del:{test_nomi}")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:ro'yxat")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✏️ Tahrirlash",
+                    callback_data=f"kalit_edit:{test_nomi}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=holat_text, callback_data=f"kalit_status:{test_nomi}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ O'chirish", callback_data=f"kalit_del:{test_nomi}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="kalit_boshqar:ro'yxat"
+                )
+            ],
+        ]
+    )
 
 
 def kalit_yonalish_tanlash_keyboard():
@@ -195,7 +344,13 @@ def kalit_yonalish_tanlash_keyboard():
         # callback_data uzunligi 64 belgidan oshmasligi uchun truncate
         cb_data = f"kalit_yonalish:{y[:40]}"
         buttons.append([InlineKeyboardButton(text=y, callback_data=cb_data)])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga")])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="kalit_boshqar:orqaga"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -204,8 +359,20 @@ def yonalish_ochirish_keyboard():
     buttons = []
     yonalishlar = yonalish_ol()
     for y in yonalishlar:
-        buttons.append([InlineKeyboardButton(text=f"❌ {y}", callback_data=f"yonalish_ochir:{y}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="yonalish_boshqar:orqaga")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"❌ {y}", callback_data=f"yonalish_ochir:{y}"
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="yonalish_boshqar:orqaga"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -217,10 +384,20 @@ def sinf_ochirish_keyboard(page: int = 0) -> InlineKeyboardMarkup:
     """
     sinflar = sinf_ol_batafsil()
     if not sinflar:
-        return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⚠️ Sinflar yo'q", callback_data="no_action")],
-            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_boshqar:orqaga")]
-        ])
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="⚠️ Sinflar yo'q", callback_data="no_action"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🔙 Orqaga", callback_data="sinf_boshqar:orqaga"
+                    )
+                ],
+            ]
+        )
     for s in sinflar:
         s["button_text"] = f"❌ {s['nomi']}"
     return _build_sinf_page_buttons(
@@ -228,80 +405,112 @@ def sinf_ochirish_keyboard(page: int = 0) -> InlineKeyboardMarkup:
         page=page,
         page_callback="sinf_ochir_page",
         sinf_callback_prefix="sinf_ochir_id",
-        back_callback="sinf_boshqar:orqaga"
+        back_callback="sinf_boshqar:orqaga",
     )
 
 
 def tasdiqlash_keyboard():
     """✅ Saqlash / ❌ Bekor qilish tugmalari."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Saqlash", callback_data="tasdiq:ha"),
-            InlineKeyboardButton(text="❌ Bekor qilish", callback_data="tasdiq:yoq"),
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Saqlash", callback_data="tasdiq:ha"
+                ),
+                InlineKeyboardButton(
+                    text="❌ Bekor qilish", callback_data="tasdiq:yoq"
+                ),
+            ]
         ]
-    ])
+    )
 
 
 def broadcast_cancel_keyboard():
     """Xabar yuborishni bekor qilish uchun vaqtinchalik keyboard."""
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="❌ Xabar yuborishni bekor qilish")]],
-        resize_keyboard=True
+        resize_keyboard=True,
     )
 
 
 def broadcast_confirm_keyboard():
     """Xabar yuborishni tasdiqlash/rad etish tugmalari."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Jo'natish", callback_data="broadcast:confirm"),
-            InlineKeyboardButton(text="❌ Bekor qilish", callback_data="broadcast:cancel"),
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Jo'natish", callback_data="broadcast:confirm"
+                ),
+                InlineKeyboardButton(
+                    text="❌ Bekor qilish", callback_data="broadcast:cancel"
+                ),
+            ]
         ]
-    ])
+    )
 
 
 def baza_tozalash_keyboard():
     """Bazani tozalashni tasdiqlash uchun inline tugmalar."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ HA, tozalansin", callback_data="baza_tozalash:ha"),
-            InlineKeyboardButton(text="❌ YO'Q, bekor qilinsin", callback_data="baza_tozalash:yoq"),
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ HA, tozalansin", callback_data="baza_tozalash:ha"
+                ),
+                InlineKeyboardButton(
+                    text="❌ YO'Q, bekor qilinsin",
+                    callback_data="baza_tozalash:yoq",
+                ),
+            ]
         ]
-    ])
+    )
 
 
-def user_menu_keyboard(ranking_enabled='True', stats_enabled='True'):
+def user_menu_keyboard(ranking_enabled="True", stats_enabled="True"):
     """Foydalanuvchi asosiy menyusi (Dinamik)."""
     keyboard = []
-    
+
     # Birinchi qator: Mening natijam, Shaxsiy kabinet, Mening o'rnim
-    row1 = [KeyboardButton(text="📊 Mening natijam"), KeyboardButton(text="👤 Shaxsiy kabinet")]
-    if ranking_enabled == 'True':
+    row1 = [
+        KeyboardButton(text="📊 Mening natijam"),
+        KeyboardButton(text="👤 Shaxsiy kabinet"),
+    ]
+    if ranking_enabled == "True":
         row1.append(KeyboardButton(text="🏆 Mening o'rnim"))
     keyboard.append(row1)
-    
+
     # Ikkinchi qator: Javoblarni tekshirish, Apellyatsiya yuborish
-    keyboard.append([KeyboardButton(text="✅ Javoblarni tekshirish"), KeyboardButton(text="⚖️ Apellyatsiya")])
-    
+    keyboard.append(
+        [
+            KeyboardButton(text="✅ Javoblarni tekshirish"),
+            KeyboardButton(text="⚖️ Apellyatsiya"),
+        ]
+    )
+
     # Uchinchi qator: Statistika va AI Analitika
     row3 = []
-    if stats_enabled == 'True':
+    if stats_enabled == "True":
         row3.append(KeyboardButton(text="📈 Statistika"))
     row3.append(KeyboardButton(text="🧠 AI Tahlili"))
     keyboard.append(row3)
-    
+
     # To'rtinchi qator: Admin bilan bog'lanish va Chiqish
-    keyboard.append([KeyboardButton(text="✍️ Admin bilan bog'lanish"), KeyboardButton(text="🚪 Chiqish")])
-    
-    return ReplyKeyboardMarkup(
-        keyboard=keyboard,
-        resize_keyboard=True
+    keyboard.append(
+        [
+            KeyboardButton(text="✍️ Admin bilan bog'lanish"),
+            KeyboardButton(text="🚪 Chiqish"),
+        ]
     )
+
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
 
 def phone_number_keyboard():
     """Telefon raqamini yuborish tugmasi"""
     builder = ReplyKeyboardBuilder()
-    builder.row(KeyboardButton(text="📱 Raqamimni yuborish", request_contact=True))
+    builder.row(
+        KeyboardButton(text="📱 Raqamimni yuborish", request_contact=True)
+    )
     builder.row(KeyboardButton(text="❌ Bekor qilish"))
     return builder.as_markup(resize_keyboard=True)
 
@@ -314,15 +523,21 @@ def test_tanlash_keyboard(yonalish: str = None):
     buttons = []
     kalitlar = kalit_ol()
     for k in kalitlar:
-        if k['holat'] != 'ochiq':
+        if k["holat"] != "ochiq":
             continue
         # Agar kalit biror yo'nalishga bog'liq bo'lsa va talabaning yo'nalishi mos kelmasa — o'tkazib yuborish
-        if k.get('yonalish') and yonalish and k['yonalish'] != yonalish:
+        if k.get("yonalish") and yonalish and k["yonalish"] != yonalish:
             continue
-        label = k['test_nomi']
-        if k.get('yonalish'):
+        label = k["test_nomi"]
+        if k.get("yonalish"):
             label = f"🎯 {k['test_nomi']} ({k['yonalish']})"
-        buttons.append([InlineKeyboardButton(text=label, callback_data=f"check_test:{k['test_nomi']}")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=label, callback_data=f"check_test:{k['test_nomi']}"
+                )
+            ]
+        )
 
     if not buttons:
         return None
@@ -335,19 +550,28 @@ def murojaat_bekor_qilish_keyboard():
         keyboard=[
             [KeyboardButton(text="❌ Bekor qilish")],
         ],
-        resize_keyboard=True
+        resize_keyboard=True,
     )
 
 
 def murojaat_javob_keyboard(user_id):
     """Admin uchun murojaatga javob berish tugmasi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"murojaat_javob:{user_id}")]
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✍️ Javob berish",
+                    callback_data=f"murojaat_javob:{user_id}",
+                )
+            ]
+        ]
+    )
+
 
 # ─────────────────────────────────────────
 # Yangi funktsiyalar uchun klaviaturalar
 # ─────────────────────────────────────────
+
 
 def talaba_tahrirlash_keyboard(talabalar, page=1, per_page=15):
     """O'quvchini tahrirlash uchun ro'yxat (pagination)."""
@@ -361,229 +585,609 @@ def talaba_tahrirlash_keyboard(talabalar, page=1, per_page=15):
 
     for talaba in talabalar[start:end]:
         text = f"{talaba['ismlar']} ({talaba['sinf']}) - {talaba['kod']}"
-        buttons.append([InlineKeyboardButton(text=text, callback_data=f"talaba_edit:{talaba['kod']}")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=text, callback_data=f"talaba_edit:{talaba['kod']}"
+                )
+            ]
+        )
 
     if total_pages > 1:
         nav = []
         if page > 1:
-            nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"talaba_edit_page:{page-1}"))
-        nav.append(InlineKeyboardButton(text=f"{page}/{total_pages}", callback_data="talaba_edit_page:noop"))
+            nav.append(
+                InlineKeyboardButton(
+                    text="⬅️", callback_data=f"talaba_edit_page:{page-1}"
+                )
+            )
+        nav.append(
+            InlineKeyboardButton(
+                text=f"{page}/{total_pages}",
+                callback_data="talaba_edit_page:noop",
+            )
+        )
         if page < total_pages:
-            nav.append(InlineKeyboardButton(text="➡️", callback_data=f"talaba_edit_page:{page+1}"))
+            nav.append(
+                InlineKeyboardButton(
+                    text="➡️", callback_data=f"talaba_edit_page:{page+1}"
+                )
+            )
         buttons.append(nav)
 
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="cancel:admin_menu"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def talaba_edit_options_keyboard(kod):
     """O'quvchini tahrirlash variantlari."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✏️ Ismni o'zgartirish", callback_data=f"talaba_edit_ism:{kod}")],
-        [InlineKeyboardButton(text="🏫 Sinfni o'zgartirish", callback_data=f"talaba_edit_sinf:{kod}")],
-        [InlineKeyboardButton(text="🎯 Yo'nalishni o'zgartirish", callback_data=f"talaba_edit_yonalish:{kod}")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="talaba_tahrirlash:back")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✏️ Ismni o'zgartirish",
+                    callback_data=f"talaba_edit_ism:{kod}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏫 Sinfni o'zgartirish",
+                    callback_data=f"talaba_edit_sinf:{kod}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🎯 Yo'nalishni o'zgartirish",
+                    callback_data=f"talaba_edit_yonalish:{kod}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="talaba_tahrirlash:back"
+                )
+            ],
+        ]
+    )
+
 
 def maktab_statistikasi_keyboard():
     """Maktab statistikasi menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📊 Barcha maktablar statistikasi", callback_data="maktab_stat:barchasi")],
-        [InlineKeyboardButton(text="📈 Maktablarni solishtirish", callback_data="maktab_stat:solishtirish")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📊 Barcha maktablar statistikasi",
+                    callback_data="maktab_stat:barchasi",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📈 Maktablarni solishtirish",
+                    callback_data="maktab_stat:solishtirish",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="cancel:admin_menu"
+                )
+            ],
+        ]
+    )
+
 
 def maktablar_tanlash_keyboard():
     """Maktabni tanlash uchun ro'yxat."""
     from database import maktablar_ol
+
     maktablar = maktablar_ol()
     buttons = []
     for maktab in maktablar:
-        buttons.append([InlineKeyboardButton(text=maktab['nomi'], callback_data=f"maktab_stat:{maktab['id']}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="maktab_stat:barchasi")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=maktab["nomi"],
+                    callback_data=f"maktab_stat:{maktab['id']}",
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="maktab_stat:barchasi"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def maktab_solishtirish_keyboard():
     """Maktablar solishtirish uchun tanlash."""
     from database import maktablar_ol
+
     maktablar = maktablar_ol()
     buttons = []
     # Birinchi maktabni tanlash
     for i, maktab in enumerate(maktablar):
-        buttons.append([InlineKeyboardButton(text=f"1️⃣ {maktab['nomi']}", callback_data=f"maktab_comp1:{maktab['id']}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"1️⃣ {maktab['nomi']}",
+                    callback_data=f"maktab_comp1:{maktab['id']}",
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="cancel:admin_menu"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def maktab_comp2_keyboard(maktab1_id):
     """Ikkinchi maktabni tanlash uchun."""
     from database import maktablar_ol
+
     maktablar = maktablar_ol()
     buttons = []
     for maktab in maktablar:
-        if maktab['id'] != maktab1_id:
-            buttons.append([InlineKeyboardButton(text=f"2️⃣ {maktab['nomi']}", callback_data=f"maktab_comp2:{maktab1_id}:{maktab['id']}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="maktab_stat:solishtirish")])
+        if maktab["id"] != maktab1_id:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"2️⃣ {maktab['nomi']}",
+                        callback_data=f"maktab_comp2:{maktab1_id}:{maktab['id']}",
+                    )
+                ]
+            )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="maktab_stat:solishtirish"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def natijalar_ochirish_keyboard(talaba_kod):
     """O'quvchining natijalarini o'chirish uchun ro'yxat."""
     from database import talaba_natijalari
+
     natijalar = talaba_natijalari(talaba_kod)
     buttons = []
     for natija in natijalar:
-        sana = natija['test_sanasi'].strftime('%d.%m.%Y %H:%M')
+        sana = natija["test_sanasi"].strftime("%d.%m.%Y %H:%M")
         text = f"📊 {natija['umumiy_ball']} ball - {sana}"
-        buttons.append([InlineKeyboardButton(text=text, callback_data=f"natija_ochir:{talaba_kod}:{natija['id']}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=text,
+                    callback_data=f"natija_ochir:{talaba_kod}:{natija['id']}",
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="cancel:admin_menu"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def sinf_transferi_keyboard():
     """Sinf transferi menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Barcha sinflarni yuqoriga ko'chirish", callback_data="sinf_transfer:barchasi")],
-        [InlineKeyboardButton(text="🎯 Tanlab sinfni ko'chirish", callback_data="sinf_transfer:tanlash")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔄 Barcha sinflarni yuqoriga ko'chirish",
+                    callback_data="sinf_transfer:barchasi",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🎯 Tanlab sinfni ko'chirish",
+                    callback_data="sinf_transfer:tanlash",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="cancel:admin_menu"
+                )
+            ],
+        ]
+    )
+
 
 def sinf_tanlash_transfer_keyboard():
     """Transfer uchun sinf tanlash."""
     from database import sinf_ol
+
     sinflar = sinf_ol()
     buttons = []
     for sinf in sinflar:
-        buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"sinf_transfer_eski:{sinf}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_transfer:menu")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=sinf, callback_data=f"sinf_transfer_eski:{sinf}"
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="sinf_transfer:menu"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def yangi_sinf_tanlash_keyboard(eski_sinf):
     """Yangi sinfni tanlash."""
     from database import sinf_ol
+
     sinflar = sinf_ol()
     buttons = []
     for sinf in sinflar:
         if sinf != eski_sinf:
-            buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"sinf_transfer_yangi:{eski_sinf}:{sinf}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="sinf_transfer:tanlash")])
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=sinf,
+                        callback_data=f"sinf_transfer_yangi:{eski_sinf}:{sinf}",
+                    )
+                ]
+            )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="sinf_transfer:tanlash"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def bitiruvchilar_arxivlash_keyboard():
     """Bitiruvchilarni arxivlash menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎓 Barcha 11-sinflarni arxivlash", callback_data="arxivlash:barcha_11")],
-        [InlineKeyboardButton(text="🎯 Tanlab sinfni arxivlash", callback_data="arxivlash:tanlash")],
-        [InlineKeyboardButton(text="📤 Arxivdan chiqarish", callback_data="arxivlash:chiqarish")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🎓 Barcha 11-sinflarni arxivlash",
+                    callback_data="arxivlash:barcha_11",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🎯 Tanlab sinfni arxivlash",
+                    callback_data="arxivlash:tanlash",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📤 Arxivdan chiqarish",
+                    callback_data="arxivlash:chiqarish",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="cancel:admin_menu"
+                )
+            ],
+        ]
+    )
+
 
 def sinf_arxivlash_keyboard():
     """Arxivlash uchun sinf tanlash."""
     from database import sinf_ol
+
     sinflar = sinf_ol()
     buttons = []
     for sinf in sinflar:
-        buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"arxivlash_sinf:{sinf}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="arxivlash:tanlash")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=sinf, callback_data=f"arxivlash_sinf:{sinf}"
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="arxivlash:tanlash"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def sinf_arxivdan_chiqarish_keyboard():
     """Arxivdan chiqarish uchun sinf tanlash."""
     from database import sinf_ol
+
     sinflar = sinf_ol()
     buttons = []
     for sinf in sinflar:
-        buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"arxivdan_chiqarish_sinf:{sinf}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="arxivlash:chiqarish")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=sinf, callback_data=f"arxivdan_chiqarish_sinf:{sinf}"
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="arxivlash:chiqarish"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def dublikatlar_keyboard(dublikatlar):
     """Dublikat o'quvchilar ro'yxati."""
     buttons = []
     for dublikat in dublikatlar:
         text = f"👥 {dublikat['ismlar']} ({dublikat['soni']} ta)"
-        buttons.append([InlineKeyboardButton(text=text, callback_data=f"dublikat_tanlash:{dublikat['ismlar']}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="cancel:admin_menu")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=text,
+                    callback_data=f"dublikat_tanlash:{dublikat['ismlar']}",
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="cancel:admin_menu"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def dublikat_birlashtirish_keyboard(ism, kodlar):
     """Dublikatlarni birlashtirish uchun."""
-    kod_list = kodlar.split(', ')
+    kod_list = kodlar.split(", ")
     buttons = []
     for kod in kod_list:
-        buttons.append([InlineKeyboardButton(text=f"👤 {kod}", callback_data=f"dublikat_asosiy:{ism}:{kod}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="dublikatlar:back")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"👤 {kod}",
+                    callback_data=f"dublikat_asosiy:{ism}:{kod}",
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="dublikatlar:back"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def admin_management_keyboard():
     """Admin boshqarish menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Adminlar ro'yxati", callback_data="admin_manage:list")],
-        [InlineKeyboardButton(text="➕ Yangi admin qo'shish", callback_data="admin_manage:add")],
-        [InlineKeyboardButton(text="❌ Adminni o'chirish", callback_data="admin_manage:remove")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_manage:back")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 Adminlar ro'yxati",
+                    callback_data="admin_manage:list",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="➕ Yangi admin qo'shish",
+                    callback_data="admin_manage:add",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Adminni o'chirish",
+                    callback_data="admin_manage:remove",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="admin_manage:back"
+                )
+            ],
+        ]
+    )
+
 
 def ranking_keyboard(is_admin=False):
     """Reyting menyusi."""
     if is_admin:
         buttons = [
-            [InlineKeyboardButton(text="🏫 Tanlangan sinf reytingi", callback_data="ranking:select_class")],
-            [InlineKeyboardButton(text="📊 Sinflar bo'yicha Top", callback_data="ranking:top_by_classes")],
+            [
+                InlineKeyboardButton(
+                    text="🏫 Tanlangan sinf reytingi",
+                    callback_data="ranking:select_class",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📊 Sinflar bo'yicha Top",
+                    callback_data="ranking:top_by_classes",
+                )
+            ],
         ]
     else:
         buttons = [
-            [InlineKeyboardButton(text="🌍 Umumiy Top 50", callback_data="ranking:overall_top50")],
-            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back")],
+            [
+                InlineKeyboardButton(
+                    text="🌍 Umumiy Top 50",
+                    callback_data="ranking:overall_top50",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="ranking:back"
+                )
+            ],
         ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def student_ranking_keyboard():
     """User panel reyting menyusi (student-prefiks)."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌍 Umumiy Top 50", callback_data="student_ranking:overall_top50")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="student_ranking:back")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🌍 Umumiy Top 50",
+                    callback_data="student_ranking:overall_top50",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="student_ranking:back"
+                )
+            ],
+        ]
+    )
+
 
 def sinf_tanlash_ranking_keyboard():
     """Admin uchun reyting ko'rishda sinf tanlash."""
     buttons = []
     sinflar = sinf_ol()
     for s in sinflar:
-        buttons.append([InlineKeyboardButton(text=s, callback_data=f"ranking:view_class:{s}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back_admin")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=s, callback_data=f"ranking:view_class:{s}"
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="ranking:back_admin"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def sinf_prefix_tanlash_keyboard():
     """Admin uchun sinf prefikslarini (9, 10, 11) tanlash."""
     buttons = []
     sinflar = sinf_ol()
     import re
-    prefixes = sorted(list(set([re.match(r'(\d+)', s).group(1) for s in sinflar if re.match(r'(\d+)', s)])))
-    
+
+    prefixes = sorted(
+        list(
+            set(
+                [
+                    re.match(r"(\d+)", s).group(1)
+                    for s in sinflar
+                    if re.match(r"(\d+)", s)
+                ]
+            )
+        )
+    )
+
     for p in prefixes:
-        buttons.append([InlineKeyboardButton(text=f"{p}-sinflar", callback_data=f"ranking:top_prefix:{p}")])
-    
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="ranking:back_admin")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{p}-sinflar",
+                    callback_data=f"ranking:top_prefix:{p}",
+                )
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="ranking:back_admin"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def stats_keyboard():
     """Statistika menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎯 Yo'nalishlar bo'yicha", callback_data="stats:direction")],
-        [InlineKeyboardButton(text="🏫 Sinflar bo'yicha", callback_data="stats:class")],
-        [InlineKeyboardButton(text="🚀 Eng ko'p o'sganlar", callback_data="stats:improved")],
-        [InlineKeyboardButton(text="📉 Eng ko'p pasayganlar", callback_data="stats:declined")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🎯 Yo'nalishlar bo'yicha",
+                    callback_data="stats:direction",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏫 Sinflar bo'yicha", callback_data="stats:class"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🚀 Eng ko'p o'sganlar",
+                    callback_data="stats:improved",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📉 Eng ko'p pasayganlar",
+                    callback_data="stats:declined",
+                )
+            ],
+        ]
+    )
+
 
 def oquvchilar_filtrlash_keyboard():
     """O'quvchilar ro'yxatini filtrlash menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏫 Sinf bo'yicha", callback_data="filter_type:sinf")],
-        [InlineKeyboardButton(text="🎯 Yo'nalish bo'yicha", callback_data="filter_type:yonalish")],
-        [InlineKeyboardButton(text="📋 Hammasi", callback_data="filter_type:hammasi")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:orqaga")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🏫 Sinf bo'yicha", callback_data="filter_type:sinf"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🎯 Yo'nalish bo'yicha",
+                    callback_data="filter_type:yonalish",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📋 Hammasi", callback_data="filter_type:hammasi"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="filter_type:orqaga"
+                )
+            ],
+        ]
+    )
+
 
 def sinf_tanlash_keyboard(action_prefix="filter_sinf"):
     """Sinf tanlash uchun inline tugmalar."""
@@ -591,11 +1195,30 @@ def sinf_tanlash_keyboard(action_prefix="filter_sinf"):
     sinflar = sinf_ol()
     for s in sinflar:
         if action_prefix == "filter_sinf":
-            buttons.append([InlineKeyboardButton(text=s, callback_data=f"filter_val:sinf:{s}")])
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=s, callback_data=f"filter_val:sinf:{s}"
+                    )
+                ]
+            )
         else:
-            buttons.append([InlineKeyboardButton(text=s, callback_data=f"{action_prefix}:{s}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")])
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=s, callback_data=f"{action_prefix}:{s}"
+                    )
+                ]
+            )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="filter_type:back"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def yonalish_tanlash_keyboard(action_prefix="filter_yon"):
     """Yo'nalish tanlash uchun inline tugmalar."""
@@ -603,13 +1226,34 @@ def yonalish_tanlash_keyboard(action_prefix="filter_yon"):
     yonalishlar = yonalish_ol()
     for y in yonalishlar:
         if action_prefix == "filter_yon":
-            buttons.append([InlineKeyboardButton(text=y, callback_data=f"filter_val:yonalish:{y[:40]}")])
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=y, callback_data=f"filter_val:yonalish:{y[:40]}"
+                    )
+                ]
+            )
         else:
-            buttons.append([InlineKeyboardButton(text=y, callback_data=f"{action_prefix}:{y[:40]}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")])
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=y, callback_data=f"{action_prefix}:{y[:40]}"
+                    )
+                ]
+            )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="filter_type:back"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-def filter_actions_keyboard(filter_type="all", filter_value="all", page=1, total_pages=1):
+
+def filter_actions_keyboard(
+    filter_type="all", filter_value="all", page=1, total_pages=1
+):
     """Filtrlangan ro'yxat uchun amallar (sahifalash + Excel)."""
     rows = []
     if total_pages > 1:
@@ -618,157 +1262,443 @@ def filter_actions_keyboard(filter_type="all", filter_value="all", page=1, total
             nav.append(
                 InlineKeyboardButton(
                     text="⬅️ Oldingi",
-                    callback_data=f"filter_page:{filter_type}:{filter_value}:{page-1}"
+                    callback_data=f"filter_page:{filter_type}:{filter_value}:{page-1}",
                 )
             )
         if page < total_pages:
             nav.append(
                 InlineKeyboardButton(
                     text="Keyingi ➡️",
-                    callback_data=f"filter_page:{filter_type}:{filter_value}:{page+1}"
+                    callback_data=f"filter_page:{filter_type}:{filter_value}:{page+1}",
                 )
             )
         if nav:
             rows.append(nav)
-        rows.append([InlineKeyboardButton(text=f"📄 {page}/{total_pages}", callback_data="filter_page:noop:noop:1")])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"📄 {page}/{total_pages}",
+                    callback_data="filter_page:noop:noop:1",
+                )
+            ]
+        )
 
-    rows.append([InlineKeyboardButton(text="📥 Excelga yuklash", callback_data=f"filter_excel:{filter_type}:{filter_value}")])
-    rows.append([InlineKeyboardButton(text="🗑 O'quvchini o'chirish", callback_data="talaba_ochir_start")])
-    rows.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="filter_type:back")])
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="📥 Excelga yuklash",
+                callback_data=f"filter_excel:{filter_type}:{filter_value}",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="🗑 O'quvchini o'chirish",
+                callback_data="talaba_ochir_start",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="filter_type:back"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
 
 def settings_keyboard(ranking_enabled, stats_enabled):
     """Bot sozlamalari klaviaturasi."""
-    ranking_text = "✅ Reyting Yoqilgan" if ranking_enabled == 'True' else "❌ Reyting O'chirilgan"
-    stats_text = "✅ Statistika Yoqilgan" if stats_enabled == 'True' else "❌ Statistika O'chirilgan"
-    
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=ranking_text, callback_data="toggle_setting:ranking_enabled")],
-        [InlineKeyboardButton(text=stats_text, callback_data="toggle_setting:stats_enabled")],
-    ])
+    ranking_text = (
+        "✅ Reyting Yoqilgan"
+        if ranking_enabled == "True"
+        else "❌ Reyting O'chirilgan"
+    )
+    stats_text = (
+        "✅ Statistika Yoqilgan"
+        if stats_enabled == "True"
+        else "❌ Statistika O'chirilgan"
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=ranking_text,
+                    callback_data="toggle_setting:ranking_enabled",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=stats_text,
+                    callback_data="toggle_setting:stats_enabled",
+                )
+            ],
+        ]
+    )
+
 
 def request_actions_keyboard(request_id, user_id=None):
     """So'rovlar uchun amallar."""
     buttons = [
         [
-            InlineKeyboardButton(text="✅ 5 daqiqa", callback_data=f"request_action:approve_5m:{request_id}"),
-            InlineKeyboardButton(text="✅ 30 daqiqa", callback_data=f"request_action:approve_30m:{request_id}"),
+            InlineKeyboardButton(
+                text="✅ 5 daqiqa",
+                callback_data=f"request_action:approve_5m:{request_id}",
+            ),
+            InlineKeyboardButton(
+                text="✅ 30 daqiqa",
+                callback_data=f"request_action:approve_30m:{request_id}",
+            ),
         ],
         [
-            InlineKeyboardButton(text="✅ 1 soat", callback_data=f"request_action:approve_1h:{request_id}"),
-            InlineKeyboardButton(text="❌ Rad etish", callback_data=f"request_action:reject:{request_id}")
-        ]
+            InlineKeyboardButton(
+                text="✅ 1 soat",
+                callback_data=f"request_action:approve_1h:{request_id}",
+            ),
+            InlineKeyboardButton(
+                text="❌ Rad etish",
+                callback_data=f"request_action:reject:{request_id}",
+            ),
+        ],
     ]
     if user_id:
-        buttons.append([InlineKeyboardButton(text="🚫 Ruxsatni qaytarib olish", callback_data=f"request_action:revoke:{user_id}")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="🚫 Ruxsatni qaytarib olish",
+                    callback_data=f"request_action:revoke:{user_id}",
+                )
+            ]
+        )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def profile_keyboard():
     """Shaxsiy kabinet uchun inline tugmalar."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📜 Testlar tarixi", callback_data="profile:history")],
-        [InlineKeyboardButton(text="🔄 Yangilash", callback_data="profile:refresh")],
-        [InlineKeyboardButton(text="📤 Natijani ulashish", switch_inline_query_chosen_chat=SwitchInlineQueryChosenChat(query="my_result", allow_user_chats=True, allow_group_chats=True, allow_channel_chats=False))]
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📜 Testlar tarixi", callback_data="profile:history"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔄 Yangilash", callback_data="profile:refresh"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📤 Natijani ulashish",
+                    switch_inline_query_chosen_chat=SwitchInlineQueryChosenChat(
+                        query="my_result",
+                        allow_user_chats=True,
+                        allow_group_chats=True,
+                        allow_channel_chats=False,
+                    ),
+                )
+            ],
+        ]
+    )
+
 
 def oqituvchi_boshqarish_keyboard():
     """O'qituvchilarni boshqarish menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 O'qituvchilar ro'yxati", callback_data="oqituvchi_boshqar:ro'yxat")],
-        [InlineKeyboardButton(text="➕ Yangi o'qituvchi qo'shish", callback_data="oqituvchi_boshqar:qosh")],
-        [InlineKeyboardButton(text="❌ O'qituvchini o'chirish", callback_data="oqituvchi_boshqar:ochir")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="oqituvchi_boshqar:orqaga")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 O'qituvchilar ro'yxati",
+                    callback_data="oqituvchi_boshqar:ro'yxat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="➕ Yangi o'qituvchi qo'shish",
+                    callback_data="oqituvchi_boshqar:qosh",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ O'qituvchini o'chirish",
+                    callback_data="oqituvchi_boshqar:ochir",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="oqituvchi_boshqar:orqaga"
+                )
+            ],
+        ]
+    )
+
 
 def oqituvchi_ochirish_keyboard():
     """O'qituvchilarni o'chirish uchun ro'yxat."""
     buttons = []
     oqituvchilar = oqituvchilar_hammasi()
     for o in oqituvchilar:
-        buttons.append([InlineKeyboardButton(text=f"❌ {o['ismlar']} ({o['sinf']})", callback_data=f"oqituvchi_ochir:{o['user_id']}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="oqituvchi_boshqar:orqaga")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"❌ {o['ismlar']} ({o['sinf']})",
+                    callback_data=f"oqituvchi_ochir:{o['user_id']}",
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="oqituvchi_boshqar:orqaga"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+
 def reminder_boshqarish_keyboard():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Yangi eslatma qo'shish", callback_data="reminder:qosh")],
-        [InlineKeyboardButton(text="📋 Kutilayotgan eslatmalar", callback_data="reminder:ro'yxat")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="➕ Yangi eslatma qo'shish",
+                    callback_data="reminder:qosh",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📋 Kutilayotgan eslatmalar",
+                    callback_data="reminder:ro'yxat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="admin_menu"
+                )
+            ],
+        ]
+    )
+
 
 def reminder_list_keyboard(reminders):
     buttons = []
     for r in reminders:
-        buttons.append([InlineKeyboardButton(text=f"❌ {r['xabar'][:20]}...", callback_data=f"reminder_del:{r['id']}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="reminder:orqaga")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"❌ {r['xabar'][:20]}...",
+                    callback_data=f"reminder_del:{r['id']}",
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 Orqaga", callback_data="reminder:orqaga"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+
 def maktab_boshqarish_keyboard():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Yangi maktab qo'shish", callback_data="maktab:qosh")],
-        [InlineKeyboardButton(text="📋 Maktablar ro'yxati", callback_data="maktab:ro'yxat")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="➕ Yangi maktab qo'shish",
+                    callback_data="maktab:qosh",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📋 Maktablar ro'yxati",
+                    callback_data="maktab:ro'yxat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="admin_menu"
+                )
+            ],
+        ]
+    )
+
 
 def maktab_list_keyboard(maktablar):
     buttons = []
     for m in maktablar:
-        buttons.append([InlineKeyboardButton(text=f"🏫 {m['nomi']}", callback_data=f"maktab_view:{m['id']}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="maktab:orqaga")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"🏫 {m['nomi']}",
+                    callback_data=f"maktab_view:{m['id']}",
+                )
+            ]
+        )
+    buttons.append(
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="maktab:orqaga")]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+
 def maktab_detail_keyboard(maktab_id):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Sinfni maktabga bog'lash", callback_data=f"maktab_sinf_add:{maktab_id}")],
-        [InlineKeyboardButton(text="❌ Maktabni o'chirish", callback_data=f"maktab_del:{maktab_id}")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="maktab:ro'yxat")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="➕ Sinfni maktabga bog'lash",
+                    callback_data=f"maktab_sinf_add:{maktab_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Maktabni o'chirish",
+                    callback_data=f"maktab_del:{maktab_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="maktab:ro'yxat"
+                )
+            ],
+        ]
+    )
+
 
 def guruh_boshqarish_keyboard():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Guruhlar ro'yxati", callback_data="guruh:ro'yxat")],
-        [InlineKeyboardButton(text="📊 Guruhda reyting e'lon qilish", callback_data="guruh:ranking")],
-        [InlineKeyboardButton(text="💾 Guruhga Backup yuborish", callback_data="guruh:backup")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 Guruhlar ro'yxati", callback_data="guruh:ro'yxat"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📊 Guruhda reyting e'lon qilish",
+                    callback_data="guruh:ranking",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="💾 Guruhga Backup yuborish",
+                    callback_data="guruh:backup",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="admin_menu"
+                )
+            ],
+        ]
+    )
+
 
 def appeals_keyboard(appeals_list):
     """Apellyatsiyalar ro'yxati uchun inline tugmalar."""
     buttons = []
     for a in appeals_list:
-        buttons.append([InlineKeyboardButton(text=f"⚖️ {a['ismlar']} ({a['talaba_kod']})", callback_data=f"appeal_view:{a['id']}")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"⚖️ {a['ismlar']} ({a['talaba_kod']})",
+                    callback_data=f"appeal_view:{a['id']}",
+                )
+            ]
+        )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def appeal_action_keyboard(appeal_id):
     """Bitta apellyatsiya uchun amallar."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✍️ Javob berish", callback_data=f"appeal_reply:{appeal_id}")],
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="appeal_list")]
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✍️ Javob berish",
+                    callback_data=f"appeal_reply:{appeal_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="appeal_list"
+                )
+            ],
+        ]
+    )
+
 
 def maktab_tanlash_keyboard(maktablar, prefix="select_maktab"):
     buttons = []
     for m in maktablar:
-        buttons.append([InlineKeyboardButton(text=f" {m['nomi']}", callback_data=f"{prefix}:{m['id']}")])
-    buttons.append([InlineKeyboardButton(text=" Bekor qilish", callback_data="cancel:admin_menu")])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f" {m['nomi']}", callback_data=f"{prefix}:{m['id']}"
+                )
+            ]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text=" Bekor qilish", callback_data="cancel:admin_menu"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def pdf_export_keyboard():
     """PDF export menyusi."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=" O'quvchi hisoboti", callback_data="pdf:student")],
-        [InlineKeyboardButton(text=" Maktab statistikasi", callback_data="pdf:maktab_stat")],
-        [InlineKeyboardButton(text=" Sinf reytingi", callback_data="pdf:sinf_reyting")],
-        [InlineKeyboardButton(text=" Orqaga", callback_data="cancel:admin_menu")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=" O'quvchi hisoboti", callback_data="pdf:student"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=" Maktab statistikasi",
+                    callback_data="pdf:maktab_stat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=" Sinf reytingi", callback_data="pdf:sinf_reyting"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=" Orqaga", callback_data="cancel:admin_menu"
+                )
+            ],
+        ]
+    )
+
 
 def sinf_tanlash_pdf_keyboard():
     """PDF uchun sinf tanlash."""
     from database import sinf_ol
+
     sinflar = sinf_ol()
     buttons = []
     for sinf in sinflar:
-        buttons.append([InlineKeyboardButton(text=sinf, callback_data=f"pdf_sinf:{sinf}")])
-    buttons.append([InlineKeyboardButton(text=" Barcha sinflar", callback_data="pdf_sinf:all")])
-    buttons.append([InlineKeyboardButton(text=" Orqaga", callback_data="pdf:menu")])
+        buttons.append(
+            [InlineKeyboardButton(text=sinf, callback_data=f"pdf_sinf:{sinf}")]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text=" Barcha sinflar", callback_data="pdf_sinf:all"
+            )
+        ]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text=" Orqaga", callback_data="pdf:menu")]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)

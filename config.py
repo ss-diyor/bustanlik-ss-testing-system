@@ -1,5 +1,6 @@
 import os
 
+
 def _env(name: str, default: str | None = None, required: bool = False) -> str:
     value = os.getenv(name, default)
     if required and (value is None or value.strip() == ""):
@@ -24,7 +25,9 @@ def _parse_admin_ids(raw_value: str) -> list[int]:
         try:
             ids.append(int(item))
         except ValueError as exc:
-            raise RuntimeError("ADMIN_IDS must contain comma-separated integer values") from exc
+            raise RuntimeError(
+                "ADMIN_IDS must contain comma-separated integer values"
+            ) from exc
     if not ids:
         raise RuntimeError("ADMIN_IDS environment variable is required")
     return ids
@@ -41,11 +44,11 @@ ADMIN_PASSWORD = _env("ADMIN_PASSWORD", "admin123")
 ADMIN_IDS = _parse_admin_ids(_env("ADMIN_IDS", "1746229472"))
 
 # Ball koeffitsientlari
-MAJBURIY_KOEFF = 1.1       # Ona tili + Matematika + Tarix (jami 30 savol)
-ASOSIY_1_KOEFF = 3.1       # 1-asosiy fan (30 savol)
-ASOSIY_2_KOEFF = 2.1       # 2-asosiy fan (30 savol)
+MAJBURIY_KOEFF = 1.1  # Ona tili + Matematika + Tarix (jami 30 savol)
+ASOSIY_1_KOEFF = 3.1  # 1-asosiy fan (30 savol)
+ASOSIY_2_KOEFF = 2.1  # 2-asosiy fan (30 savol)
 
-MAX_SAVOL = 30             # Har bir guruhda maksimal savol soni
+MAX_SAVOL = 30  # Har bir guruhda maksimal savol soni
 
 # AI tahlil uchun optional LLM sozlamalari
 AI_API_KEY = _env("AI_API_KEY", "")
