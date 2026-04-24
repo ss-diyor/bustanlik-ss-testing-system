@@ -1,99 +1,99 @@
 {
   "start": {
-    "welcome": "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>",
-    "students": "📌 <b>O'quvchilar uchun:</b>",
+    "welcome": "<b>Assalomu alaykum! Bostonliq tuman ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>",
+    "students": "<b>Oquvchilar uchun:</b>",
     "student_code": "Shaxsiy kodingizni yuboring — natijangiz darhol taqdim etiladi.",
     "example": "<i>Masalan: A-007 yoki 52B</i>",
-    "profile": "🔗 <b>Profilingizni ulash:</b>",
+    "profile": "<b>Profilingizni ulash:</b>",
     "profile_link": "Avtomatik xabarnoma olish uchun <code>ULASH_KODINGIZ</code> deb yozing.",
     "profile_example": "<i>Masalan: ULASH_1001</i>",
-    "admin": "🔑 <b>Admin uchun:</b>",
-    "admin_command": "/admin buyrug'ini yozing."
+    "admin": "<b>Admin uchun:</b>",
+    "admin_command": "/admin buyrugini yozing."
   },
   "phone": {
-    "request": "📱 <b>Telefon raqamingizni yuboring:</b>\n\nQuyidagi tugmani bosib avtomatik yuborishingiz yoki qo'lda kiritishingiz mumkin.\nFormat: +998901234567"
+    "request": "<b>Telefon raqamingizni yuboring:</b>\n\nQuyidagi tugmani bosib avtomatik yuborishingiz yoki qo'lda kiritishingiz mumkin.\nFormat: +998901234567"
   },
   "admin": {
-    "welcome": "👋 Xush kelibsiz, Admin!",
+    "welcome": "Xush kelibsiz, Admin!",
     "menu": {
-      "add_student": "➕ O'quvchi qo'shish",
-      "excel_import": "📥 Exceldan import",
-      "edit_student": "✏️ O'quvchi ma'lumotlarini tahrirlash",
-      "delete_result": "🗑️ Bitta natijani o'chirish",
-      "test_keys": "🔑 Test kalitlarini boshqarish",
-      "edit_result": "✏️ Natijani tahrirlash",
-      "directions": "⚙️ Yo'nalishlarni boshqarish",
-      "classes": "🏫 Sinflarni boshqarish",
-      "transfer": "🔄 Sinf transferi",
-      "archive": "📦 Bitiruvchilarni arxivlash",
-      "duplicates": "🔍 Dublikatlarni topish",
-      "teachers": "👨‍🏫 O'qituvchilarni boshqarish",
-      "admins": "👥 Adminlarni boshqarish",
-      "statistics": "📊 Statistika",
-      "school_stats": "🏫 Maktab statistikasi",
-      "rating": "🏆 Reyting",
-      "pdf_report": "📄 PDF Hisobot",
-      "students_list": "📋 O'quvchilar ro'yxati",
-      "registered": "📱 Ro'yxatdan o'tganlar",
-      "reminders": "⏰ Eslatmalar",
-      "schools": "🏫 Maktablarni boshqarish",
-      "groups": "📢 Guruhlarni boshqarish",
-      "requests": "🔔 So'rovlar",
-      "appeals": "⚖️ Apellyatsiyalar",
-      "settings": "⚙️ Sozlamalar",
-      "excel_export": "📥 Excelga yuklash",
-      "rating_excel": "🏆 Reyting Excel",
-      "cleanup": "🧹 Bazani tozalash",
-      "broadcast": "📢 Xabar yuborish",
-      "search": "🔍 Kod bo'yicha qidirish",
-      "exit": "🚪 Chiqish"
+      "add_student": "Oquvchi qoshish",
+      "excel_import": "Exceldan import",
+      "edit_student": "Oquvchi malumotlarini tahrirlash",
+      "delete_result": "Bitta natijani ochirish",
+      "test_keys": "Test kalitlarini boshqarish",
+      "edit_result": "Natijani tahrirlash",
+      "directions": "Yonalishlarni boshqarish",
+      "classes": "Sinflarni boshqarish",
+      "transfer": "Sinf transferi",
+      "archive": "Bitiruvchilarni arxivlash",
+      "duplicates": "Dublikatlarni topish",
+      "teachers": "Oqituvchilarni boshqarish",
+      "admins": "Adminlarni boshqarish",
+      "statistics": "Statistika",
+      "school_stats": "Maktab statistikasi",
+      "rating": "Reyting",
+      "pdf_report": "PDF Hisobot",
+      "students_list": "Oquvchilar royxati",
+      "registered": "Royxatdan otganlar",
+      "reminders": "Eslatmalar",
+      "schools": "Maktablarni boshqarish",
+      "groups": "Guruhlarni boshqarish",
+      "requests": "Sorovlar",
+      "appeals": "Apellyatsiyalar",
+      "settings": "Sozlamalar",
+      "excel_export": "Excelga yuklash",
+      "rating_excel": "Reyting Excel",
+      "cleanup": "Bazani tozalash",
+      "broadcast": "Xabar yuborish",
+      "search": "Kod bo'yicha qidirish",
+      "exit": "Chiqish"
     }
   },
   "user": {
     "menu": {
-      "my_results": "📊 Mening natijalarim",
-      "profile": "👤 Shaxsiy kabinet",
-      "my_rank": "🏆 Mening o'rnim",
-      "check_answers": "✅ Javoblarni tekshirish",
-      "appeal": "⚖️ Apellyatsiya",
-      "statistics": "📈 Statistika",
-      "ai_analysis": "🧠 AI Tahlili",
-      "contact_admin": "✍️ Admin bilan bog'lanish",
-      "exit": "🚪 Chiqish"
+      "my_results": "Mening natijalarim",
+      "profile": "Shaxsiy kabinet",
+      "my_rank": "Mening ornim",
+      "check_answers": "Javoblarni tekshirish",
+      "appeal": "Apellyatsiya",
+      "statistics": "Statistika",
+      "ai_analysis": "AI Tahlili",
+      "contact_admin": "Admin bilan boglanish",
+      "exit": "Chiqish"
     }
   },
   "profile": {
-    "title": "👤 <b>Shaxsiy kabinet</b>",
-    "code": "🆔 Kod: <code>{kod}</code>",
-    "name": "👤 Ism: {ismlar}",
-    "school": "🏫 Maktab: {maktab}",
-    "class": "📚 Sinf: {sinf}",
-    "direction": "📚 Yo'nalish: {yonalish}",
-    "last_score": "🎯 Oxirgi ball: {ball}",
-    "total_tests": "📊 Jami testlar: {jami}",
-    "not_linked": "⚠️ Avval profilingizni ulashing (Masalan: ULASH_A-001)"
+    "title": "<b>Shaxsiy kabinet</b>",
+    "code": "Kod: <code>{kod}</code>",
+    "name": "Ism: {ismlar}",
+    "school": "Maktab: {maktab}",
+    "class": "Sinf: {sinf}",
+    "direction": "Yonalish: {yonalish}",
+    "last_score": "Oxirgi ball: {ball}",
+    "total_tests": "Jami testlar: {jami}",
+    "not_linked": "Avval profilingizni ulashing (Masalan: ULASH_A-001)"
   },
   "success": {
-    "phone_saved": "✅ Telefon raqamingiz muvaffaqiyatli saqlandi!",
-    "profile_linked": "✅ Tabriklaymiz! Sizning profilingiz <b>{kod}</b> kodiga muvaffaqiyatli ulandi. Endi yangi natijalar haqida avtomatik xabar olasiz.",
-    "pdf_created": "✅ PDF muvaffaqiyatli yaratildi!",
-    "data_saved": "✅ Ma'lumotlar muvaffaqiyatli saqlandi!"
+    "phone_saved": "Telefon raqamingiz muvaffaqiyatli saqlandi!",
+    "profile_linked": "Tabriklaymiz! Sizning profilingiz <b>{kod}</b> kodiga muvaffaqiyatli ulandi. Endi yangi natijalar haqida avtomatik xabar olasiz.",
+    "pdf_created": "PDF muvaffaqiyatli yaratildi!",
+    "data_saved": "Malumotlar muvaffaqiyatli saqlandi!"
   },
   "error": {
-    "student_not_found": "❌ O'quvchi topilmadi. Qaytadan urinib ko'ring:",
-    "invalid_code": "❌ Noto'g'ri kod formati. Qaytadan urinib ko'ring:",
-    "access_denied": "❌ Sizda bu amalni bajarish uchun ruxsat yo'q!",
-    "pdf_error": "❌ PDF yaratishda xatolik!",
-    "general_error": "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring."
+    "student_not_found": "Oquvchi topilmadi. Qaytadan urinib ko'ring:",
+    "invalid_code": "Notog'ri kod formati. Qaytadan urinib ko'ring:",
+    "access_denied": "Sizda bu amalni bajarish uchun ruxsat yo'q!",
+    "pdf_error": "PDF yaratishda xatolik!",
+    "general_error": "Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring."
   },
   "language": {
-    "select": "🌐 Tilni tanlang:",
-    "changed": "✅ Til muvaffaqiyatli o'zgartirildi!",
-    "current": "🌐 Joriy til: {til}"
+    "select": "Tilni tanlang:",
+    "changed": "Til muvaffaqiyatli ozgartirildi!",
+    "current": "Joriy til: {til}"
   },
   "notifications": {
-    "new_result": "🎯 <b>Yangi natija!</b>\n\n👤 {ism}\n📊 Ball: {ball}\n📅 Sana: {sana}",
-    "reminder": "⏰ <b>ESLATMA:</b>\n\n{xabar}",
-    "achievement": "🏆 <b>Yutuq!</b>\n\n{yutuq}"
+    "new_result": "<b>Yangi natija!</b>\n\n{ism}\nBall: {ball}\nSana: {sana}",
+    "reminder": "<b>ESLATMA:</b>\n\n{xabar}",
+    "achievement": "<b>Yutuq!</b>\n\n{yutuq}"
   }
 }

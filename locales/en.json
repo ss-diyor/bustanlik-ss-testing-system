@@ -1,99 +1,99 @@
 {
   "start": {
-    "welcome": "👋 <b>Welcome to the DTM Results Bot of Bustanlik Specialized School!</b>",
-    "students": "📌 <b>For students:</b>",
+    "welcome": "<b>Welcome to DTM Results Bot of Bustanlik Specialized School!</b>",
+    "students": "<b>For students:</b>",
     "student_code": "Send your personal code — results will be shown instantly.",
     "example": "<i>Example: A-007 or 52B</i>",
-    "profile": "🔗 <b>Link your profile:</b>",
+    "profile": "<b>Link your profile:</b>",
     "profile_link": "For automatic notifications, write <code>ULASH_CODE</code>",
     "profile_example": "<i>Example: ULASH_1001</i>",
-    "admin": "🔑 <b>For admin:</b>",
+    "admin": "<b>For admin:</b>",
     "admin_command": "Write /admin command"
   },
   "phone": {
-    "request": "📱 <b>Send your phone number:</b>\n\nClick the button below for automatic sending or enter manually.\nFormat: +998901234567"
+    "request": "<b>Send your phone number:</b>\n\nClick the button below for automatic sending or enter manually.\nFormat: +998901234567"
   },
   "admin": {
-    "welcome": "👋 Welcome, Admin!",
+    "welcome": "Welcome, Admin!",
     "menu": {
-      "add_student": "➕ Add student",
-      "excel_import": "📥 Import from Excel",
-      "edit_student": "✏️ Edit student data",
-      "delete_result": "🗑️ Delete single result",
-      "test_keys": "🔑 Manage test keys",
-      "edit_result": "✏️ Edit result",
-      "directions": "⚙️ Manage directions",
-      "classes": "🏫 Manage classes",
-      "transfer": "🔄 Class transfer",
-      "archive": "📦 Archive graduates",
-      "duplicates": "🔍 Find duplicates",
-      "teachers": "👨‍🏫 Manage teachers",
-      "admins": "👥 Manage admins",
-      "statistics": "📊 Statistics",
-      "school_stats": "🏫 School statistics",
-      "rating": "🏆 Rating",
-      "pdf_report": "📄 PDF Report",
-      "students_list": "📋 Students list",
-      "registered": "📱 Registered users",
-      "reminders": "⏰ Reminders",
-      "schools": "🏫 Manage schools",
-      "groups": "📢 Manage groups",
-      "requests": "🔔 Requests",
-      "appeals": "⚖️ Appeals",
-      "settings": "⚙️ Settings",
-      "excel_export": "📥 Export to Excel",
-      "rating_excel": "🏆 Rating Excel",
-      "cleanup": "🧹 Clean database",
-      "broadcast": "📢 Send message",
-      "search": "🔍 Search by code",
-      "exit": "🚪 Exit"
+      "add_student": "Add student",
+      "excel_import": "Import from Excel",
+      "edit_student": "Edit student data",
+      "delete_result": "Delete single result",
+      "test_keys": "Manage test keys",
+      "edit_result": "Edit result",
+      "directions": "Manage directions",
+      "classes": "Manage classes",
+      "transfer": "Class transfer",
+      "archive": "Archive graduates",
+      "duplicates": "Find duplicates",
+      "teachers": "Manage teachers",
+      "admins": "Manage admins",
+      "statistics": "Statistics",
+      "school_stats": "School statistics",
+      "rating": "Rating",
+      "pdf_report": "PDF Report",
+      "students_list": "Students list",
+      "registered": "Registered users",
+      "reminders": "Reminders",
+      "schools": "Manage schools",
+      "groups": "Manage groups",
+      "requests": "Requests",
+      "appeals": "Appeals",
+      "settings": "Settings",
+      "excel_export": "Export to Excel",
+      "rating_excel": "Rating Excel",
+      "cleanup": "Clean database",
+      "broadcast": "Send message",
+      "search": "Search by code",
+      "exit": "Exit"
     }
   },
   "user": {
     "menu": {
-      "my_results": "📊 My results",
-      "profile": "👤 Personal cabinet",
-      "my_rank": "🏆 My rank",
-      "check_answers": "✅ Check answers",
-      "appeal": "⚖️ Appeal",
-      "statistics": "📈 Statistics",
-      "ai_analysis": "🧠 AI Analysis",
-      "contact_admin": "✍️ Contact admin",
-      "exit": "🚪 Exit"
+      "my_results": "My results",
+      "profile": "Personal cabinet",
+      "my_rank": "My rank",
+      "check_answers": "Check answers",
+      "appeal": "Appeal",
+      "statistics": "Statistics",
+      "ai_analysis": "AI Analysis",
+      "contact_admin": "Contact admin",
+      "exit": "Exit"
     }
   },
   "profile": {
-    "title": "👤 <b>Personal Cabinet</b>",
-    "code": "🆔 Code: <code>{kod}</code>",
-    "name": "👤 Name: {ismlar}",
-    "school": "🏫 School: {maktab}",
-    "class": "📚 Class: {sinf}",
-    "direction": "📚 Direction: {yonalish}",
-    "last_score": "🎯 Last score: {ball}",
-    "total_tests": "📊 Total tests: {jami}",
-    "not_linked": "⚠️ First link your profile (Example: ULASH_A-001)"
+    "title": "<b>Personal Cabinet</b>",
+    "code": "Code: <code>{kod}</code>",
+    "name": "Name: {ismlar}",
+    "school": "School: {maktab}",
+    "class": "Class: {sinf}",
+    "direction": "Direction: {yonalish}",
+    "last_score": "Last score: {ball}",
+    "total_tests": "Total tests: {jami}",
+    "not_linked": "First link your profile (Example: ULASH_A-001)"
   },
   "success": {
-    "phone_saved": "✅ Phone number saved successfully!",
-    "profile_linked": "✅ Congratulations! Your profile has been successfully linked to code <b>{kod}</b>. You will now receive automatic notifications about new results.",
-    "pdf_created": "✅ PDF created successfully!",
-    "data_saved": "✅ Data saved successfully!"
+    "phone_saved": "Phone number saved successfully!",
+    "profile_linked": "Congratulations! Your profile has been successfully linked to code <b>{kod}</b>. You will now receive automatic notifications about new results.",
+    "pdf_created": "PDF created successfully!",
+    "data_saved": "Data saved successfully!"
   },
   "error": {
-    "student_not_found": "❌ Student not found. Please try again:",
-    "invalid_code": "❌ Invalid code format. Please try again:",
-    "access_denied": "❌ You don't have permission to perform this action!",
-    "pdf_error": "❌ Error creating PDF!",
-    "general_error": "❌ An error occurred. Please try again later."
+    "student_not_found": "Student not found. Please try again:",
+    "invalid_code": "Invalid code format. Please try again:",
+    "access_denied": "You don't have permission to perform this action!",
+    "pdf_error": "Error creating PDF!",
+    "general_error": "An error occurred. Please try again later."
   },
   "language": {
-    "select": "🌐 Select language:",
-    "changed": "✅ Language changed successfully!",
-    "current": "🌐 Current language: {til}"
+    "select": "Select language:",
+    "changed": "Language changed successfully!",
+    "current": "Current language: {til}"
   },
   "notifications": {
-    "new_result": "🎯 <b>New result!</b>\n\n👤 {ism}\n📊 Score: {ball}\n📅 Date: {sana}",
-    "reminder": "⏰ <b>REMINDER:</b>\n\n{xabar}",
-    "achievement": "🏆 <b>Achievement!</b>\n\n{yutuq}"
+    "new_result": "<b>New result!</b>\n\n{ism}\nScore: {ball}\nDate: {sana}",
+    "reminder": "<b>REMINDER:</b>\n\n{xabar}",
+    "achievement": "<b>Achievement!</b>\n\n{yutuq}"
   }
 }

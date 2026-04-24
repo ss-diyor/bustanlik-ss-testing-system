@@ -3,10 +3,10 @@ Til tanlash handlerlari
 Multi-language support uchun callback va message handlerlar
 """
 
-from aiogram import Router, F, CallbackQuery, Message
+from aiogram import Router, F
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
 
 from i18n import i18n, get_user_text
 from database import update_user_language, get_user_language, get_setting
