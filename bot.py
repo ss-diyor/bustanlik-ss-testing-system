@@ -93,15 +93,15 @@ async def start_handler(message: Message):
     stats_enabled = get_setting("stats_enabled", "True")
 
     await message.answer(
-        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
+        "👋 <b>Assalomu alaykum! Bo'stonliq DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
         "📌 <b>O'quvchilar uchun:</b>\n"
-        "Shaxsiy kodingizni yuboring — natijangiz darhol taqdim etiladi.\n"
+        "Shaxsiy kodingizni yuboring — natijangiz darhol ko'rsatiladi.\n"
         "<i>Masalan: A-007 yoki 52B</i>\n\n"
-        "🔗 <b>Profilingizni ulash:</b>\n"
-        "Avtomatik xabarnoma olish uchun <code>ULASH_KODINGIZ</code> deb yozing.\n"
-        "<i>Masalan: ULASH_1001</i>\n\n"
-        "🔑 <b>Admin uchun:</b>\n"
-        "/admin buyrug'ini yozing.",
+        "👨‍👩‍👦 <b>Ota-onalar uchun:</b>\n"
+        "Farzandingizni ulash: <code>PARENT_KODINGIZ</code>\n"
+        "<i>Masalan: PARENT_A007</i>\n\n"
+        "🔗 <b>Profilni ulash:</b>\n"
+        "Avtomatik xabarnoma uchun <code>ULASH_KODINGIZ</code> deb yozing.",
         parse_mode="HTML",
         reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled),
     )
@@ -132,10 +132,6 @@ async def cancel_handler(message: Message):
 @dp.message(F.text == "🚪 Chiqish")
 async def logout_handler(message: Message):
     """O'quvchi shaxsiy kabinetidan chiqish"""
-    from database import talaba_user_id_yangila
-
-    # User ID ni talabalar jadvalidan olib tashlaymiz (lekin talaba ma'lumotlari qoladi)
-    # Buning uchun barcha o'sha user_id ga bog'langan talabalarni topib, user_id sini NULL qilamiz
     from database import get_connection, release_connection
 
     conn = get_connection()
