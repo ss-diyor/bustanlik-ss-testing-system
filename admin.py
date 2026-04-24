@@ -129,6 +129,7 @@ from database import (
     talaba_user_id_ol,
     talaba_user_id_yangila,
     talaba_hammasi,
+    talaba_hammasi_by_maktab,
     statistika,
     statistika_by_maktab,
     yonalish_ol,
@@ -149,6 +150,7 @@ from database import (
     ball_hisobla,
     natija_qosh,
     talaba_filtrlangan,
+    talaba_filtrlangan_by_maktab,
     get_all_students_for_excel,
     get_all_user_ids,
     get_pending_requests,
@@ -170,6 +172,7 @@ from database import (
     get_most_declined_students,
     get_most_declined_students_by_maktab,
     get_sorted_students_for_excel,
+    get_sorted_students_for_excel_by_maktab,
     get_setting,
     set_setting,
     guruhlar_ol,
@@ -2313,24 +2316,75 @@ async def request_action_handler(callback: CallbackQuery, state: FSMContext):
 async def students_list(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
+    
+    # Get all schools for selection
+    maktablar = maktablar_ol()
+    if not maktablar:
+        await message.answer("⚠️ Hozircha maktablar mavjud emas.")
+        return
+    
     await message.answer(
-        "📋 O'quvchilar ro'yxatini ko'rish usulini tanlang:",
-        reply_markup=oquvchilar_filtrlash_keyboard(),
+        "📋 <b>O'quvchilar ro'yxati uchun maktabni tanlang:</b>\n\n"
+        "Qaysi maktabning o'quvchilar ro'yxatini ko'rmoqchisiz?",
+        parse_mode="HTML",
+        reply_markup=maktab_tanlash_keyboard(maktablar, "students_maktab")
     )
+
+
+@router.callback_query(F.data.startswith("students_maktab:"))
+async def students_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    """School selection for students list callback handler."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    
+    try:
+        maktab_id = int(callback.data.split(":")[1])
+        maktablar = maktablar_ol()
+        maktab = next((m for m in maktablar if m['id'] == maktab_id), None)
+        
+        if not maktab:
+            await callback.answer("❌ Maktab topilmadi", show_alert=True)
+            return
+        
+        # Store selected school in state
+        await state.update_data(students_selected_maktab_id=maktab_id, students_selected_maktab_nomi=maktab['nomi'])
+        
+        # Show filtering options for this school
+        await callback.message.edit_text(
+            f"📋 <b>{maktab['nomi']} - O'quvchilar ro'yxatini ko'rish usulini tanlang:</b>",
+            reply_markup=oquvchilar_filtrlash_keyboard()
+        )
+        
+    except (ValueError, IndexError):
+        await callback.answer("❌ Noto'g'ri maktab tanlovi", show_alert=True)
+    
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("filter_type:"))
 async def filter_type_process(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id):
         return
+    
+    # Get selected school from state
+    data = await state.get_data()
+    maktab_id = data.get("students_selected_maktab_id")
+    maktab_nomi = data.get("students_selected_maktab_nomi", "Noma'lum maktab")
+    
     ftype = callback.data.split(":")[1]
     if ftype in ("all", "hammasi"):
-        talabalar = talaba_hammasi()
+        if maktab_id:
+            talabalar = talaba_hammasi_by_maktab(maktab_id)
+            title = f"📋 <b>{maktab_nomi} - Barcha o'quvchilar</b>"
+        else:
+            talabalar = talaba_hammasi()
+            title = "📋 <b>Barcha o'quvchilar</b>"
+            
         if not talabalar:
             await callback.answer("⚠️ O'quvchilar yo'q.", show_alert=True)
             return
         text, page, total_pages = _build_students_page(
-            talabalar, "📋 <b>Barcha o'quvchilar</b>", 1
+            talabalar, title, 1
         )
         await callback.message.edit_text(
             text,
@@ -2372,14 +2426,30 @@ async def filter_type_process(callback: CallbackQuery, state: FSMContext):
 async def filter_val_process(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id):
         return
+    
+    # Get selected school from state
+    data = await state.get_data()
+    maktab_id = data.get("students_selected_maktab_id")
+    maktab_nomi = data.get("students_selected_maktab_nomi", "Noma'lum maktab")
+    
     parts = callback.data.split(":")
     ftype = parts[1]
     fval = parts[2]
 
     if ftype == "sinf":
-        talabalar = talaba_filtrlangan(sinf=fval)
+        if maktab_id:
+            talabalar = talaba_filtrlangan_by_maktab(maktab_id, sinf=fval)
+            title = f"📋 <b>{maktab_nomi} - {fval} sinf o'quvchilari</b>"
+        else:
+            talabalar = talaba_filtrlangan(sinf=fval)
+            title = f"📋 <b>{fval} sinf o'quvchilari</b>"
     else:
-        talabalar = talaba_filtrlangan(yonalish=fval)
+        if maktab_id:
+            talabalar = talaba_filtrlangan_by_maktab(maktab_id, yonalish=fval)
+            title = f"📋 <b>{maktab_nomi} - {fval} yo'nalishi o'quvchilari</b>"
+        else:
+            talabalar = talaba_filtrlangan(yonalish=fval)
+            title = f"📋 <b>{fval} yo'nalishi o'quvchilari</b>"
 
     if not talabalar:
         await callback.answer(
@@ -2388,7 +2458,7 @@ async def filter_val_process(callback: CallbackQuery, state: FSMContext):
         return
 
     text, page, total_pages = _build_students_page(
-        talabalar, "📋 <b>Filtrlangan ro'yxat</b>", 1
+        talabalar, title, 1
     )
     await callback.message.edit_text(
         text,
@@ -2590,40 +2660,72 @@ async def export_excel(message: Message, state: FSMContext):
 async def export_ranking_excel(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
-    data = get_sorted_students_for_excel()
-    if not data:
-        await message.answer(
-            "⚠️ Ma'lumotlar yo'q (Natijalar hali mavjud emas)."
-        )
+    
+    # Get all schools for selection
+    maktablar = maktablar_ol()
+    if not maktablar:
+        await message.answer("⚠️ Hozircha maktablar mavjud emas.")
         return
-
-    path = f"reyting_{message.from_user.id}.xlsx"
-    df = pd.DataFrame(data)
-    # Ustunlarni chiroyli qilish
-    df.columns = [
-        "Kod",
-        "Sinf",
-        "Yo'nalish",
-        "Ism-sharif",
-        "Majburiy",
-        "1-Asosiy",
-        "2-Asosiy",
-        "Umumiy ball",
-        "Sana",
-    ]
-    df.to_excel(path, index=False)
-
-    await message.answer_document(
-        FSInputFile(path),
-        caption="🏆 Ballar bo'yicha saralangan reyting ro'yxati (Excel)",
+    
+    await message.answer(
+        "🏆 <b>Reyting Excel uchun maktabni tanlang:</b>\n\n"
+        "Qaysi maktabning reytingini Excelga yuklamoqchisiz?",
+        parse_mode="HTML",
+        reply_markup=maktab_tanlash_keyboard(maktablar, "ranking_maktab")
     )
-    if os.path.exists(path):
+
+
+@router.callback_query(F.data.startswith("ranking_maktab:"))
+async def ranking_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    """School selection for ranking Excel callback handler."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    
+    try:
+        maktab_id = int(callback.data.split(":")[1])
+        maktablar = maktablar_ol()
+        maktab = next((m for m in maktablar if m['id'] == maktab_id), None)
+        
+        if not maktab:
+            await callback.answer("❌ Maktab topilmadi", show_alert=True)
+            return
+        
+        # Get school-specific data for Excel
+        from database import get_sorted_students_for_excel_by_maktab
+        data = get_sorted_students_for_excel_by_maktab(maktab_id)
+        
+        if not data:
+            await callback.answer("⚠️ Bu maktabda ma'lumotlar yo'q (Natijalar hali mavjud emas).", show_alert=True)
+            return
+
+        path = f"reyting_{callback.from_user.id}_{maktab_id}.xlsx"
+        df = pd.DataFrame(data)
+        # Ustunlarni chiroyli qilish
+        df.columns = [
+            "Kod",
+            "Sinf",
+            "Yo'nalish",
+            "Ism-sharif",
+            "Majburiy",
+            "1-Asosiy",
+            "2-Asosiy",
+            "Umumiy ball",
+            "Sana",
+        ]
+        df.to_excel(path, index=False)
+
+        await callback.message.answer_document(
+            FSInputFile(path),
+            caption=f"🏆 {maktab['nomi']} - Ballar bo'yicha saralangan reyting ro'yxati (Excel)",
+        )
+
+        # Faylni o'chirib tashlash
         os.remove(path)
-
-
-# ─────────────────────────────────────────
-# O'qituvchilarni boshqarish
-# ─────────────────────────────────────────
+        
+    except (ValueError, IndexError):
+        await callback.answer("❌ Noto'g'ri maktab tanlovi", show_alert=True)
+    
+    await callback.answer()
 
 
 @router.message(F.text == "👨‍🏫 O'qituvchilarni boshqarish")

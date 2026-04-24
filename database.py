@@ -919,6 +919,29 @@ def get_sorted_students_for_excel():
     return [dict(r) for r in rows]
 
 
+def get_sorted_students_for_excel_by_maktab(maktab_id: int):
+    """Maktab bo'yicha o'quvchilarni ballari bo'yicha kamayish tartibida (reyting) oladi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT t.kod, t.sinf, t.yonalish, t.ismlar,
+               n.majburiy, n.asosiy_1, n.asosiy_2, n.umumiy_ball, n.test_sanasi
+        FROM talabalar t
+        LEFT JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        WHERE t.maktab_id = %s AND n.umumiy_ball IS NOT NULL
+        ORDER BY n.umumiy_ball DESC
+    """, (maktab_id,))
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+
 def talaba_hammasi():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -933,6 +956,28 @@ def talaba_hammasi():
         )
         ORDER BY t.sinf ASC, n.umumiy_ball DESC NULLS LAST
     """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+
+def talaba_hammasi_by_maktab(maktab_id: int):
+    """Maktab bo'yicha barcha talabalarni olish"""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT t.*, n.umumiy_ball
+        FROM talabalar t
+        LEFT JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        WHERE t.maktab_id = %s
+        ORDER BY t.sinf ASC, n.umumiy_ball DESC NULLS LAST
+    """, (maktab_id,))
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)
@@ -1119,6 +1164,38 @@ def talaba_filtrlangan(sinf: str = None, yonalish: str = None):
         WHERE 1=1
     """
     params = []
+    if sinf:
+        query += " AND t.sinf = %s"
+        params.append(sinf)
+    if yonalish:
+        query += " AND t.yonalish = %s"
+        params.append(yonalish)
+
+    query += " ORDER BY t.sinf ASC, n.umumiy_ball DESC NULLS LAST"
+
+    cur.execute(query, tuple(params))
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+
+def talaba_filtrlangan_by_maktab(maktab_id: int, sinf: str = None, yonalish: str = None):
+    """Maktab bo'yicha filtrlangan talabalarni olish"""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    query = """
+        SELECT t.*, n.umumiy_ball, n.majburiy, n.asosiy_1, n.asosiy_2, n.test_sanasi
+        FROM talabalar t
+        LEFT JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        WHERE t.maktab_id = %s
+    """
+    params = [maktab_id]
     if sinf:
         query += " AND t.sinf = %s"
         params.append(sinf)
