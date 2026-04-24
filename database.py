@@ -83,6 +83,23 @@ def release_connection(conn):
 def init_db():
     conn = get_connection()
     cur = conn.cursor()
+    sp_idx = 0
+
+    def _optional_exec(sql: str, params=None):
+        """Xato bo'lsa ham umumiy transactionni buzmasdan davom etish."""
+        nonlocal sp_idx
+        sp_name = f"sp_opt_{sp_idx}"
+        sp_idx += 1
+        cur.execute(f"SAVEPOINT {sp_name}")
+        try:
+            if params is None:
+                cur.execute(sql)
+            else:
+                cur.execute(sql, params)
+        except Exception:
+            cur.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+        finally:
+            cur.execute(f"RELEASE SAVEPOINT {sp_name}")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS talabalar (
@@ -132,19 +149,13 @@ def init_db():
         )
     """)
     # Eski foydalanuvchilarga phone_number ustunini qo'shish
-    try:
-        cur.execute(
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number TEXT"
-        )
-    except Exception:
-        pass
+    _optional_exec(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number TEXT"
+    )
     # Multi-language uchun til ustunini qo'shamiz
-    try:
-        cur.execute(
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'uz'"
-        )
-    except Exception:
-        pass
+    _optional_exec(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'uz'"
+    )
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS yonalishlar (
@@ -164,9 +175,7 @@ def init_db():
     # Eski sxemalarda sinf nomi global UNIQUE bo'lib qolgan bo'lishi mumkin.
     # Bu holda turli maktablarda bir xil sinf nomini (masalan 11-A) qo'shib bo'lmaydi.
     # Quyidagi migratsiya global UNIQUE cheklovlarni olib tashlaydi va composite UNIQUE ni saqlab qoladi.
-    cur.execute("SAVEPOINT sp_sinf_unique_fix")
-    try:
-        cur.execute("""
+    _optional_exec("""
             DO $$
             DECLARE
                 r RECORD;
@@ -184,16 +193,12 @@ def init_db():
                 END LOOP;
             END $$;
         """)
-        cur.execute(
-            """
+    _optional_exec(
+        """
             CREATE UNIQUE INDEX IF NOT EXISTS uq_sinflar_nomi_maktab
             ON sinflar (nomi, maktab_id)
             """
-        )
-    except Exception:
-        cur.execute("ROLLBACK TO SAVEPOINT sp_sinf_unique_fix")
-    finally:
-        cur.execute("RELEASE SAVEPOINT sp_sinf_unique_fix")
+    )
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS settings (
@@ -214,20 +219,14 @@ def init_db():
         )
     """)
     # Eski bazalarda expires_at ustuni bo'lmasligi mumkin, uni qo'shib qo'yamiz
-    try:
-        cur.execute(
-            "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT NULL"
-        )
-    except Exception:
-        pass
+    _optional_exec(
+        "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT NULL"
+    )
 
     # Eski bazalarda status ustuni bo'lmasligi mumkin, uni qo'shib qo'yamiz
-    try:
-        cur.execute(
-            "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'aktiv'"
-        )
-    except Exception:
-        pass
+    _optional_exec(
+        "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'aktiv'"
+    )
 
     # Default settings
     cur.execute(
@@ -287,30 +286,24 @@ def init_db():
     # Barcha mavjud sinflarni ushbu maktabga biriktirish:
     # 1) maktab_id IS NULL bo'lganlar
     # 2) maktab_id si maktablar jadvalida mavjud bo'lmaganlar ("yetim" sinflar) — asosiy bug fix
-    try:
-        cur.execute(
-            "UPDATE sinflar SET maktab_id = %s WHERE maktab_id IS NULL",
-            (maktab_id,),
-        )
-        cur.execute(
-            """
+    _optional_exec(
+        "UPDATE sinflar SET maktab_id = %s WHERE maktab_id IS NULL",
+        (maktab_id,),
+    )
+    _optional_exec(
+        """
             UPDATE sinflar SET maktab_id = %s
             WHERE maktab_id NOT IN (SELECT id FROM maktablar)
         """,
-            (maktab_id,),
-        )
-    except Exception:
-        pass
+        (maktab_id,),
+    )
 
     # Mavjud talabalarning sinf nomini yangilash (agar formatga tushmasa)
-    try:
-        cur.execute("""
+    _optional_exec("""
             UPDATE talabalar 
             SET sinf = sinf || ' - Bo''stonliq ITMA' 
             WHERE sinf IS NOT NULL AND sinf NOT LIKE '% - %'
         """)
-    except Exception:
-        pass
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS reminders (
@@ -366,12 +359,9 @@ def init_db():
         "test_kalitlari",
     ]
     for table in tables_to_update:
-        try:
-            cur.execute(
-                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS maktab_id INTEGER DEFAULT 1"
-            )
-        except Exception:
-            pass
+        _optional_exec(
+            f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS maktab_id INTEGER DEFAULT 1"
+        )
 
     cur.execute("SELECT COUNT(*) FROM yonalishlar")
     if cur.fetchone()[0] == 0:
