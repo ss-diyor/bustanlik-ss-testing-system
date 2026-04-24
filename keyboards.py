@@ -725,3 +725,24 @@ def sinf_tanlash_pdf_keyboard():
     buttons.append([InlineKeyboardButton(text=" Barcha sinflar", callback_data="pdf_sinf:all")])
     buttons.append([InlineKeyboardButton(text=" Orqaga", callback_data="pdf:menu")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+# Til tanlash klaviaturalari
+def language_selection_keyboard():
+    """Til tanlash uchun inline klaviatura"""
+    from i18n import i18n
+    languages = i18n.get_available_languages()
+    
+    buttons = []
+    for code, name in languages.items():
+        buttons.append([InlineKeyboardButton(text=name, callback_data=f"lang:{code}")])
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def language_settings_keyboard():
+    """Til sozlamalari klaviaturasi"""
+    buttons = [
+        [InlineKeyboardButton(text="🌐 Tilni o'zgartirish", callback_data="lang:select")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="menu:main")]
+    ]
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

@@ -14,6 +14,7 @@ from aiogram import F
 from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_keyboard, phone_number_keyboard
 import admin
 import student
+import language_handlers
 
 # Loglarni konsolga chiqaradi
 logging.basicConfig(
@@ -28,6 +29,7 @@ dp = Dispatcher(storage=MemoryStorage())
 # Routerlarni ulash
 dp.include_router(admin.router)
 dp.include_router(student.router)
+dp.include_router(language_handlers.router)
 
 
 @dp.message(CommandStart())
@@ -226,6 +228,14 @@ async def main():
     asyncio.create_task(scheduler())
     asyncio.create_task(reminder_scheduler())
     asyncio.create_task(group_ranking_scheduler())
+    
+    # Smart notifications system
+    try:
+        from smart_notifications import run_smart_notifications
+        asyncio.create_task(run_smart_notifications(bot))
+        logging.info("Smart notifications system started successfully!")
+    except Exception as e:
+        logging.error(f"Error starting smart notifications: {e}")
     await bot.delete_webhook(drop_pending_updates=True)
     logging.info("Bot ishga tushdi!")
     
