@@ -2019,3 +2019,30 @@ def guruhlar_ol():
     cur.close()
     release_connection(conn)
     return [dict(r) for r in rows]
+
+# Til sozlamalari
+def update_user_language(user_id: int, language: str) -> bool:
+    """Foydalanuvchi tilini yangilash"""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET language = %s WHERE id = %s", (language, user_id))
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+        return True
+    except Exception:
+        return False
+
+def get_user_language(user_id: int) -> str:
+    """Foydalanuvchi tilini olish"""
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT language FROM users WHERE id = %s", (user_id,))
+        result = cur.fetchone()
+        cur.close()
+        release_connection(conn)
+        return result['language'] if result and result['language'] else 'uz'
+    except Exception:
+        return 'uz'
