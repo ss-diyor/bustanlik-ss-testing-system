@@ -972,6 +972,20 @@ async def no_action_handler(callback: CallbackQuery):
     await callback.answer()
 
 
+@router.callback_query(F.data == "cancel:admin_menu")
+async def cancel_to_admin_menu(callback: CallbackQuery, state: FSMContext):
+    """Orqaga admin menyusiga qaytish."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    
+    await state.clear()
+    await callback.message.edit_text(
+        "✅ Admin bosh menyusiga qaytdingiz.",
+        reply_markup=admin_menu_keyboard()
+    )
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("sinf_page:"))
 async def sinf_page_navigate(callback: CallbackQuery):
     """Sinf tanlash klaviaturasida sahifa almashtirish."""
@@ -2719,6 +2733,32 @@ async def ranking_start(message: Message, state: FSMContext):
     )
 
 
+@router.callback_query(F.data.startswith("student_ranking:"))
+async def student_ranking_callback(callback: CallbackQuery, state: FSMContext):
+    """Student panel ranking callback handler."""
+    # This is for regular users, not admin verification needed
+    action = callback.data.split(":")[1]
+    
+    if action == "overall_top50":
+        from database import get_overall_ranking
+        
+        try:
+            ranking = get_overall_ranking(limit=50)
+            if not ranking:
+                await callback.answer("📊 Reyting ma'lumotlari topilmadi.", show_alert=True)
+                return
+            
+            text = "🏆 <b>Umumiy Top 50 reyting:</b>\n\n"
+            for i, student in enumerate(ranking, 1):
+                text += f"{i}. {student['ismlar']} ({student['sinf']}) - {student['umumiy_ball']} ball\n"
+            
+            await callback.message.edit_text(text, parse_mode="HTML")
+        except Exception as e:
+            await callback.answer("❌ Xatolik yuz berdi.", show_alert=True)
+    
+    await callback.answer()
+
+
 @router.callback_query(
     F.data.startswith("ranking:"), F.from_user.id.in_(ADMIN_IDS)
 )
@@ -3541,6 +3581,46 @@ async def talaba_ism_tahrirlash_process(message: Message, state: FSMContext):
         await message.answer("Xatolik yuz berdi.")
 
     await state.set_state(None)
+
+
+@router.callback_query(TalabaTahrirlash.sinf_kutish, F.data.startswith("sinf_id:"))
+async def talaba_sinf_tahrirlash_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    data = await state.get_data()
+    kod = data.get("talaba_kod")
+    if not kod:
+        await callback.message.edit_text(
+            "Xatolik yuz berdi. Qaytadan urinib ko'ring."
+        )
+        await state.clear()
+        await callback.answer()
+        return
+
+    try:
+        sinf_id = int(callback.data.split(":")[1])
+        yangi_sinf = sinf_id_dan_full_nomi(sinf_id)
+        if not yangi_sinf:
+            await callback.message.edit_text("❌ Sinf topilmadi.")
+            await state.clear()
+            await callback.answer()
+            return
+    except (ValueError, IndexError):
+        await callback.message.edit_text("❌ Sinf topilmadi.")
+        await state.clear()
+        await callback.answer()
+        return
+
+    if talaba_tahrirlash(kod, sinf=yangi_sinf):
+        await callback.message.edit_text(
+            f"✅ O'quvchi sinfi muvaffaqiyatli o'zgartirildi: {yangi_sinf}"
+        )
+    else:
+        await callback.message.edit_text("❌ Xatolik yuz berdi.")
+
+    await state.clear()
+    await callback.answer()
 
 
 @router.message(TalabaTahrirlash.sinf_kutish)
@@ -4416,6 +4496,74 @@ async def pdf_maktab_callback(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         await wait_msg.delete()
         await callback.answer(f"❌ Xatolik: {str(e)}", show_alert=True)
+
+
+@router.callback_query(F.data == "pdf:menu")
+async def pdf_menu_callback(callback: CallbackQuery, state: FSMContext):
+    """PDF menu callback handler."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    
+    await callback.message.edit_text(
+        "📄 <b>PDF Hisobot:</b>\n\n" "Qaysi turdagi hisobotni yaratasiz?",
+        reply_markup=pdf_export_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("lang:"))
+async def lang_callback(callback: CallbackQuery, state: FSMContext):
+    """Language selection callback handler."""
+    action = callback.data.split(":")[1]
+    
+    if action == "select":
+        # Show language selection menu
+        from keyboards import language_selection_keyboard
+        await callback.message.edit_text(
+            "🌐 Tilni tanlang:",
+            reply_markup=language_selection_keyboard()
+        )
+    else:
+        # Language code selected
+        try:
+            from i18n import i18n
+            lang_code = action
+            if lang_code in i18n.get_available_languages():
+                # Set user language preference
+                await state.update_data(language=lang_code)
+                await callback.answer("✅ Til o'zgartirildi!", show_alert=True)
+            else:
+                await callback.answer("❌ Noto'g'ri til tanlovi", show_alert=True)
+        except Exception:
+            await callback.answer("❌ Til o'zgartirishda xatolik", show_alert=True)
+    
+    await callback.answer()
+
+
+@router.callback_query(F.data == "menu:main")
+async def menu_main_callback(callback: CallbackQuery, state: FSMContext):
+    """Main menu callback handler."""
+    await state.clear()
+    await callback.message.edit_text(
+        "🏠 Asosiy menyu:",
+        reply_markup=admin_menu_keyboard()
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("select_maktab:"))
+async def select_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    """Maktab tanlash callback handler."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    
+    try:
+        maktab_id = int(callback.data.split(":")[1])
+        # This handler can be used for different purposes
+        # For now, just acknowledge the selection
+        await callback.answer(f"🏫 Maktab {maktab_id} tanlandi", show_alert=True)
+    except (ValueError, IndexError):
+        await callback.answer("❌ Noto'g'ri maktab tanlovi", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("pdf_sinf:"))
