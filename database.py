@@ -137,7 +137,6 @@ def init_db():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number TEXT"
         )
     except Exception:
-        conn.rollback()
         pass
     # Multi-language uchun til ustunini qo'shamiz
     try:
@@ -145,7 +144,6 @@ def init_db():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'uz'"
         )
     except Exception:
-        conn.rollback()
         pass
 
     cur.execute("""
@@ -166,6 +164,7 @@ def init_db():
     # Eski sxemalarda sinf nomi global UNIQUE bo'lib qolgan bo'lishi mumkin.
     # Bu holda turli maktablarda bir xil sinf nomini (masalan 11-A) qo'shib bo'lmaydi.
     # Quyidagi migratsiya global UNIQUE cheklovlarni olib tashlaydi va composite UNIQUE ni saqlab qoladi.
+    cur.execute("SAVEPOINT sp_sinf_unique_fix")
     try:
         cur.execute("""
             DO $$
@@ -192,8 +191,9 @@ def init_db():
             """
         )
     except Exception:
-        conn.rollback()
-        pass
+        cur.execute("ROLLBACK TO SAVEPOINT sp_sinf_unique_fix")
+    finally:
+        cur.execute("RELEASE SAVEPOINT sp_sinf_unique_fix")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS settings (
@@ -219,7 +219,6 @@ def init_db():
             "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT NULL"
         )
     except Exception:
-        conn.rollback()
         pass
 
     # Eski bazalarda status ustuni bo'lmasligi mumkin, uni qo'shib qo'yamiz
@@ -228,7 +227,6 @@ def init_db():
             "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'aktiv'"
         )
     except Exception:
-        conn.rollback()
         pass
 
     # Default settings
@@ -302,7 +300,6 @@ def init_db():
             (maktab_id,),
         )
     except Exception:
-        conn.rollback()
         pass
 
     # Mavjud talabalarning sinf nomini yangilash (agar formatga tushmasa)
@@ -313,7 +310,6 @@ def init_db():
             WHERE sinf IS NOT NULL AND sinf NOT LIKE '% - %'
         """)
     except Exception:
-        conn.rollback()
         pass
 
     cur.execute("""
@@ -375,7 +371,6 @@ def init_db():
                 f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS maktab_id INTEGER DEFAULT 1"
             )
         except Exception:
-            conn.rollback()
             pass
 
     cur.execute("SELECT COUNT(*) FROM yonalishlar")
