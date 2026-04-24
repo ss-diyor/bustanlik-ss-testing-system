@@ -607,6 +607,13 @@ async def bildirishnoma_yuborish(
             await bot.send_message(user_id, matn, parse_mode="HTML")
         except Exception:
             pass
+    
+    # Ota-onalarga ham xabar yuboramiz
+    try:
+        from parent import ota_onalarga_xabar_yuborish
+        await ota_onalarga_xabar_yuborish(bot, talaba_kod, natija["umumiy_ball"])
+    except Exception as e:
+        print(f"Ota-onalarga xabar yuborishda xato: {e}")
 
 
 # ─────────────────────────────────────────

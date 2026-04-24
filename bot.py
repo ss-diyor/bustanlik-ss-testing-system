@@ -29,6 +29,7 @@ from keyboards import (
 import admin
 import student
 import language_handlers
+import parent
 
 # Loglarni konsolga chiqaradi
 logging.basicConfig(
@@ -44,6 +45,7 @@ dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(admin.router)
 dp.include_router(student.router)
 dp.include_router(language_handlers.router)
+dp.include_router(parent.router)
 
 
 @dp.message(CommandStart())
