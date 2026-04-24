@@ -130,6 +130,7 @@ from database import (
     talaba_user_id_yangila,
     talaba_hammasi,
     statistika,
+    statistika_by_maktab,
     yonalish_ol,
     yonalish_qosh,
     yonalish_ochir,
@@ -161,9 +162,13 @@ from database import (
     get_student_rank,
     get_score_difference,
     get_class_comparison,
+    get_class_comparison_by_maktab,
     get_avg_score_by_direction,
+    get_avg_score_by_direction_by_maktab,
     get_most_improved_students,
+    get_most_improved_students_by_maktab,
     get_most_declined_students,
+    get_most_declined_students_by_maktab,
     get_sorted_students_for_excel,
     get_setting,
     set_setting,
@@ -1957,22 +1962,63 @@ async def excel_import_process(message: Message, state: FSMContext):
 async def stats_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
-    res = statistika()
-    if not res:
-        await message.answer("⚠️ Ma'lumotlar yo'q.")
+    
+    # Get all schools for selection
+    maktablar = maktablar_ol()
+    if not maktablar:
+        await message.answer("⚠️ Hozircha maktablar mavjud emas.")
         return
-
-    text = (
-        f"📊 <b>Umumiy statistika:</b>\n\n"
-        f"👥 Jami o'quvchilar: <b>{res['jami']} ta</b>\n"
-        f"📈 O'rtacha ball: <b>{res['ortacha']} ball</b>\n"
-        f"🏆 Eng yuqori ball: <b>{res['eng_yuqori']} ball</b>\n"
-        f"📉 Eng past ball: <b>{res['eng_past']} ball</b>\n\n"
-        f"🔍 <b>Batafsil statistika uchun:</b>"
-    )
+    
     await message.answer(
-        text, parse_mode="HTML", reply_markup=stats_keyboard()
+        "📊 <b>Statistika uchun maktabni tanlang:</b>\n\n"
+        "Qaysi maktabning statistikasini ko'rmoqchisiz?",
+        parse_mode="HTML",
+        reply_markup=maktab_tanlash_keyboard(maktablar, "stats_maktab")
     )
+
+
+@router.callback_query(F.data.startswith("stats_maktab:"))
+async def stats_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    """School selection for statistics callback handler."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    
+    try:
+        maktab_id = int(callback.data.split(":")[1])
+        maktablar = maktablar_ol()
+        maktab = next((m for m in maktablar if m['id'] == maktab_id), None)
+        
+        if not maktab:
+            await callback.answer("❌ Maktab topilmadi", show_alert=True)
+            return
+        
+        # Store selected school in state
+        await state.update_data(selected_maktab_id=maktab_id, selected_maktab_nomi=maktab['nomi'])
+        
+        # Get statistics for this school
+        from database import statistika_by_maktab
+        res = statistika_by_maktab(maktab_id)
+        
+        if not res:
+            text = f"📊 <b>{maktab['nomi']} statistikasi:</b>\n\n⚠️ Ma'lumotlar yo'q."
+            await callback.message.edit_text(text, parse_mode="HTML")
+        else:
+            text = (
+                f"📊 <b>{maktab['nomi']} statistikasi:</b>\n\n"
+                f"👥 Jami o'quvchilar: <b>{res['jami']} ta</b>\n"
+                f"📈 O'rtacha ball: <b>{res['ortacha']} ball</b>\n"
+                f"🏆 Eng yuqori ball: <b>{res['eng_yuqori']} ball</b>\n"
+                f"📉 Eng past ball: <b>{res['eng_past']} ball</b>\n\n"
+                f"🔍 <b>Batafsil statistika uchun:</b>"
+            )
+            await callback.message.edit_text(
+                text, parse_mode="HTML", reply_markup=stats_keyboard()
+            )
+        
+    except (ValueError, IndexError):
+        await callback.answer("❌ Noto'g'ri maktab tanlovi", show_alert=True)
+    
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("stats:"))
@@ -1986,19 +2032,28 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
 
     if action == "direction":
         # Yo'nalishlar bo'yicha o'rtacha ballar
-        from database import get_avg_score_by_direction
-
-        stats = get_avg_score_by_direction()
+        from database import get_avg_score_by_direction, get_avg_score_by_direction_by_maktab
+        
+        data = await state.get_data()
+        maktab_id = data.get("selected_maktab_id")
+        maktab_nomi = data.get("selected_maktab_nomi", "Noma'lum maktab")
+        
+        if maktab_id:
+            stats = get_avg_score_by_direction_by_maktab(maktab_id)
+            title = f"🎯 <b>{maktab_nomi} - Yo'nalishlar bo'yicha o'rtacha ballar:</b>\n\n"
+        else:
+            stats = get_avg_score_by_direction()
+            title = "🎯 <b>Yo'nalishlar bo'yicha o'rtacha ballar:</b>\n\n"
 
         if not stats:
-            text = "🎯 <b>Yo'nalishlar bo'yicha o'rtacha ballar:</b>\n\n⚠️ Ma'lumotlar yo'q."
+            text = title + "⚠️ Ma'lumotlar yo'q."
             await callback.message.edit_text(text, parse_mode="HTML")
         else:
             # Grafik yasash
             chart_file = create_direction_chart(stats)
 
             # Matnli ma'lumot
-            text = "🎯 <b>Yo'nalishlar bo'yicha o'rtacha ballar:</b>\n\n"
+            text = title
             for i, stat in enumerate(stats, 1):
                 yonalish = stat["yonalish"] or "Umumiy"
                 avg = stat["avg_score"]
@@ -2018,19 +2073,28 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
 
     elif action == "class":
         # Sinflar bo'yicha o'rtacha ballar
-        from database import get_class_comparison
-
-        stats = get_class_comparison()
+        from database import get_class_comparison, get_class_comparison_by_maktab
+        
+        data = await state.get_data()
+        maktab_id = data.get("selected_maktab_id")
+        maktab_nomi = data.get("selected_maktab_nomi", "Noma'lum maktab")
+        
+        if maktab_id:
+            stats = get_class_comparison_by_maktab(maktab_id)
+            title = f"🏫 <b>{maktab_nomi} - Sinflar bo'yicha o'rtacha ballar:</b>\n\n"
+        else:
+            stats = get_class_comparison()
+            title = "🏫 <b>Sinflar bo'yicha o'rtacha ballar:</b>\n\n"
 
         if not stats:
-            text = "🏫 <b>Sinflar bo'yicha o'rtacha ballar:</b>\n\n⚠️ Ma'lumotlar yo'q."
+            text = title + "⚠️ Ma'lumotlar yo'q."
             await callback.message.edit_text(text, parse_mode="HTML")
         else:
             # Grafik yasash
             chart_file = create_class_chart(stats)
 
             # Matnli ma'lumot
-            text = "🏫 <b>Sinflar bo'yicha o'rtacha ballar:</b>\n\n"
+            text = title
             for i, stat in enumerate(stats, 1):
                 sinf = stat["sinf"]
                 avg = stat["avg_score"]
@@ -2050,14 +2114,23 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
 
     elif action == "improved":
         # Eng ko'p o'sganlar
-        from database import get_most_improved_students
-
-        students = get_most_improved_students()
+        from database import get_most_improved_students, get_most_improved_students_by_maktab
+        
+        data = await state.get_data()
+        maktab_id = data.get("selected_maktab_id")
+        maktab_nomi = data.get("selected_maktab_nomi", "Noma'lum maktab")
+        
+        if maktab_id:
+            students = get_most_improved_students_by_maktab(maktab_id)
+            title = f"🚀 <b>{maktab_nomi} - Eng ko'p o'sgan o'quvchilar:</b>\n\n"
+        else:
+            students = get_most_improved_students()
+            title = "🚀 <b>Eng ko'p o'sgan o'quvchilar:</b>\n\n"
 
         if not students:
-            text = "🚀 <b>Eng ko'p o'sgan o'quvchilar:</b>\n\n⚠️ Ma'lumotlar yo'q."
+            text = title + "⚠️ Ma'lumotlar yo'q."
         else:
-            text = "🚀 <b>Eng ko'p o'sgan o'quvchilar:</b>\n\n"
+            text = title
             for i, student in enumerate(students[:10], 1):  # Top 10
                 name = student["ismlar"]
                 improvement = student["diff"]
@@ -2066,12 +2139,23 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text(text, parse_mode="HTML")
 
     elif action == "declined":
-        students = get_most_declined_students()
+        from database import get_most_declined_students, get_most_declined_students_by_maktab
+        
+        data = await state.get_data()
+        maktab_id = data.get("selected_maktab_id")
+        maktab_nomi = data.get("selected_maktab_nomi", "Noma'lum maktab")
+        
+        if maktab_id:
+            students = get_most_declined_students_by_maktab(maktab_id)
+            title = f"📉 <b>{maktab_nomi} - Eng ko'p pasaygan o'quvchilar:</b>\n\n"
+        else:
+            students = get_most_declined_students()
+            title = "📉 <b>Eng ko'p pasaygan o'quvchilar:</b>\n\n"
 
         if not students:
-            text = "📉 <b>Eng ko'p pasaygan o'quvchilar:</b>\n\n⚠️ Ma'lumotlar yo'q."
+            text = title + "⚠️ Ma'lumotlar yo'q."
         else:
-            text = "📉 <b>Eng ko'p pasaygan o'quvchilar (oxirgi test avvalgisiga nisbatan):</b>\n\n"
+            text = title + "(oxirgi test avvalgisiga nisbatan)\n\n"
             for i, student in enumerate(students[:10], 1):
                 name = student["ismlar"]
                 change = student["diff"]

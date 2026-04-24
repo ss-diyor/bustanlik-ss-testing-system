@@ -1070,6 +1070,40 @@ def statistika():
     }
 
 
+def statistika_by_maktab(maktab_id: int):
+    """Maktab bo'yicha statistika"""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT COUNT(*) as jami FROM talabalar WHERE maktab_id = %s", (maktab_id,))
+    jami = cur.fetchone()["jami"]
+    if jami == 0:
+        cur.close()
+        release_connection(conn)
+        return None
+    cur.execute("""
+        SELECT AVG(n.umumiy_ball) as ortacha,
+               MAX(n.umumiy_ball) as eng_yuqori,
+               MIN(n.umumiy_ball) as eng_past
+        FROM talabalar t
+        JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        WHERE t.maktab_id = %s
+    """, (maktab_id,))
+    stat = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return {
+        "jami": jami,
+        "ortacha": round(float(stat["ortacha"]), 2) if stat["ortacha"] else 0,
+        "eng_yuqori": stat["eng_yuqori"] if stat["eng_yuqori"] else 0,
+        "eng_past": stat["eng_past"] if stat["eng_past"] else 0,
+    }
+
+
 def talaba_filtrlangan(sinf: str = None, yonalish: str = None):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -1257,6 +1291,29 @@ def get_avg_score_by_direction():
     return [dict(r) for r in rows]
 
 
+def get_avg_score_by_direction_by_maktab(maktab_id: int):
+    """Maktab bo'yicha yo'nalishlar bo'yicha o'rtacha ballar"""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT t.yonalish, ROUND(AVG(n.umumiy_ball)::numeric, 2) as avg_score
+        FROM talabalar t
+        JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        WHERE t.maktab_id = %s
+        GROUP BY t.yonalish
+        ORDER BY avg_score DESC
+    """, (maktab_id,))
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+
 def get_class_comparison():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -1272,6 +1329,29 @@ def get_class_comparison():
         GROUP BY t.sinf
         ORDER BY avg_score DESC
     """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+
+def get_class_comparison_by_maktab(maktab_id: int):
+    """Maktab bo'yicha sinflar bo'yicha o'rtacha ballar"""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT t.sinf, ROUND(AVG(n.umumiy_ball)::numeric, 2) as avg_score
+        FROM talabalar t
+        JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        )
+        WHERE t.maktab_id = %s
+        GROUP BY t.sinf
+        ORDER BY avg_score DESC
+    """, (maktab_id,))
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)
@@ -1301,6 +1381,30 @@ def get_most_improved_students():
     return [dict(r) for r in rows]
 
 
+def get_most_improved_students_by_maktab(maktab_id: int):
+    """Maktab bo'yicha eng ko'p o'sgan o'quvchilar"""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        WITH student_diffs AS (
+            SELECT talaba_kod,
+                   (SELECT umumiy_ball FROM test_natijalari WHERE talaba_kod = t1.talaba_kod ORDER BY test_sanasi DESC LIMIT 1) -
+                   (SELECT umumiy_ball FROM test_natijalari WHERE talaba_kod = t1.talaba_kod ORDER BY test_sanasi DESC OFFSET 1 LIMIT 1) as diff
+            FROM (SELECT DISTINCT talaba_kod FROM test_natijalari) t1
+        )
+        SELECT t.kod, t.ismlar, t.sinf, sd.diff
+        FROM student_diffs sd
+        JOIN talabalar t ON t.kod = sd.talaba_kod
+        WHERE sd.diff IS NOT NULL AND sd.diff > 0 AND t.maktab_id = %s
+        ORDER BY sd.diff DESC
+        LIMIT 10
+    """, (maktab_id,))
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+
 def get_most_declined_students():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -1318,6 +1422,30 @@ def get_most_declined_students():
         ORDER BY sd.diff ASC
         LIMIT 10
     """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+
+def get_most_declined_students_by_maktab(maktab_id: int):
+    """Maktab bo'yicha eng ko'p pasaygan o'quvchilar"""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        WITH student_diffs AS (
+            SELECT talaba_kod,
+                   (SELECT umumiy_ball FROM test_natijalari WHERE talaba_kod = t1.talaba_kod ORDER BY test_sanasi DESC LIMIT 1) -
+                   (SELECT umumiy_ball FROM test_natijalari WHERE talaba_kod = t1.talaba_kod ORDER BY test_sanasi DESC OFFSET 1 LIMIT 1) as diff
+            FROM (SELECT DISTINCT talaba_kod FROM test_natijalari) t1
+        )
+        SELECT t.kod, t.ismlar, t.sinf, sd.diff
+        FROM student_diffs sd
+        JOIN talabalar t ON t.kod = sd.talaba_kod
+        WHERE sd.diff IS NOT NULL AND sd.diff < 0 AND t.maktab_id = %s
+        ORDER BY sd.diff ASC
+        LIMIT 10
+    """, (maktab_id,))
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)
