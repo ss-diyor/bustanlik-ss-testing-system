@@ -4,13 +4,13 @@ Multi-language support uchun callback va message handlerlar
 """
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from i18n import i18n, get_user_text
 from database import update_user_language, get_user_language, get_setting
-from keyboards import user_menu_keyboard, admin_menu_keyboard, language_selection_keyboard, language_settings_keyboard
+from keyboards import user_menu_keyboard, admin_menu_keyboard, language_selection_keyboard
 from admin import is_admin_id
 from database import oqituvchi_ol
 
@@ -36,14 +36,10 @@ async def language_callback(callback: CallbackQuery, state: FSMContext):
     elif action in ["uz", "ru", "en"]:
         # Tilni o'rnatish
         if update_user_language(user_id, action):
-            # Foydalanuvchi turiga qarab menuni yangilash
-            await update_user_menu(callback.message, user_id, action)
-            
             await callback.message.edit_text(
-                get_user_text(user_id, "language.changed"),
-                reply_markup=ReplyKeyboardRemove()
+                get_user_text(user_id, "language.changed")
             )
-            
+
             # Til o'zgarganligi haqida xabar
             await callback.message.answer(
                 get_user_text(user_id, "language.current", til=i18n.get_available_languages()[action]),
@@ -144,9 +140,15 @@ async def menu_callback(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     
     if callback.data.split(":")[1] == "main":
-        await callback.message.edit_text(
-            get_user_text(user_id, "language.current", til=i18n.get_available_languages()[get_user_language(user_id)]),
-            reply_markup=get_user_keyboard(user_id, get_user_language(user_id))
+        current_lang = get_user_language(user_id)
+        lang_label = i18n.get_available_languages().get(current_lang, "🇺🇿 O'zbekcha")
+        await callback.message.answer(
+            get_user_text(
+                user_id,
+                "language.current",
+                til=lang_label,
+            ),
+            reply_markup=get_user_keyboard(user_id, current_lang),
         )
     
     await callback.answer()

@@ -12,13 +12,13 @@ from enum import Enum
 
 import pandas as pd
 import numpy as np
+import psycopg2
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 import joblib
 
-from database import get_connection, release_connection, get_all_users, talaba_natijalari, talaba_topish
+from database import get_connection, release_connection, talaba_natijalari
 from i18n import get_user_text
-from config import ADMIN_IDS
 
 class NotificationType(Enum):
     """Notification turlari"""
@@ -72,17 +72,17 @@ class SmartNotificationSystem:
         
         # Barcha foydalanuvchilar va ularning test natijalari
         cur.execute("""
-            SELECT u.id, u.language, t.kod, t.ismlar, t.sinf, t.yonalish,
+            SELECT u.user_id, u.language, t.kod, t.ismlar, t.sinf, t.yonalish,
                    COUNT(tn.id) as test_count,
                    AVG(tn.umumiy_ball) as avg_score,
                    MAX(tn.umumiy_ball) as max_score,
                    MIN(tn.umumiy_ball) as min_score,
                    MAX(tn.test_sanasi) as last_test_date
             FROM users u
-            LEFT JOIN talabalar t ON t.user_id = u.id
+            LEFT JOIN talabalar t ON t.user_id = u.user_id
             LEFT JOIN test_natijalari tn ON tn.talaba_kod = t.kod
-            WHERE u.id IS NOT NULL
-            GROUP BY u.id, t.kod, t.ismlar, t.sinf, t.yonalish, u.language
+            WHERE u.user_id IS NOT NULL
+            GROUP BY u.user_id, t.kod, t.ismlar, t.sinf, t.yonalish, u.language
         """)
         
         users = cur.fetchall()
@@ -91,7 +91,7 @@ class SmartNotificationSystem:
         
         for user in users:
             if user['kod']:  # Faqat bog'langan o'quvchilar
-                self.user_profiles[user['id']] = {
+                self.user_profiles[user['user_id']] = {
                     'language': user['language'] or 'uz',
                     'student_code': user['kod'],
                     'name': user['ismlar'],

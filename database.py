@@ -138,6 +138,13 @@ def init_db():
         )
     except Exception:
         pass
+    # Multi-language uchun til ustunini qo'shamiz
+    try:
+        cur.execute(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'uz'"
+        )
+    except Exception:
+        pass
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS yonalishlar (
@@ -2026,7 +2033,10 @@ def update_user_language(user_id: int, language: str) -> bool:
     try:
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE users SET language = %s WHERE id = %s", (language, user_id))
+        cur.execute(
+            "UPDATE users SET language = %s WHERE user_id = %s",
+            (language, user_id),
+        )
         conn.commit()
         cur.close()
         release_connection(conn)
@@ -2039,7 +2049,7 @@ def get_user_language(user_id: int) -> str:
     try:
         conn = get_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT language FROM users WHERE id = %s", (user_id,))
+        cur.execute("SELECT language FROM users WHERE user_id = %s", (user_id,))
         result = cur.fetchone()
         cur.close()
         release_connection(conn)
