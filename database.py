@@ -645,17 +645,21 @@ def ball_hisobla(majburiy: int, asosiy_1: int, asosiy_2: int) -> float:
 
 
 def talaba_qosh(
-    kod: str, yonalish: str, sinf: str = None, ismlar: str = None
+    kod: str,
+    yonalish: str,
+    sinf: str = None,
+    ismlar: str = None,
+    maktab_id: int = None,
 ) -> bool:
     try:
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO talabalar (kod, yonalish, sinf, ismlar)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO talabalar (kod, yonalish, sinf, ismlar, maktab_id)
+            VALUES (%s, %s, %s, %s, COALESCE(%s, 1))
         """,
-            (kod.upper(), yonalish, sinf, ismlar),
+            (kod.upper(), yonalish, sinf, ismlar, maktab_id),
         )
         conn.commit()
         cur.close()

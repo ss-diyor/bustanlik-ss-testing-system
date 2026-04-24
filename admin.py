@@ -283,6 +283,7 @@ class AdminAdd(StatesGroup):
 class TalabaQosh(StatesGroup):
     kod_kutish = State()
     yonalish_kutish = State()
+    maktab_kutish = State()
     sinf_kutish = State()
     ismlar_kutish = State()
     majburiy_kutish = State()
@@ -422,6 +423,33 @@ def _son_tekshir(text: str):
     except ValueError:
         pass
     return None
+
+
+def _normalize_name(value: str) -> str:
+    return " ".join(str(value).strip().lower().split())
+
+
+def _resolve_maktab(value, maktablar: list[dict]):
+    """Maktab qiymatini id yoki nom bo'yicha aniqlaydi."""
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw or raw.lower() == "nan":
+        return None
+
+    by_name = {_normalize_name(m["nomi"]): m for m in maktablar}
+
+    # Raqam bo'yicha topish
+    try:
+        maktab_id = int(float(raw))
+        for m in maktablar:
+            if int(m["id"]) == maktab_id:
+                return m
+    except ValueError:
+        pass
+
+    # Nom bo'yicha topish
+    return by_name.get(_normalize_name(raw))
 
 
 def _generate_certificate_file(cert_gen, ismlar, ball, sana, kod):
@@ -1418,9 +1446,44 @@ async def talaba_yonalish(callback: CallbackQuery, state: FSMContext):
         await callback.answer("❌ Yo'nalish topilmadi.", show_alert=True)
         return
     await state.update_data(yonalish=yonalish)
+    await state.set_state(TalabaQosh.maktab_kutish)
+    maktablar = maktablar_ol()
+    if not maktablar:
+        await callback.message.edit_text(
+            "❌ Maktablar topilmadi. Avval '🏫 Maktablarni boshqarish' orqali maktab qo'shing."
+        )
+        await state.set_state(None)
+        await callback.answer()
+        return
+    await callback.message.edit_text(
+        f"🎯 Yo'nalish: <b>{yonalish}</b>\n\n🏫 Maktabni tanlang:",
+        reply_markup=maktab_tanlash_keyboard(maktablar, "talaba_maktab"),
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
+@router.callback_query(
+    TalabaQosh.maktab_kutish, F.data.startswith("talaba_maktab:")
+)
+async def talaba_maktab(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    try:
+        maktab_id = int(callback.data.split(":")[1])
+    except ValueError:
+        await callback.answer("❌ Maktab topilmadi.", show_alert=True)
+        return
+
+    maktab = next((m for m in maktablar_ol() if int(m["id"]) == maktab_id), None)
+    if not maktab:
+        await callback.answer("❌ Maktab topilmadi.", show_alert=True)
+        return
+
+    await state.update_data(maktab_id=maktab_id, maktab_nomi=maktab["nomi"])
     await state.set_state(TalabaQosh.sinf_kutish)
     await callback.message.edit_text(
-        f"🎯 Yo'nalish: <b>{yonalish}</b>\n\nSinfni tanlang:",
+        f"🏫 Maktab: <b>{maktab['nomi']}</b>\n\nSinfni tanlang:",
         reply_markup=sinf_keyboard(),
         parse_mode="HTML",
     )
@@ -1435,6 +1498,14 @@ async def talaba_sinf(callback: CallbackQuery, state: FSMContext):
     sinf = sinf_id_dan_full_nomi(sinf_id)
     if not sinf:
         await callback.answer("❌ Sinf topilmadi.", show_alert=True)
+        return
+    data = await state.get_data()
+    maktab_nomi = data.get("maktab_nomi")
+    if maktab_nomi and not sinf.endswith(f" - {maktab_nomi}"):
+        await callback.answer(
+            "❌ Tanlangan sinf boshqa maktabga tegishli. Iltimos, to'g'ri sinfni tanlang.",
+            show_alert=True,
+        )
         return
     await state.update_data(sinf=sinf)
     await state.set_state(TalabaQosh.ismlar_kutish)
@@ -1514,6 +1585,7 @@ async def talaba_asosiy2(message: Message, state: FSMContext):
         f"🧐 <b>Ma'lumotlarni tekshiring:</b>\n\n"
         f"🆔 Kod: <b>{data['kod']}</b>\n"
         f"👤 Ism: <b>{data['ismlar']}</b>\n"
+        f"🏫 Maktab: <b>{data.get('maktab_nomi', 'Nomalum')}</b>\n"
         f"🏫 Sinf: <b>{data['sinf']}</b>\n"
         f"🎯 Yo'nalish: <b>{data['yonalish']}</b>\n\n"
         f"📊 <b>Natijalar:</b>\n"
@@ -1551,7 +1623,11 @@ async def talaba_tasdiq(callback: CallbackQuery, state: FSMContext):
         }
 
         talaba_qosh(
-            talaba["kod"], talaba["yonalish"], talaba["sinf"], talaba["ismlar"]
+            talaba["kod"],
+            talaba["yonalish"],
+            talaba["sinf"],
+            talaba["ismlar"],
+            data.get("maktab_id"),
         )
         natija_qosh(
             talaba["kod"],
@@ -1687,7 +1763,8 @@ async def excel_import_start(message: Message, state: FSMContext):
     await message.answer(
         "📥 <b>Excel faylini yuboring.</b>\n\n"
         "Fayl ustunlari tartibi:\n"
-        "Kod | Ism | Sinf | Yo'nalish | Majburiy | Asosiy1 | Asosiy2",
+        "Kod | Ism | Sinf | Yo'nalish | Maktab(raqam yoki nom) | Majburiy | Asosiy1 | Asosiy2\n\n"
+        "⚠️ Maktab ustuni majburiy.",
         parse_mode="HTML",
     )
 
@@ -1724,6 +1801,15 @@ async def excel_import_process(message: Message, state: FSMContext):
             "ismlar": ["ism", "ismlar", "ismfamiliya", "fio", "fullname"],
             "sinf": ["sinf", "class", "klass"],
             "yonalish": ["yonalish", "yunalish", "direction"],
+            "maktab": [
+                "maktab",
+                "maktabid",
+                "maktabraqami",
+                "maktabnomi",
+                "school",
+                "schoolid",
+                "schoolname",
+            ],
             "majburiy": ["majburiy", "majburiyfan", "majburiyfanlar"],
             "asosiy1": ["asosiy1", "1asosiy", "asosiyfan1", "asosiybirinchi"],
             "asosiy2": ["asosiy2", "2asosiy", "asosiyfan2", "asosiyikkinchi"],
@@ -1742,7 +1828,35 @@ async def excel_import_process(message: Message, state: FSMContext):
                 break
             resolved_cols[key] = found
 
+        maktablar = maktablar_ol()
+        if not maktablar:
+            await message.answer(
+                "❌ Maktablar topilmadi. Avval maktablar ro'yxatini to'ldiring.",
+                reply_markup=admin_menu_keyboard(),
+            )
+            await state.set_state(None)
+            return
+
+        if header_mode and "maktab" not in resolved_cols:
+            await message.answer(
+                "❌ Excelda <b>Maktab</b> ustuni topilmadi. "
+                "Maktab raqami yoki nomi ko'rsatilishi shart.",
+                parse_mode="HTML",
+                reply_markup=admin_menu_keyboard(),
+            )
+            await state.set_state(None)
+            return
+        if not header_mode and len(df.columns) < 8:
+            await message.answer(
+                "❌ Excel format noto'g'ri. Header bo'lmasa kamida 8 ta ustun bo'lishi kerak:\n"
+                "Kod | Ism | Sinf | Yo'nalish | Maktab | Majburiy | Asosiy1 | Asosiy2",
+                reply_markup=admin_menu_keyboard(),
+            )
+            await state.set_state(None)
+            return
+
         count = 0
+        skipped = 0
         for _, row in df.iterrows():
             try:
                 if header_mode:
@@ -1750,25 +1864,35 @@ async def excel_import_process(message: Message, state: FSMContext):
                     ismlar = str(row[resolved_cols["ismlar"]]).strip()
                     sinf = str(row[resolved_cols["sinf"]]).strip()
                     yonalish = str(row[resolved_cols["yonalish"]]).strip()
+                    maktab_raw = row[resolved_cols["maktab"]]
                     majburiy = int(row[resolved_cols["majburiy"]])
                     asosiy1 = int(row[resolved_cols["asosiy1"]])
                     asosiy2 = int(row[resolved_cols["asosiy2"]])
                 else:
-                    # Eski format bilan moslik: ustunlar qat'iy tartibda
+                    # Header bo'lmasa ham 8-ustunda maktab bo'lishi shart
                     kod = str(row.iloc[0]).strip().upper()
                     ismlar = str(row.iloc[1]).strip()
                     sinf = str(row.iloc[2]).strip()
                     yonalish = str(row.iloc[3]).strip()
-                    majburiy = int(row.iloc[4])
-                    asosiy1 = int(row.iloc[5])
-                    asosiy2 = int(row.iloc[6])
+                    maktab_raw = row.iloc[4]
+                    majburiy = int(row.iloc[5])
+                    asosiy1 = int(row.iloc[6])
+                    asosiy2 = int(row.iloc[7])
 
                 if not kod or kod.lower() == "nan":
                     continue
 
+                maktab = _resolve_maktab(maktab_raw, maktablar)
+                if not maktab:
+                    skipped += 1
+                    continue
+
+                if " - " not in sinf:
+                    sinf = f"{sinf} - {maktab['nomi']}"
+
                 ball = ball_hisobla(majburiy, asosiy1, asosiy2)
 
-                talaba_qosh(kod, yonalish, sinf, ismlar)
+                talaba_qosh(kod, yonalish, sinf, ismlar, maktab["id"])
                 natija_qosh(kod, majburiy, asosiy1, asosiy2)
 
                 # Bildirishnomalarni fonda yuboramiz
@@ -1777,6 +1901,7 @@ async def excel_import_process(message: Message, state: FSMContext):
                     "ismlar": ismlar,
                     "yonalish": yonalish,
                     "sinf": sinf,
+                    "maktab": maktab["nomi"],
                 }
                 natija = {
                     "majburiy": majburiy,
@@ -1790,10 +1915,12 @@ async def excel_import_process(message: Message, state: FSMContext):
 
                 count += 1
             except Exception:
+                skipped += 1
                 continue
 
         await message.answer(
-            f"✅ <b>{count}</b> ta o'quvchi ma'lumotlari muvaffaqiyatli import qilindi!",
+            f"✅ <b>{count}</b> ta o'quvchi muvaffaqiyatli import qilindi.\n"
+            f"⚠️ <b>{skipped}</b> ta qator xato yoki maktab mos kelmagani sabab o'tkazib yuborildi.",
             parse_mode="HTML",
             reply_markup=admin_menu_keyboard(),
         )
