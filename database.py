@@ -161,6 +161,36 @@ def init_db():
             UNIQUE (nomi, maktab_id)
         )
     """)
+    # Eski sxemalarda sinf nomi global UNIQUE bo'lib qolgan bo'lishi mumkin.
+    # Bu holda turli maktablarda bir xil sinf nomini (masalan 11-A) qo'shib bo'lmaydi.
+    # Quyidagi migratsiya global UNIQUE cheklovlarni olib tashlaydi va composite UNIQUE ni saqlab qoladi.
+    try:
+        cur.execute("""
+            DO $$
+            DECLARE
+                r RECORD;
+            BEGIN
+                FOR r IN
+                    SELECT c.conname
+                    FROM pg_constraint c
+                    JOIN pg_class t ON t.oid = c.conrelid
+                    WHERE t.relname = 'sinflar'
+                      AND c.contype = 'u'
+                      AND pg_get_constraintdef(c.oid) ILIKE 'UNIQUE (nomi)%'
+                      AND pg_get_constraintdef(c.oid) NOT ILIKE 'UNIQUE (nomi, maktab_id)%'
+                LOOP
+                    EXECUTE format('ALTER TABLE sinflar DROP CONSTRAINT IF EXISTS %I', r.conname);
+                END LOOP;
+            END $$;
+        """)
+        cur.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_sinflar_nomi_maktab
+            ON sinflar (nomi, maktab_id)
+            """
+        )
+    except Exception:
+        pass
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS settings (

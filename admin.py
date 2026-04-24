@@ -1,6 +1,5 @@
 import asyncio
 import os
-import re
 from aiogram import Router, F, Bot
 from aiogram.types import (
     Message,
@@ -1056,16 +1055,9 @@ async def sinf_boshqar_actions(callback: CallbackQuery, state: FSMContext):
 async def sinf_nomi_kutish(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
-    nomi = " ".join(message.text.strip().split()).upper()
+    nomi = " ".join(message.text.strip().split())
     if " - " in nomi:
         nomi = nomi.split(" - ", 1)[0].strip()
-    if not re.fullmatch(r"\d{1,2}-[A-Z]", nomi):
-        await message.answer(
-            "❌ Noto'g'ri sinf nomi format.\n"
-            "Iltimos, quyidagi formatda kiriting: <b>11-A</b>, <b>10-B</b>.",
-            parse_mode="HTML",
-        )
-        return
     await state.update_data(sinf_nomi=nomi)
 
     maktablar = maktablar_ol()
