@@ -446,16 +446,22 @@ def sinf_ol_batafsil():
 def sinf_qosh(nomi: str, maktab_id: int) -> bool:
     """Yangi sinf qo'shadi. maktab_id majburiy."""
     try:
+        clean_name = " ".join((nomi or "").strip().split())
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO sinflar (nomi, maktab_id) VALUES (%s, %s)",
-            (nomi, maktab_id),
+            """
+            INSERT INTO sinflar (nomi, maktab_id)
+            VALUES (%s, %s)
+            ON CONFLICT (nomi, maktab_id) DO NOTHING
+        """,
+            (clean_name, maktab_id),
         )
+        inserted = cur.rowcount > 0
         conn.commit()
         cur.close()
         release_connection(conn)
-        return True
+        return inserted
     except Exception:
         return False
 
