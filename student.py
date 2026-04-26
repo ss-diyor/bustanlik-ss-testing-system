@@ -424,9 +424,10 @@ async def ranking_menu(event):
     ranking_enabled = get_setting("ranking_enabled", "True")
     if ranking_enabled == "False":
         stats_enabled = get_setting("stats_enabled", "True")
+        chatbot_enabled = get_setting("chatbot_enabled", "True")
         await message.answer(
             "⚠️ Reyting tizimi vaqtincha o'chirib qo'yilgan.",
-            reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled),
+            reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled),
         )
         return
 
@@ -721,9 +722,10 @@ async def student_stats(message: Message):
     stats_enabled = get_setting("stats_enabled", "True")
     if stats_enabled == "False":
         ranking_enabled = get_setting("ranking_enabled", "True")
+        chatbot_enabled = get_setting("chatbot_enabled", "True")
         await message.answer(
             "⚠️ Statistika bo'limi vaqtincha o'chirib qo'yilgan.",
-            reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled),
+            reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled),
         )
         return
     await message.answer(
@@ -1175,18 +1177,17 @@ async def ai_analytics_handler(message: Message, state: FSMContext):
         )
 
         if chart_path and os.path.exists(chart_path):
-            await message.answer_photo(
-                FSInputFile(chart_path),
-                caption=f"📊 <b>{talaba['ismlar']} uchun AI Tahlili xulosasi:</b>\n\n{recommendation}",
-                parse_mode="HTML",
-            )
-            # Grafikni yuborgandan keyin o'chirish
+            await message.answer_photo(FSInputFile(chart_path))
             os.remove(chart_path)
+
+        # Matnni har doim alohida yuborish (Telegram caption limiti 1024 belgi)
+        MAX_MSG = 4000
+        header = f"📊 <b>{talaba['ismlar']} uchun AI Tahlili xulosasi:</b>\n\n"
+        full_text = header + recommendation
+        if len(full_text) <= MAX_MSG:
+            await message.answer(full_text, parse_mode="HTML")
         else:
-            await message.answer(
-                f"📊 <b>{talaba['ismlar']} uchun AI Tahlili xulosasi:</b>\n\n{recommendation}",
-                parse_mode="HTML",
-            )
+            await message.answer(header + recommendation[:MAX_MSG - len(header)] + "\n...", parse_mode="HTML")
         ai_usage_log(message.from_user.id)
 
     except Exception as e:
