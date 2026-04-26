@@ -506,6 +506,18 @@ def _build_students_page(
     return text, page, total_pages
 
 
+async def _ota_onalarga_bildirish(bot: Bot, talaba_kod: str, ball: float):
+    """
+    Yangi natija kiritilganda ulangan ota-onalarga avtomatik xabar yuboradi.
+    admin.py ning ichidan chaqiriladi — parent.py moduliga delegatsiya qiladi.
+    """
+    try:
+        from parent import ota_onalarga_xabar_yuborish
+        await ota_onalarga_xabar_yuborish(bot, talaba_kod, ball)
+    except Exception as e:
+        logging.warning(f"Ota-onalarga bildirish xatosi ({talaba_kod}): {e}")
+
+
 async def guruhlarga_yangi_oquvchi_yuborish(
     bot: Bot, talaba: dict, natija: dict = None
 ):
@@ -1683,6 +1695,10 @@ async def talaba_tasdiq(callback: CallbackQuery, state: FSMContext):
         asyncio.create_task(
             guruhlarga_yangi_oquvchi_yuborish(callback.bot, talaba, natija)
         )
+        # Ota-onalarga avtomatik xabarnoma
+        asyncio.create_task(
+            _ota_onalarga_bildirish(callback.bot, talaba["kod"], natija["umumiy_ball"])
+        )
 
     else:
         await callback.message.edit_text(
@@ -1774,6 +1790,11 @@ async def natija_tahrir_asosiy2(message: Message, state: FSMContext):
 
     # Ma'lumotlarni yangilash
     natija_qosh(data["kod"], data["majburiy"], data["asosiy1"], son)
+
+    # Ota-onalarga avtomatik xabarnoma
+    asyncio.create_task(
+        _ota_onalarga_bildirish(message.bot, data["kod"], ball)
+    )
 
     await message.answer(
         f"✅ Natija yangilandi! Yangi ball: <b>{ball}</b>",
@@ -1944,6 +1965,10 @@ async def excel_import_process(message: Message, state: FSMContext):
                 }
                 asyncio.create_task(
                     bildirishnoma_yuborish(message.bot, kod, natija, talaba)
+                )
+                # Ota-onalarga avtomatik xabarnoma
+                asyncio.create_task(
+                    _ota_onalarga_bildirish(message.bot, kod, ball)
                 )
 
                 count += 1
