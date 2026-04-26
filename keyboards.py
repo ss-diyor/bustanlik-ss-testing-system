@@ -1737,3 +1737,77 @@ def language_settings_keyboard():
     ]
     
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+# ─── Ota-ona paneli klaviaturalari ────────────────────────────────────────────
+
+def ota_ona_menu_keyboard() -> ReplyKeyboardMarkup:
+    """Ota-ona asosiy menyusi — reply keyboard."""
+    keyboard = [
+        [
+            KeyboardButton(text="👨‍👩‍👦 Farzandlarim"),
+            KeyboardButton(text="➕ Farzand qo'shish"),
+        ],
+        [
+            KeyboardButton(text="📊 Farzandim natijasi"),
+            KeyboardButton(text="🏆 Farzandim reytingi"),
+        ],
+        [
+            KeyboardButton(text="✍️ Admin bilan bog'lanish"),
+            KeyboardButton(text="🚪 Chiqish (Ota-ona)"),
+        ],
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+
+def farzandlar_tanlash_keyboard(farzandlar: list) -> InlineKeyboardMarkup:
+    """
+    Bir nechta farzand bo'lganda tanlash uchun inline keyboard.
+    Har bir tugma: 'Ism (KOD)' — callback: parent_select:KOD
+    """
+    from database import talaba_topish
+    buttons = []
+    for kod in farzandlar:
+        talaba = talaba_topish(kod)
+        ism = talaba.get("ismlar", kod) if talaba else kod
+        sinf = talaba.get("sinf", "") if talaba else ""
+        label = f"👤 {ism}"
+        if sinf:
+            label += f" ({sinf})"
+        buttons.append([
+            InlineKeyboardButton(text=label, callback_data=f"parent_select:{kod}"),
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def farzandlar_boshqarish_keyboard(farzandlar: list) -> InlineKeyboardMarkup:
+    """
+    Farzandlar ro'yxatini ko'rish va o'chirish uchun inline keyboard.
+    Har qatorda: [👤 Ism (KOD)] [❌ O'chirish]
+    """
+    from database import talaba_topish
+    buttons = []
+    for kod in farzandlar:
+        talaba = talaba_topish(kod)
+        ism = talaba.get("ismlar", kod) if talaba else kod
+        sinf = talaba.get("sinf", "") if talaba else ""
+        label = f"👤 {ism}"
+        if sinf:
+            label += f" ({sinf})"
+        buttons.append([
+            InlineKeyboardButton(text=label, callback_data=f"parent_view:{kod}"),
+            InlineKeyboardButton(text="❌", callback_data=f"parent_del:{kod}"),
+        ])
+    buttons.append([
+        InlineKeyboardButton(text="➕ Yangi farzand qo'shish", callback_data="parent_add_inline"),
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def farzand_natija_keyboard(kod: str) -> InlineKeyboardMarkup:
+    """Farzand natijasini ko'rish sahifasidagi tugmalar."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 Barcha natijalar", callback_data=f"parent_all_results:{kod}")],
+        [InlineKeyboardButton(text="🏆 Reytingdagi o'rni", callback_data=f"parent_rank:{kod}")],
+        [InlineKeyboardButton(text="◀️ Orqaga", callback_data="parent_back_list")],
+    ])
