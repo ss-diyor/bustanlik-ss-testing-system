@@ -31,6 +31,7 @@ import student
 import language_handlers
 import parent
 import chatbot
+import group_commands
 
 # Loglarni konsolga chiqaradi
 logging.basicConfig(
@@ -48,6 +49,7 @@ dp.include_router(chatbot.router)
 dp.include_router(student.router)
 dp.include_router(language_handlers.router)
 dp.include_router(parent.router)
+dp.include_router(group_commands.router)
 
 
 @dp.message(CommandStart())
