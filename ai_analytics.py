@@ -121,24 +121,16 @@ class AIAnalytics:
         last = results[0]
         prev = results[1] if len(results) > 1 else None
 
-        recent = []
-        for r in results[:5]:
-            recent.append(
-                {
-                    "majburiy": r["majburiy"],
-                    "asosiy_1": r["asosiy_1"],
-                    "asosiy_2": r["asosiy_2"],
-                    "umumiy_ball": r["umumiy_ball"],
-                    "test_sanasi": str(r["test_sanasi"]),
-                }
-            )
-
         trend = None
         if prev:
             trend = round(last["umumiy_ball"] - prev["umumiy_ball"], 2)
 
         system = (
             "Sen ta'lim analitigi sifatida ishlaysan. "
+            "MUHIM: 'majburiy_togri', 'asosiy_1_togri', 'asosiy_2_togri' maydonlari "
+            "BALL EMAS — har bir bo'limda o'quvchi nechta savolga TO'G'RI javob berganini bildiradi (maksimum 30 ta). "
+            "Hisoblangan yakuniy ball esa 'hisoblangan_umumiy_ball' maydonida ko'rsatilgan. "
+            "Tahlil yozganingda doim 'to'g'ri javoblar soni' va 'hisoblangan ball'ni farqlab ishlat. "
             "Javobni o'zbek tilida, aniq va amaliy yoz. "
             "Outputni oddiy HTML-safe matn sifatida qaytar (faqat <b> tegidan foydalansang bo'ladi). "
             "Jami javob 800 so'zdan oshmasin. "
@@ -150,13 +142,22 @@ class AIAnalytics:
         )
         user = {
             "oxirgi_natija": {
-                "majburiy": last["majburiy"],
-                "asosiy_1": last["asosiy_1"],
-                "asosiy_2": last["asosiy_2"],
-                "umumiy_ball": last["umumiy_ball"],
+                "majburiy_togri_javoblar": last["majburiy"],
+                "asosiy_1_togri_javoblar": last["asosiy_1"],
+                "asosiy_2_togri_javoblar": last["asosiy_2"],
+                "hisoblangan_umumiy_ball": last["umumiy_ball"],
             },
             "trend_ball": trend,
-            "oxirgi_5_test": recent,
+            "oxirgi_5_test": [
+                {
+                    "majburiy_togri_javoblar": r["majburiy"],
+                    "asosiy_1_togri_javoblar": r["asosiy_1"],
+                    "asosiy_2_togri_javoblar": r["asosiy_2"],
+                    "hisoblangan_umumiy_ball": r["umumiy_ball"],
+                    "test_sanasi": str(r["test_sanasi"]),
+                }
+                for r in results[:5]
+            ],
         }
         return system, user
 
