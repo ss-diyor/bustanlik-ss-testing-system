@@ -93,7 +93,7 @@ async def start_handler(message: Message):
     stats_enabled = get_setting("stats_enabled", "True")
 
     await message.answer(
-        "👋 <b>Assalomu alaykum! Bo'stonliq tumani ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
+        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
         "📌 <b>O'quvchilar uchun:</b>\n"
         "Shaxsiy kodingizni yuboring — natijangiz darhol ko'rsatiladi.\n"
         "<i>Masalan: A-007 yoki 52B</i>\n\n"
