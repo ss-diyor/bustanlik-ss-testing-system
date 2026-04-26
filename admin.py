@@ -1726,7 +1726,7 @@ async def natija_tahrir_kod(message: Message, state: FSMContext):
     await state.update_data(kod=kod)
     await state.set_state(NatijaTahrirlash.majburiy_kutish)
     await message.answer(
-        f"👤 O'quvchi: <b>{talaba['ismlar']}</b>\n\n📘 Yangi <b>majburiy</b> ballni kiriting (0-30):",
+        f"👤 O'quvchi: <b>{talaba['ismlar']}</b>\n\n📘 <b>Majburiy fanlar</b> bo'yicha yangi <b>to'g'ri javoblar sonini</b> kiriting (0-30):",
         parse_mode="HTML",
     )
 
@@ -1742,7 +1742,7 @@ async def natija_tahrir_majburiy(message: Message, state: FSMContext):
     await state.update_data(majburiy=son)
     await state.set_state(NatijaTahrirlash.asosiy1_kutish)
     await message.answer(
-        "📗 Yangi <b>1-asosiy</b> ballni kiriting (0-30):", parse_mode="HTML"
+        "📗 <b>1-asosiy fan</b> bo'yicha yangi <b>to'g'ri javoblar sonini</b> kiriting (0-30):", parse_mode="HTML"
     )
 
 
@@ -1757,7 +1757,7 @@ async def natija_tahrir_asosiy1(message: Message, state: FSMContext):
     await state.update_data(asosiy1=son)
     await state.set_state(NatijaTahrirlash.asosiy2_kutish)
     await message.answer(
-        "📙 Yangi <b>2-asosiy</b> ballni kiriting (0-30):", parse_mode="HTML"
+        "📙 <b>2-asosiy fan</b> bo'yicha yangi <b>to'g'ri javoblar sonini</b> kiriting (0-30):", parse_mode="HTML"
     )
 
 
