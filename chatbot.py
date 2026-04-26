@@ -163,8 +163,8 @@ async def chatbot_boshlash(message: Message, state: FSMContext):
 
     ism = talaba["ismlar"] if talaba else "O'quvchi"
     await message.answer(
-        f"🤖 <b>Salom, {ism}!</b>\n\n"
-        "Men sizning AI yordamchingizman. DTM tayyorgarlik, fanlar bo'yicha "
+        f"🤖 <b>Assalomu alaykum, {ism}!</b>\n\n"
+        "Men sizning AI yordamchingizman. Imtihonlarga tayyorgarlik, fanlar bo'yicha "
         "savollar va o'qish maslahatlari uchun murojaat qiling.\n\n"
         "❓ Savolingizni yozing:\n"
         f"<i>(Chiqish uchun \"{CHIQISH_MATNI}\" tugmasini bosing)</i>",
