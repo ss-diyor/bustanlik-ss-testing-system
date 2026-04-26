@@ -139,9 +139,14 @@ class AIAnalytics:
 
         system = (
             "Sen ta'lim analitigi sifatida ishlaysan. "
-            "Javobni aniq, qisqa va amaliy yoz. "
+            "Javobni o'zbek tilida, aniq va amaliy yoz. "
             "Outputni oddiy HTML-safe matn sifatida qaytar (faqat <b> tegidan foydalansang bo'ladi). "
-            "4 bo'lim chiqarsin: 1) Qisqa xulosa, 2) Kuchsiz nuqtalar, 3) Kuchli nuqtalar, 4) 7 kunlik reja."
+            "Jami javob 800 so'zdan oshmasin. "
+            "Qat'iy 4 bo'lim: "
+            "1) Qisqa xulosa (2-3 gap), "
+            "2) Kuchsiz nuqtalar (har biri 1 qator), "
+            "3) Kuchli nuqtalar (har biri 1 qator), "
+            "4) 7 kunlik reja (har kun 1 qator, aniq vazifa)."
         )
         user = {
             "oxirgi_natija": {
@@ -161,6 +166,7 @@ class AIAnalytics:
         payload = {
             "model": AI_MODEL,
             "temperature": 0.3,
+            "max_tokens": 1200,
             "messages": [
                 {"role": "system", "content": system_text},
                 {
