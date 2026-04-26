@@ -2294,3 +2294,86 @@ def get_user_language(user_id: int) -> str:
         return result['language'] if result and result['language'] else 'uz'
     except Exception:
         return 'uz'
+
+
+# ─────────────────────────────────────────
+# CHATBOT funksiyalari
+# ─────────────────────────────────────────
+
+def create_chatbot_logs_table():
+    """Chatbot foydalanish loglarini saqlash jadvali."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS chatbot_logs (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            talaba_kod TEXT,
+            talaba_ism TEXT,
+            savol TEXT NOT NULL,
+            javob TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_chatbot_logs_user_id ON chatbot_logs(user_id)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_chatbot_logs_created_at ON chatbot_logs(created_at)"
+    )
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+
+def chatbot_log_qosh(user_id: int, talaba_kod: str, talaba_ism: str, savol: str, javob: str):
+    """Chatbot suhbatini loglash."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO chatbot_logs (user_id, talaba_kod, talaba_ism, savol, javob)
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (user_id, talaba_kod, talaba_ism, savol[:2000], javob[:4000] if javob else None),
+    )
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+
+def chatbot_oxirgi_foydalanuvchilar(limit: int = 20):
+    """Chatbotdan so'nggi foydalanuvchilar ro'yxati (admin uchun)."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """
+        SELECT DISTINCT ON (user_id)
+            user_id,
+            talaba_ism,
+            talaba_kod,
+            savol,
+            created_at
+        FROM chatbot_logs
+        ORDER BY user_id, created_at DESC
+        LIMIT %s
+        """,
+        (limit,),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return rows
+
+
+def chatbot_bugungi_son() -> int:
+    """Bugun chatbotdan foydalanganlar soni."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT COUNT(*) FROM chatbot_logs WHERE created_at::date = CURRENT_DATE"
+    )
+    count = cur.fetchone()[0]
+    cur.close()
+    release_connection(conn)
+    return count
