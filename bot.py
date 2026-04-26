@@ -30,6 +30,7 @@ import admin
 import student
 import language_handlers
 import parent
+import chatbot
 
 # Loglarni konsolga chiqaradi
 logging.basicConfig(
@@ -43,6 +44,7 @@ dp = Dispatcher(storage=MemoryStorage())
 
 # Routerlarni ulash
 dp.include_router(admin.router)
+dp.include_router(chatbot.router)
 dp.include_router(student.router)
 dp.include_router(language_handlers.router)
 dp.include_router(parent.router)
@@ -91,6 +93,7 @@ async def start_handler(message: Message):
 
     ranking_enabled = get_setting("ranking_enabled", "True")
     stats_enabled = get_setting("stats_enabled", "True")
+    chatbot_enabled = get_setting("chatbot_enabled", "True")
 
     await message.answer(
         "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
@@ -103,7 +106,7 @@ async def start_handler(message: Message):
         "🔗 <b>Profilni ulash:</b>\n"
         "Avtomatik xabarnoma uchun <code>ULASH_KODINGIZ</code> deb yozing.",
         parse_mode="HTML",
-        reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled),
+        reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled),
     )
 
 
@@ -290,6 +293,14 @@ async def main():
         logging.info("Admin jadvallari yaratildi yoki allaqachon mavjud.")
     except Exception as e:
         logging.error(f"Admin jadvallarini yaratishda xato: {e}")
+
+    # Chatbot jadvali
+    try:
+        from database import create_chatbot_logs_table
+        create_chatbot_logs_table()
+        logging.info("Chatbot logs jadvali tayyor.")
+    except Exception as e:
+        logging.error(f"Chatbot jadvali yaratishda xato: {e}")
 
     # Scheduler ishga tushirish
     asyncio.create_task(scheduler())
