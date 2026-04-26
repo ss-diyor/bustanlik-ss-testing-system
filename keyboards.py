@@ -55,6 +55,7 @@ def admin_menu_keyboard():
                 KeyboardButton(text="⚙️ Sozlamalar"),
                 KeyboardButton(text="📥 Excelga yuklash"),
             ],
+            [KeyboardButton(text="🤖 Chatbot foydalanuvchilar")],
             [KeyboardButton(text="🏆 Reyting Excel")],
             [KeyboardButton(text="🧹 Bazani tozalash")],
             [KeyboardButton(text="📢 Xabar yuborish")],
@@ -466,7 +467,7 @@ def baza_tozalash_keyboard():
     )
 
 
-def user_menu_keyboard(ranking_enabled="True", stats_enabled="True"):
+def user_menu_keyboard(ranking_enabled="True", stats_enabled="True", chatbot_enabled="True"):
     """Foydalanuvchi asosiy menyusi (Dinamik)."""
     keyboard = []
 
@@ -492,6 +493,8 @@ def user_menu_keyboard(ranking_enabled="True", stats_enabled="True"):
     if stats_enabled == "True":
         row3.append(KeyboardButton(text="📈 Statistika"))
     row3.append(KeyboardButton(text="🧠 AI Tahlili"))
+    if chatbot_enabled == "True":
+        row3.append(KeyboardButton(text="🤖 AI Chatbot"))
     keyboard.append(row3)
 
     # To'rtinchi qator: Admin bilan bog'lanish va Chiqish
@@ -1309,7 +1312,7 @@ def filter_actions_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def settings_keyboard(ranking_enabled, stats_enabled):
+def settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled="True"):
     """Bot sozlamalari klaviaturasi."""
     ranking_text = (
         "✅ Reyting Yoqilgan"
@@ -1320,6 +1323,11 @@ def settings_keyboard(ranking_enabled, stats_enabled):
         "✅ Statistika Yoqilgan"
         if stats_enabled == "True"
         else "❌ Statistika O'chirilgan"
+    )
+    chatbot_text = (
+        "✅ AI Chatbot Yoqilgan"
+        if chatbot_enabled == "True"
+        else "❌ AI Chatbot O'chirilgan"
     )
 
     return InlineKeyboardMarkup(
@@ -1334,6 +1342,12 @@ def settings_keyboard(ranking_enabled, stats_enabled):
                 InlineKeyboardButton(
                     text=stats_text,
                     callback_data="toggle_setting:stats_enabled",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=chatbot_text,
+                    callback_data="toggle_setting:chatbot_enabled",
                 )
             ],
         ]
