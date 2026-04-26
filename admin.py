@@ -213,6 +213,8 @@ from database import (
     talaba_natijalari,
     maktablar_ol,
     get_all_students,
+    chatbot_oxirgi_foydalanuvchilar,
+    chatbot_bugungi_son,
 )
 from keyboards import (
     admin_menu_keyboard,
@@ -2182,17 +2184,19 @@ async def settings_start(message: Message, state: FSMContext):
         return
     ranking_enabled = get_setting("ranking_enabled", "True")
     stats_enabled = get_setting("stats_enabled", "True")
+    chatbot_enabled = get_setting("chatbot_enabled", "True")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
         f"🏆 Reyting (Top-50): <b>{'✅ Yoqilgan' if ranking_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"📈 Statistika: <b>{'✅ Yoqilgan' if stats_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"📈 Statistika: <b>{'✅ Yoqilgan' if stats_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await message.answer(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled),
     )
 
 
@@ -2207,17 +2211,19 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
 
     ranking_enabled = get_setting("ranking_enabled", "True")
     stats_enabled = get_setting("stats_enabled", "True")
+    chatbot_enabled = get_setting("chatbot_enabled", "True")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
         f"🏆 Reyting (Top-50): <b>{'✅ Yoqilgan' if ranking_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"📈 Statistika: <b>{'✅ Yoqilgan' if stats_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"📈 Statistika: <b>{'✅ Yoqilgan' if stats_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled),
     )
     await callback.answer("✅ Sozlama yangilandi")
 
@@ -4839,3 +4845,49 @@ async def pdf_student_kod_handler(message: Message, state: FSMContext):
         await message.answer(f"❌ Xatolik: {str(e)}")
 
     await state.set_state(None)
+
+
+# ─────────────────────────────────────────
+# CHATBOT — Admin ko'rish paneli
+# ─────────────────────────────────────────
+
+@router.message(F.text == "🤖 Chatbot foydalanuvchilar")
+async def chatbot_foydalanuvchilar_handler(message: Message, state: FSMContext):
+    """Admin oxirgi chatbot foydalanuvchilarini ko'radi."""
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+
+    bugun = chatbot_bugungi_son()
+    foydalanuvchilar = chatbot_oxirgi_foydalanuvchilar(limit=20)
+
+    if not foydalanuvchilar:
+        await message.answer(
+            f"🤖 <b>Chatbot statistikasi</b>\n\n"
+            f"📅 Bugun: <b>{bugun} ta so'rov</b>\n\n"
+            "Hali hech kim chatbotdan foydalanmagan.",
+            parse_mode="HTML",
+        )
+        return
+
+    text = (
+        f"🤖 <b>Chatbot statistikasi</b>\n"
+        f"📅 Bugun: <b>{bugun} ta so'rov</b>\n"
+        f"👥 So'nggi foydalanuvchilar:\n"
+        "─────────────────────\n"
+    )
+
+    for i, u in enumerate(foydalanuvchilar, 1):
+        ism = u.get("talaba_ism") or "Noma'lum"
+        kod = u.get("talaba_kod") or "—"
+        vaqt = u.get("created_at")
+        vaqt_str = vaqt.strftime("%d.%m %H:%M") if vaqt else "—"
+        savol = u.get("savol", "")
+        savol_qisqa = (savol[:40] + "...") if len(savol) > 40 else savol
+
+        text += (
+            f"\n{i}. <b>{ism}</b> ({kod})\n"
+            f"   🕐 {vaqt_str}\n"
+            f"   💬 <i>{savol_qisqa}</i>\n"
+        )
+
+    await message.answer(text, parse_mode="HTML")
