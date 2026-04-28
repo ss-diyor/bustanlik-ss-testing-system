@@ -2380,15 +2380,34 @@ def chatbot_bugungi_son() -> int:
 
 
 def get_user_ids_by_maktab(maktab_id: int):
-    """Berilgan maktab o'quvchilarining Telegram user_id larini qaytaradi."""
+    """
+    Berilgan maktab o'quvchilarining Telegram user_id larini qaytaradi.
+    Ikki usul bilan qidiradi:
+      1) talabalar.maktab_id orqali (yangi talabalar)
+      2) talabalar.sinf => sinflar.maktab_id orqali (eski talabalar)
+    """
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
         SELECT DISTINCT t.user_id
         FROM talabalar t
-        WHERE t.maktab_id = %s AND t.user_id IS NOT NULL
-    """, (maktab_id,))
+        WHERE t.user_id IS NOT NULL
+          AND (
+            t.maktab_id = %(mid)s
+            OR t.sinf IN (
+                SELECT s.nomi || ' - ' || m.nomi
+                FROM sinflar s
+                JOIN maktablar m ON s.maktab_id = m.id
+                WHERE s.maktab_id = %(mid)s
+            )
+          )
+    """, {"mid": maktab_id})
     rows = cur.fetchall()
     cur.close()
     release_connection(conn)
     return [r["user_id"] for r in rows]
+
+
+def count_users_by_maktab(maktab_id: int) -> int:
+    """Berilgan maktabdagi botga ulangan o'quvchilar sonini qaytaradi."""
+    return len(get_user_ids_by_maktab(maktab_id))
