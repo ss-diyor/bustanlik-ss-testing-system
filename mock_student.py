@@ -15,6 +15,8 @@ from mock_database import (
     mock_natija_turlari,
     mock_natijalari_ol,
 )
+from keyboards import user_menu_keyboard
+from database import get_setting
 
 router = Router()
 
@@ -25,6 +27,26 @@ router = Router()
 
 class MockNatijaKor(StatesGroup):
     kod_kutish = State()
+
+
+def _is_menu_text(text: str) -> bool:
+    if not text:
+        return False
+    return text in {
+        "📊 Mening natijam",
+        "👤 Shaxsiy kabinet",
+        "🏆 Mening o'rnim",
+        "✅ Javoblarni tekshirish",
+        "⚖️ Apellyatsiya",
+        "🧪 Mock natijalarim",
+        "📈 Statistika",
+        "🧠 AI Tahlili",
+        "🤖 AI Chatbot",
+        "✍️ Admin bilan bog'lanish",
+        "🚪 Chiqish",
+        "/cancel",
+        "❌ Bekor qilish",
+    }
 
 
 # ─────────────────────────────────────────────────────────────
@@ -80,19 +102,46 @@ async def mock_natijalarim_start(message: Message, state: FSMContext):
 
 @router.message(MockNatijaKor.kod_kutish)
 async def mock_kor_kod(message: Message, state: FSMContext):
-    kod = message.text.strip().upper()
+    text = (message.text or "").strip()
+
+    if _is_menu_text(text):
+        await state.clear()
+        ranking_enabled = get_setting("ranking_enabled", "True")
+        stats_enabled = get_setting("stats_enabled", "True")
+        chatbot_enabled = get_setting("chatbot_enabled", "True")
+        mock_enabled = get_setting("mock_enabled", "True")
+        await message.answer(
+            "✅ Mock natijalarni qidirish bekor qilindi.\n\nAsosiy menyudan davom etishingiz mumkin.",
+            reply_markup=user_menu_keyboard(
+                ranking_enabled,
+                stats_enabled,
+                chatbot_enabled,
+                mock_enabled,
+            ),
+        )
+        return
+
+    kod = text.upper()
     talaba = talaba_topish(kod)
     if not talaba:
         await message.answer("❌ Bunday kod topilmadi. Qayta kiriting:")
         return
 
     await state.clear()
-    await _show_mock_types(message, kod)
+    try:
+        await _show_mock_types(message, kod)
+    except Exception:
+        await message.answer(
+            "❌ Mock natijalarni ko'rsatishda xatolik yuz berdi. Iltimos, keyinroq qayta urinib ko'ring."
+        )
 
 
 async def _show_mock_types(message: Message, kod: str):
     """O'quvchining mock natijasi turlarini ko'rsatish."""
     talaba = talaba_topish(kod)
+    if not talaba:
+        await message.answer("❌ O'quvchi topilmadi.")
+        return
     turlari = mock_natija_turlari(kod)
 
     if not turlari:
