@@ -40,6 +40,8 @@ from database import (
     appeal_qosh,
     ai_usage_today_count,
     ai_usage_log,
+    get_notification_settings,
+    update_notification_setting,
 )
 from keyboards import (
     user_menu_keyboard,
@@ -49,6 +51,7 @@ from keyboards import (
     student_ranking_keyboard,
     stats_keyboard,
     profile_keyboard,
+    notification_settings_keyboard,
 )
 from config import ADMIN_IDS, AI_DAILY_LIMIT
 from certificate import CertificateGenerator
@@ -1203,3 +1206,39 @@ async def ai_analytics_handler(message: Message, state: FSMContext):
         )
     finally:
         await wait_msg.delete()
+
+
+async def _show_notification_settings(target_message, user_id: int):
+    settings = get_notification_settings(user_id)
+    text = (
+        "🔔 <b>Bildirishnoma sozlamalari</b>\n\n"
+        "Quyidagi xabarlarni yoqish yoki o'chirish mumkin:"
+    )
+    markup = notification_settings_keyboard(settings)
+    if hasattr(target_message, "edit_text"):
+        await target_message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+    else:
+        await target_message.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.message(F.text == "🔔 Bildirishnomalar")
+async def notification_settings_start(message: Message):
+    await _show_notification_settings(message, message.from_user.id)
+
+
+@router.callback_query(F.data == "notif:refresh")
+async def notification_settings_refresh(callback: CallbackQuery):
+    await _show_notification_settings(callback.message, callback.from_user.id)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("notif:toggle:"))
+async def notification_settings_toggle(callback: CallbackQuery):
+    setting_key = callback.data.split(":")[-1]
+    current = get_notification_settings(callback.from_user.id)
+    new_value = not bool(current.get(setting_key, True))
+    if not update_notification_setting(callback.from_user.id, setting_key, new_value):
+        await callback.answer("Xatolik yuz berdi", show_alert=True)
+        return
+    await _show_notification_settings(callback.message, callback.from_user.id)
+    await callback.answer("Sozlama yangilandi")
