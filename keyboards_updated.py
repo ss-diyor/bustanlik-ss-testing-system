@@ -21,6 +21,10 @@ def admin_menu_keyboard():
         keyboard=[
             [KeyboardButton(text="➕ O'quvchi qo'shish")],
             [KeyboardButton(text="📥 Exceldan import")],
+            [
+                KeyboardButton(text="📝 Mock natija qo'shish"),
+                KeyboardButton(text="📊 Mock natijalarini ko'rish"),
+            ],
             [KeyboardButton(text="✏️ O'quvchi ma'lumotlarini tahrirlash")],
             [KeyboardButton(text="🗑️ Bitta natijani o'chirish")],
             [KeyboardButton(text="🔑 Test kalitlarini boshqarish")],
@@ -551,6 +555,9 @@ def user_menu_keyboard(ranking_enabled="True", stats_enabled="True", chatbot_ena
             KeyboardButton(text="⚖️ Apellyatsiya"),
         ]
     )
+
+    # Mock natijalar tugmasi
+    keyboard.append([KeyboardButton(text="🧪 Mock natijalarim")])
 
     # Uchinchi qator: Statistika va AI Analitika
     row3 = []
