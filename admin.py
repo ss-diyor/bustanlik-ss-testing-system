@@ -220,6 +220,7 @@ from database import (
 )
 from keyboards import (
     admin_menu_keyboard,
+    admin_inline_menu,
     yonalish_keyboard,
     tasdiqlash_keyboard,
     baza_tozalash_keyboard,
@@ -651,12 +652,26 @@ async def bildirishnoma_yuborish(
 # ─────────────────────────────────────────
 
 
+@router.message(F.text == "/panel")
+async def admin_panel_cmd(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    await message.answer(
+        "📊 Admin Web Panel:",
+        reply_markup=admin_inline_menu()
+    )
+
+
 @router.message(F.text == "/admin")
 async def admin_start(message: Message, state: FSMContext):
     if await admin_tekshir(state, message.from_user.id):
         await message.answer(
             "✅ Siz allaqachon admin rejimidasiz.",
             reply_markup=admin_menu_keyboard(),
+        )
+        await message.answer(
+            "📊 Admin Web Panel:",
+            reply_markup=admin_inline_menu()
         )
         return
     await state.set_state(AdminLogin.parol_kutish)
@@ -692,7 +707,12 @@ async def parol_tekshir(message: Message, state: FSMContext):
         await state.update_data(admin=True)
         await state.set_state(None)
         await message.answer(
-            "✅ Xush kelibsiz, admin!", reply_markup=admin_menu_keyboard()
+            "✅ Xush kelibsiz, admin!", 
+            reply_markup=admin_menu_keyboard()
+        )
+        await message.answer(
+            "📊 Web panelni ochish uchun quyidagi tugmani bosing:",
+            reply_markup=admin_inline_menu()
         )
     else:
         await message.answer(
