@@ -274,7 +274,7 @@ from keyboards import (
     broadcast_cancel_keyboard,
     broadcast_confirm_keyboard,
     broadcast_target_keyboard,
-    maktab_tanlash_keyboard,
+    broadcast_maktab_tanlash_keyboard,
     shaxsiy_xabar_confirm_keyboard,
 )
 
@@ -3103,7 +3103,7 @@ async def broadcast_target_school(callback: CallbackQuery, state: FSMContext):
         return
     await callback.message.edit_text(
         "🏫 Qaysi maktabga yubormoqchisiz?",
-        reply_markup=maktab_tanlash_keyboard(maktablar),
+        reply_markup=broadcast_maktab_tanlash_keyboard(maktablar),
     )
     await callback.answer()
 
