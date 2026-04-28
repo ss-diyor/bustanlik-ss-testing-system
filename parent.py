@@ -39,6 +39,7 @@ from keyboards import (
     farzandlar_boshqarish_keyboard,
     farzand_natija_keyboard,
     murojaat_javob_keyboard,
+    murojaat_bekor_qilish_keyboard,
 )
 
 router = Router()
@@ -462,15 +463,24 @@ async def ota_ona_murojaat_start(message: Message, state: FSMContext):
     await message.answer(
         "✍️ <b>Xabaringizni yozing:</b>\n\nAdmin imkon topishi bilan javob beradi.",
         parse_mode="HTML",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=murojaat_bekor_qilish_keyboard()
     )
 
 
 @router.message(ParentStates.murojaat_kutish)
 async def ota_ona_murojaat_yuborish(message: Message, state: FSMContext):
     from config import ADMIN_IDS
-    await state.clear()
     farzandlar = parent_farzandlar(message.from_user.id)
+
+    if message.text == "вќЊ Bekor qilish":
+        await state.clear()
+        await message.answer(
+            "вќЊ Xabar yuborish bekor qilindi.",
+            reply_markup=ota_ona_menu_keyboard(),
+        )
+        return
+
+    await state.clear()
 
     farzand_text = ""
     for kod in farzandlar[:3]:
@@ -681,3 +691,4 @@ async def ota_onalarga_xabar_yuborish(bot, talaba_kod: str, yangi_ball: float):
             await bot.send_message(parent_id, xabar, parse_mode="HTML")
         except Exception as e:
             logger.warning(f"Ota-onaga xabar yuborib bo'lmadi (id={parent_id}): {e}")
+
