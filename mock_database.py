@@ -33,16 +33,18 @@ BUILTIN_EXAM_TYPES = [
     {
         "exam_key": "CEFR",
         "label": "🌍 CEFR",
-        "total_max": 100.0,
+        # CEFR: har bir section 0–75 bo'ladi, umumiy esa o'rtacha (4 section yig'indisi / 4)
+        # Shuning uchun Umumiy max ham 75.0.
+        "total_max": 75.0,
         "score_type": "direct_score",
         "has_level": True,
         "levels": "A1,A2,B1,B2,C1,C2",
         "is_builtin": True,
         "sections": [
-            {"section_key": "listening", "label": "🎧 Listening", "max_score": 25.0},
-            {"section_key": "reading",   "label": "📖 Reading",   "max_score": 25.0},
-            {"section_key": "writing",   "label": "✍️ Writing",   "max_score": 25.0},
-            {"section_key": "speaking",  "label": "🗣 Speaking",  "max_score": 25.0},
+            {"section_key": "listening", "label": "🎧 Listening", "max_score": 75.0},
+            {"section_key": "reading",   "label": "📖 Reading",   "max_score": 75.0},
+            {"section_key": "writing",   "label": "✍️ Writing",   "max_score": 75.0},
+            {"section_key": "speaking",  "label": "🗣 Speaking",  "max_score": 75.0},
         ],
     },
     {
@@ -188,7 +190,13 @@ def _seed_builtin(cur, conn):
             INSERT INTO mock_exam_types
                 (exam_key, label, total_max, score_type, has_level, levels, is_builtin)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (exam_key) DO NOTHING
+            ON CONFLICT (exam_key) DO UPDATE SET
+                label      = EXCLUDED.label,
+                total_max  = EXCLUDED.total_max,
+                score_type = EXCLUDED.score_type,
+                has_level  = EXCLUDED.has_level,
+                levels     = EXCLUDED.levels,
+                is_builtin = EXCLUDED.is_builtin
             """,
             (
                 et["exam_key"], et["label"], et.get("total_max"),
@@ -201,7 +209,10 @@ def _seed_builtin(cur, conn):
                 """
                 INSERT INTO mock_sections (exam_key, section_key, label, max_score, sort_order)
                 VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (exam_key, section_key) DO NOTHING
+                ON CONFLICT (exam_key, section_key) DO UPDATE SET
+                    label      = EXCLUDED.label,
+                    max_score  = EXCLUDED.max_score,
+                    sort_order = EXCLUDED.sort_order
                 """,
                 (et["exam_key"], sec["section_key"], sec["label"], sec.get("max_score"), i),
             )
@@ -366,6 +377,11 @@ def mock_natija_qosh(
             vals = [v for v in vals if v is not None]
             if vals:
                 umumiy_ball = round(round(sum(vals) / len(vals) * 2) / 2, 1)
+        elif exam_key == "CEFR":
+            vals = [_num(v) for v in sections.values()]
+            vals = [v for v in vals if v is not None]
+            if vals:
+                umumiy_ball = round(sum(vals) / len(vals), 1)
         else:
             vals = [_num(v) for v in sections.values()]
             vals = [v for v in vals if v is not None]
