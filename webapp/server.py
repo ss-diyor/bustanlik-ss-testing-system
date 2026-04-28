@@ -531,6 +531,7 @@ async def admin_export_excel_api(request: web.Request) -> web.Response:
     
     try:
         conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
         if type == "top_students":
             query = """
@@ -553,11 +554,18 @@ async def admin_export_excel_api(request: web.Request) -> web.Response:
         else:
             return web.json_response({"error": "Invalid type"}, status=400)
             
-        df = pd.read_sql(query, conn)
+        cur.execute(query)
+        rows = cur.fetchall()
+        cur.close()
         release_connection(conn)
         
+        if not rows:
+            return web.json_response({"error": "Ma'lumotlar topilmadi"}, status=404)
+            
+        df = pd.DataFrame([dict(r) for r in rows])
+        
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='Sheet1')
         
         output.seek(0)
@@ -568,8 +576,8 @@ async def admin_export_excel_api(request: web.Request) -> web.Response:
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
     except Exception as e:
-        logging.error(f"Export API error: {e}")
-        return web.json_response({"error": "Server error"}, status=500)
+        logging.error(f"Export API error: {e}", exc_info=True)
+        return web.json_response({"error": f"Excel yaratishda xato: {str(e)}"}, status=500)
 
 
 # ─────────────────────────────────────────
