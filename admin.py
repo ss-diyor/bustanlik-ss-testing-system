@@ -216,6 +216,7 @@ from database import (
     get_all_students,
     chatbot_oxirgi_foydalanuvchilar,
     chatbot_bugungi_son,
+    is_notification_enabled,
 )
 from keyboards import (
     admin_menu_keyboard,
@@ -607,34 +608,35 @@ async def bildirishnoma_yuborish(
         f"📜 Quyida sizning natijangiz aks etgan sertifikat biriktirilgan."
     )
 
-    # Sertifikat yaratish (Blocking bo'lgani uchun executor ishlatamiz)
-    try:
-        cert_gen = CertificateGenerator()
-        sana = str(natija.get("test_sanasi", "Noaniq"))[:10]
-
-        loop = asyncio.get_event_loop()
-        cert_path = await loop.run_in_executor(
-            None,
-            _generate_certificate_file,
-            cert_gen,
-            talaba["ismlar"],
-            natija["umumiy_ball"],
-            sana,
-            talaba["kod"],
-        )
-
-        await bot.send_document(
-            user_id, FSInputFile(cert_path), caption=matn, parse_mode="HTML"
-        )
-        # Sertifikatni yuborgandan keyin o'chirib tashlaymiz
-        if os.path.exists(cert_path):
-            os.remove(cert_path)
-    except Exception as e:
-        # Agar sertifikatda xato bo'lsa, faqat matnni yuboramiz
+    if is_notification_enabled(user_id, "notify_results"):
+        # Sertifikat yaratish (Blocking bo'lgani uchun executor ishlatamiz)
         try:
-            await bot.send_message(user_id, matn, parse_mode="HTML")
-        except Exception:
-            pass
+            cert_gen = CertificateGenerator()
+            sana = str(natija.get("test_sanasi", "Noaniq"))[:10]
+
+            loop = asyncio.get_event_loop()
+            cert_path = await loop.run_in_executor(
+                None,
+                _generate_certificate_file,
+                cert_gen,
+                talaba["ismlar"],
+                natija["umumiy_ball"],
+                sana,
+                talaba["kod"],
+            )
+
+            await bot.send_document(
+                user_id, FSInputFile(cert_path), caption=matn, parse_mode="HTML"
+            )
+            # Sertifikatni yuborgandan keyin o'chirib tashlaymiz
+            if os.path.exists(cert_path):
+                os.remove(cert_path)
+        except Exception as e:
+            # Agar sertifikatda xato bo'lsa, faqat matnni yuboramiz
+            try:
+                await bot.send_message(user_id, matn, parse_mode="HTML")
+            except Exception:
+                pass
     
     # Ota-onalarga ham xabar yuboramiz
     try:
@@ -3283,6 +3285,9 @@ async def broadcast_confirm_callback(
     )
 
     for uid in user_ids:
+        if not is_notification_enabled(uid, "notify_admin_messages"):
+            processed += 1
+            continue
         try:
             await callback.bot.copy_message(
                 chat_id=uid,
@@ -3427,6 +3432,14 @@ async def shaxsiy_xabar_tasdiq_confirm(callback: CallbackQuery, state: FSMContex
     src_chat_id = data.get("pm_src_chat_id")
     src_message_id = data.get("pm_src_message_id")
     ismi = data.get("pm_talaba_ismi", "")
+    if not is_notification_enabled(target_user_id, "notify_admin_messages"):
+        await callback.message.edit_text(
+            f"⚠️ <b>{ismi}</b> admin xabarlarini o'chirib qo'ygan.",
+            parse_mode="HTML",
+        )
+        await state.clear()
+        await callback.answer()
+        return
     try:
         await callback.bot.copy_message(
             chat_id=target_user_id,
