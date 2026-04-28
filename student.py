@@ -967,9 +967,10 @@ def _generate_student_chart(talaba: dict, results: list) -> str:
     fig.patch.set_facecolor("#1a1a2e")
     ax.set_facecolor("#16213e")
 
-    # Grid
-    ax.grid(axis="y", color="rgba(255,255,255,0.08)", linestyle="--", linewidth=0.6, alpha=0.5)
-    ax.grid(axis="x", color="rgba(255,255,255,0.04)", linestyle=":", linewidth=0.5, alpha=0.3)
+    # Grid — matplotlib (r,g,b,a) float tuple formatida
+    ax.grid(axis="y", color=(1, 1, 1, 0.08), linestyle="--", linewidth=0.6)
+    ax.grid(axis="x", color=(1, 1, 1, 0.04), linestyle=":",  linewidth=0.5)
+    ax.set_axisbelow(True)
 
     # Trend chizig'i
     if len(balls) >= 3:
@@ -991,7 +992,7 @@ def _generate_student_chart(talaba: dict, results: list) -> str:
 
     # Nuqtalar ustidagi qiymatlar
     for i, (lbl, ball) in enumerate(zip(labels, balls)):
-        color = "#43b581" if ball >= 140 else "#faa61a" if ball >= 100 else "#f04747"
+        pt_color = "#43b581" if ball >= 140 else "#faa61a" if ball >= 100 else "#f04747"
         ax.annotate(
             f"{ball:g}",
             xy=(i, ball),
@@ -1000,7 +1001,7 @@ def _generate_student_chart(talaba: dict, results: list) -> str:
             ha="center",
             fontsize=8,
             fontweight="bold",
-            color=color,
+            color=pt_color,
         )
 
     # Eksa sozlamalari
@@ -1011,15 +1012,16 @@ def _generate_student_chart(talaba: dict, results: list) -> str:
         spine.set_edgecolor("#333355")
 
     ax.set_title(
-        f"📊  {talaba['ismlar']} — Natijalar Dinamikasi",
+        f"{talaba['ismlar']} — Natijalar Dinamikasi",
         color="#e8e8f0", fontsize=13, fontweight="bold", pad=14,
     )
     ax.set_ylabel("Ball", color="#8888aa", fontsize=9)
 
     # Legend
     if len(balls) >= 3:
-        legend = ax.legend(facecolor="#1a1a2e", edgecolor="#333355",
-                           labelcolor="#aaaacc", fontsize=8)
+        legend = ax.legend(facecolor="#1a1a2e", edgecolor="#333355", fontsize=8)
+        for text in legend.get_texts():
+            text.set_color("#aaaacc")
 
     plt.tight_layout()
     path = f"student_chart_{talaba['kod']}.png"
