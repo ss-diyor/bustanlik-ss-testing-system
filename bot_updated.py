@@ -28,6 +28,8 @@ from keyboards import (
 )
 import admin
 import student
+import mock_admin
+import mock_student
 import language_handlers
 import parent
 import chatbot
@@ -45,8 +47,10 @@ dp = Dispatcher(storage=MemoryStorage())
 
 # Routerlarni ulash
 dp.include_router(admin.router)
+dp.include_router(mock_admin.router)
 dp.include_router(chatbot.router)
 dp.include_router(student.router)
+dp.include_router(mock_student.router)
 dp.include_router(language_handlers.router)
 dp.include_router(parent.router)
 dp.include_router(group_commands.router)
@@ -289,6 +293,9 @@ async def main():
     try:
         create_admin_sessions_table()
         create_admins_table()
+        from mock_database import create_mock_tables
+        create_mock_tables()
+        logging.info("Mock natijalari jadvali tayyor.")
         logging.info("Admin jadvallari yaratildi yoki allaqachon mavjud.")
     except Exception as e:
         logging.error(f"Admin jadvallarini yaratishda xato: {e}")
