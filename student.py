@@ -1208,27 +1208,30 @@ async def ai_analytics_handler(message: Message, state: FSMContext):
         await wait_msg.delete()
 
 
-async def _show_notification_settings(target_message, user_id: int):
+async def _show_notification_settings(target_message, user_id: int, is_edit: bool = False):
     settings = get_notification_settings(user_id)
     text = (
         "🔔 <b>Bildirishnoma sozlamalari</b>\n\n"
         "Quyidagi xabarlarni yoqish yoki o'chirish mumkin:"
     )
     markup = notification_settings_keyboard(settings)
-    if hasattr(target_message, "edit_text"):
-        await target_message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+    if is_edit:
+        try:
+            await target_message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+        except Exception:
+            pass
     else:
         await target_message.answer(text, parse_mode="HTML", reply_markup=markup)
 
 
 @router.message(F.text == "🔔 Bildirishnomalar")
 async def notification_settings_start(message: Message):
-    await _show_notification_settings(message, message.from_user.id)
+    await _show_notification_settings(message, message.from_user.id, is_edit=False)
 
 
 @router.callback_query(F.data == "notif:refresh")
 async def notification_settings_refresh(callback: CallbackQuery):
-    await _show_notification_settings(callback.message, callback.from_user.id)
+    await _show_notification_settings(callback.message, callback.from_user.id, is_edit=True)
     await callback.answer()
 
 
@@ -1240,5 +1243,5 @@ async def notification_settings_toggle(callback: CallbackQuery):
     if not update_notification_setting(callback.from_user.id, setting_key, new_value):
         await callback.answer("Xatolik yuz berdi", show_alert=True)
         return
-    await _show_notification_settings(callback.message, callback.from_user.id)
+    await _show_notification_settings(callback.message, callback.from_user.id, is_edit=True)
     await callback.answer("Sozlama yangilandi")
