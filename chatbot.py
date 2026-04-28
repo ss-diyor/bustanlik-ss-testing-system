@@ -1,20 +1,5 @@
 """
-Chatbot moduli — Gemini Flash-Lite asosida o'quvchi savol-javob tizimi.
-
-Arxitektura:
-  - O'quvchi "🤖 AI Chatbot" tugmasini bosadi
-  - FSM orqali chat rejimiga kiradi
-  - Har bir xabar Gemini API ga yuboriladi (suhbat tarixi saqlanadi)
-  - "Chiqish" tugmasi bosiganda asosiy menyuga qaytadi
-  - Admin panel orqali xususiyatni yoqish/o'chirish mumkin
-  - Har bir suhbat chatbot_logs jadvaliga yoziladi
-
-TUZATISHLAR (Fixed):
-  - Gemini "system" rolini qabul qilmasligi muammosi hal qilindi
-  - HTTP xatolar aniq loglanadi (status kodi + body)
-  - Javob strukturasi tekshiriladi
-  - Timeout va network xatolari alohida handle qilinadi
-  - Debug logging qo'shildi
+Chatbot moduli — Groq LLM asosida o'quvchi savol-javob tizimi.
 """
 
 import asyncio
@@ -43,8 +28,8 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 CHATBOT_SETTING_KEY = "chatbot_enabled"
-MAX_HISTORY = 10          # suhbatda saqlanadigan xabarlar soni (juft: user+assistant)
-MAX_SAVOL_LEN = 1000      # o'quvchi savolining maksimal uzunligi
+MAX_HISTORY = 10
+MAX_SAVOL_LEN = 1000
 
 CHIQISH_MATNI = "🚪 Chatdan chiqish"
 
@@ -77,36 +62,24 @@ def chat_keyboard() -> ReplyKeyboardMarkup:
 
 
 # ─────────────────────────────────────────
-# Gemini API chaqiruvi
+# Groq API chaqiruvi
 # ─────────────────────────────────────────
 
 def _build_messages(history: list[dict], yangi_savol: str) -> list[dict]:
-    """
-    Gemini ba'zi versiyalari 'system' rolini qabul qilmaydi.
-    System promptni birinchi 'user' xabarning boshiga qo'shamiz.
-    """
     messages = []
-
     if history:
-        # Tarix mavjud bo'lsa — faqat yangi savolni yuboramiz
         messages.extend(history)
         messages.append({"role": "user", "content": yangi_savol})
     else:
-        # Birinchi savol — system promptni user xabariga birlashtiramiz
         birinchi_savol = (
             f"[Tizim ko'rsatmasi: {SYSTEM_PROMPT}]\n\n"
             f"Savol: {yangi_savol}"
         )
         messages.append({"role": "user", "content": birinchi_savol})
-
     return messages
 
 
 def _call_gemini_sync(history: list[dict], yangi_savol: str) -> str:
-    """
-    Gemini Flash-Lite ga sinxron so'rov yuboradi (thread-safe).
-    Xatolar aniq log qilinadi va re-raise qilinadi.
-    """
     messages = _build_messages(history, yangi_savol)
 
     url = AI_BASE_URL.rstrip("/") + "/chat/completions"
@@ -128,59 +101,57 @@ def _call_gemini_sync(history: list[dict], yangi_savol: str) -> str:
         },
     )
 
-    logger.debug(f"Gemini API ga so'rov yuborilmoqda: url={url}, model={AI_MODEL}")
+    logger.debug(f"Groq API ga so'rov: url={url}, model={AI_MODEL}")
 
     try:
         with urllib.request.urlopen(req, timeout=25) as resp:
             body = resp.read().decode("utf-8")
 
-        logger.debug(f"Gemini API javobi: {body[:300]}")  # birinchi 300 belgi
+        logger.debug(f"Groq API javobi: {body[:300]}")
         parsed = json.loads(body)
 
     except urllib.error.HTTPError as e:
-        # HTTP xatosi — status kodi va body ni loglaymiz
         error_body = ""
         try:
             error_body = e.read().decode("utf-8")
         except Exception:
             pass
         logger.error(
-            f"Gemini API HTTP xatosi: status={e.code}, reason={e.reason}, "
+            f"Groq API HTTP xatosi: status={e.code}, reason={e.reason}, "
             f"body={error_body[:500]}"
         )
         raise
 
     except urllib.error.URLError as e:
-        # Tarmoq xatosi — URL noto'g'ri yoki internet yo'q
-        logger.error(f"Gemini API tarmoq xatosi: {e.reason}")
+        logger.error(f"Groq API tarmoq xatosi: {e.reason}")
         raise
 
     except json.JSONDecodeError as e:
-        logger.error(f"Gemini API javobini parse qilishda xato: {e}")
+        logger.error(f"Groq API javobini parse qilishda xato: {e}")
         raise
 
-    # Javob strukturasini tekshirish
     if "choices" not in parsed or not parsed["choices"]:
-        logger.error(f"Gemini API kutilmagan javob strukturasi: {parsed}")
-        raise ValueError(f"API javobida 'choices' yo'q yoki bo'sh: {parsed}")
+        logger.error(f"Groq API kutilmagan javob strukturasi: {parsed}")
+        raise ValueError(f"API javobida 'choices' yo'q: {parsed}")
 
     content = parsed["choices"][0].get("message", {}).get("content", "")
     if not content:
-        logger.error(f"Gemini API bo'sh content qaytardi: {parsed}")
+        logger.error(f"Groq API bo'sh content qaytardi: {parsed}")
         raise ValueError("API bo'sh javob qaytardi")
 
     return content.strip()
 
 
 async def gemini_javob_ol(history: list[dict], savol: str) -> Optional[str]:
-    """Async wrapper — threadpool orqali ishlaydi."""
     if not AI_API_KEY:
-        logger.warning("AI_API_KEY sozlanmagan!")
+        logger.error("❌ AI_API_KEY bo'sh! Railway Variables ni tekshiring.")
         return None
     try:
-        return await asyncio.to_thread(_call_gemini_sync, history, savol)
+        result = await asyncio.to_thread(_call_gemini_sync, history, savol)
+        logger.info(f"✅ Groq javob berdi: {result[:50]}")
+        return result
     except Exception as e:
-        logger.error(f"Gemini API chaqiruvida xatolik: {type(e).__name__}: {e}")
+        logger.error(f"❌ Groq xatosi: {type(e).__name__}: {e}")
         return None
 
 
@@ -212,8 +183,6 @@ def _talaba_ol(user_id: int) -> Optional[dict]:
 
 @router.message(F.text == "🤖 AI Chatbot")
 async def chatbot_boshlash(message: Message, state: FSMContext):
-    """O'quvchi chatbot tugmasini bosganida."""
-    # Admin sozlamasini tekshir
     enabled = get_setting(CHATBOT_SETTING_KEY, "True")
     if enabled != "True":
         await message.answer(
@@ -223,7 +192,6 @@ async def chatbot_boshlash(message: Message, state: FSMContext):
         )
         return
 
-    # API kaliti borligini tekshir
     if not AI_API_KEY:
         await message.answer(
             "⚙️ <b>AI Chatbot sozlanmagan.</b>\n\n"
@@ -232,10 +200,7 @@ async def chatbot_boshlash(message: Message, state: FSMContext):
         )
         return
 
-    # Talabani topish (ixtiyoriy — log uchun)
     talaba = _talaba_ol(message.from_user.id)
-
-    # FSM holatini o'rnatish va bo'sh tarix
     await state.set_state(ChatbotState.chat_rejimi)
     await state.update_data(history=[], talaba=talaba)
 
@@ -253,7 +218,6 @@ async def chatbot_boshlash(message: Message, state: FSMContext):
 
 @router.message(ChatbotState.chat_rejimi, F.text == CHIQISH_MATNI)
 async def chatbot_chiqish(message: Message, state: FSMContext):
-    """Chat rejimidan chiqish."""
     from keyboards import user_menu_keyboard
     from database import get_setting as gs
 
@@ -269,7 +233,6 @@ async def chatbot_chiqish(message: Message, state: FSMContext):
 
 @router.message(ChatbotState.chat_rejimi)
 async def chatbot_savol_handler(message: Message, state: FSMContext):
-    """O'quvchi savolini qabul qilib Gemini ga yuboradi."""
     savol = (message.text or "").strip()
 
     if not savol:
@@ -283,21 +246,18 @@ async def chatbot_savol_handler(message: Message, state: FSMContext):
         )
         return
 
-    # Holatdan ma'lumotlar
     data = await state.get_data()
     history: list[dict] = data.get("history", [])
     talaba: Optional[dict] = data.get("talaba")
 
-    # Kutish xabari
     wait_msg = await message.answer("⏳ Javob tayyorlanmoqda...")
 
     javob = await gemini_javob_ol(history, savol)
 
-    # Kutish xabarini o'chirish
     try:
         await wait_msg.delete()
     except Exception:
-        pass  # Agar o'chirib bo'lmasa, davom etamiz
+        pass
 
     if not javob:
         await message.answer(
@@ -311,21 +271,17 @@ async def chatbot_savol_handler(message: Message, state: FSMContext):
         )
         return
 
-    # HTML teglarini xavfsiz yuborish
     try:
         await message.answer(f"🤖 {javob}", parse_mode="HTML")
     except Exception:
-        # Agar HTML parse bo'lmasa, oddiy matn sifatida yuboramiz
         await message.answer(f"🤖 {javob}")
 
-    # Tarixni yangilash (oxirgi MAX_HISTORY ta xabar)
     history.append({"role": "user", "content": savol})
     history.append({"role": "assistant", "content": javob})
     if len(history) > MAX_HISTORY * 2:
         history = history[-(MAX_HISTORY * 2):]
     await state.update_data(history=history)
 
-    # Loglash
     try:
         chatbot_log_qosh(
             user_id=message.from_user.id,
