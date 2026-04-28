@@ -235,6 +235,12 @@ def init_db():
     cur.execute(
         "INSERT INTO settings (key, value) VALUES ('stats_enabled', 'True') ON CONFLICT DO NOTHING"
     )
+    cur.execute(
+        "INSERT INTO settings (key, value) VALUES ('chatbot_enabled', 'True') ON CONFLICT DO NOTHING"
+    )
+    cur.execute(
+        "INSERT INTO settings (key, value) VALUES ('mock_enabled', 'True') ON CONFLICT DO NOTHING"
+    )
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS test_kalitlari (

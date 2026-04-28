@@ -516,11 +516,12 @@ async def ota_ona_chiqish(message: Message):
     ranking_enabled = get_setting("ranking_enabled", "True")
     stats_enabled = get_setting("stats_enabled", "True")
     chatbot_enabled = get_setting("chatbot_enabled", "True")
+    mock_enabled = get_setting("mock_enabled", "True")
     await message.answer(
         "🚪 Ota-ona panelidan chiqdingiz.\n\n"
         "Qayta kirish: <code>PARENT_KOD</code> deb yozing.",
         parse_mode="HTML",
-        reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled)
+        reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled)
     )
 
 

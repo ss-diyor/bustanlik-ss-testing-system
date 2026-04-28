@@ -536,7 +536,12 @@ def baza_tozalash_keyboard():
     )
 
 
-def user_menu_keyboard(ranking_enabled="True", stats_enabled="True", chatbot_enabled="True"):
+def user_menu_keyboard(
+    ranking_enabled="True",
+    stats_enabled="True",
+    chatbot_enabled="True",
+    mock_enabled="True",
+):
     """Foydalanuvchi asosiy menyusi (Dinamik)."""
     keyboard = []
 
@@ -557,8 +562,9 @@ def user_menu_keyboard(ranking_enabled="True", stats_enabled="True", chatbot_ena
         ]
     )
 
-    # Mock natijalar tugmasi
-    keyboard.append([KeyboardButton(text="🧪 Mock natijalarim")])
+    # Mock natijalar tugmasi (admin sozlamalari orqali yoqib/o'chiriladi)
+    if mock_enabled == "True":
+        keyboard.append([KeyboardButton(text="🧪 Mock natijalarim")])
 
     # Uchinchi qator: Statistika va AI Analitika
     row3 = []
@@ -1384,7 +1390,12 @@ def filter_actions_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled="True"):
+def settings_keyboard(
+    ranking_enabled,
+    stats_enabled,
+    chatbot_enabled="True",
+    mock_enabled="True",
+):
     """Bot sozlamalari klaviaturasi."""
     ranking_text = (
         "✅ Reyting Yoqilgan"
@@ -1400,6 +1411,11 @@ def settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled="True"):
         "✅ AI Chatbot Yoqilgan"
         if chatbot_enabled == "True"
         else "❌ AI Chatbot O'chirilgan"
+    )
+    mock_text = (
+        "✅ Mock natijalar (User): Yoqilgan"
+        if mock_enabled == "True"
+        else "❌ Mock natijalar (User): O'chirilgan"
     )
 
     return InlineKeyboardMarkup(
@@ -1420,6 +1436,12 @@ def settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled="True"):
                 InlineKeyboardButton(
                     text=chatbot_text,
                     callback_data="toggle_setting:chatbot_enabled",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=mock_text,
+                    callback_data="toggle_setting:mock_enabled",
                 )
             ],
         ]

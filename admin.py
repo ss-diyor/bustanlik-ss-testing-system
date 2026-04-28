@@ -2221,18 +2221,20 @@ async def settings_start(message: Message, state: FSMContext):
     ranking_enabled = get_setting("ranking_enabled", "True")
     stats_enabled = get_setting("stats_enabled", "True")
     chatbot_enabled = get_setting("chatbot_enabled", "True")
+    mock_enabled = get_setting("mock_enabled", "True")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
         f"🏆 Reyting (Top-50): <b>{'✅ Yoqilgan' if ranking_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📈 Statistika: <b>{'✅ Yoqilgan' if stats_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await message.answer(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled),
     )
 
 
@@ -2248,18 +2250,20 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
     ranking_enabled = get_setting("ranking_enabled", "True")
     stats_enabled = get_setting("stats_enabled", "True")
     chatbot_enabled = get_setting("chatbot_enabled", "True")
+    mock_enabled = get_setting("mock_enabled", "True")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
         f"🏆 Reyting (Top-50): <b>{'✅ Yoqilgan' if ranking_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📈 Statistika: <b>{'✅ Yoqilgan' if stats_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled),
     )
     await callback.answer("✅ Sozlama yangilandi")
 
