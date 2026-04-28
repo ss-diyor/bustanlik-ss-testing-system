@@ -88,6 +88,9 @@ def create_mock_tables():
     conn = get_connection()
     cur = conn.cursor()
 
+    # Eski bazalarda (legacy) `exam_type` nomi ishlatilgan bo‘lishi mumkin.
+    # Avval parent jadvalni yaratamiz, keyin kerak bo‘lsa ustunlarni migrate qilamiz,
+    # shundan keyingina FK'li jadvallarni yaratamiz.
     cur.execute("""
         CREATE TABLE IF NOT EXISTS mock_exam_types (
             id          SERIAL PRIMARY KEY,
@@ -103,6 +106,18 @@ def create_mock_tables():
         )
     """)
 
+    # --- Legacy migration: exam_type -> exam_key (mock_exam_types) ---
+    cur.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='mock_exam_types'
+        """
+    )
+    cols = {r[0] for r in cur.fetchall()}
+    if "exam_key" not in cols and "exam_type" in cols:
+        cur.execute("ALTER TABLE mock_exam_types RENAME COLUMN exam_type TO exam_key")
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS mock_sections (
             id          SERIAL PRIMARY KEY,
@@ -114,6 +129,18 @@ def create_mock_tables():
             UNIQUE (exam_key, section_key)
         )
     """)
+
+    # --- Legacy migration: exam_type -> exam_key (mock_sections) ---
+    cur.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='mock_sections'
+        """
+    )
+    cols = {r[0] for r in cur.fetchall()}
+    if "exam_key" not in cols and "exam_type" in cols:
+        cur.execute("ALTER TABLE mock_sections RENAME COLUMN exam_type TO exam_key")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS mock_natijalari (
@@ -131,6 +158,19 @@ def create_mock_tables():
             FOREIGN KEY (talaba_kod) REFERENCES talabalar(kod)
         )
     """)
+
+    # --- Legacy migration: exam_type -> exam_key (mock_natijalari) ---
+    cur.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='mock_natijalari'
+        """
+    )
+    cols = {r[0] for r in cur.fetchall()}
+    if "exam_key" not in cols and "exam_type" in cols:
+        cur.execute("ALTER TABLE mock_natijalari RENAME COLUMN exam_type TO exam_key")
+
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_nat_kod  ON mock_natijalari(talaba_kod)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_nat_key  ON mock_natijalari(exam_key)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_nat_sana ON mock_natijalari(test_sanasi)")
