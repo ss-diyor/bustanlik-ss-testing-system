@@ -59,6 +59,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="🏆 Reyting Excel")],
             [KeyboardButton(text="🧹 Bazani tozalash")],
             [KeyboardButton(text="📢 Xabar yuborish")],
+            [KeyboardButton(text="✉️ Shaxsiy xabar yuborish")],
             [KeyboardButton(text="🔍 Kod bo'yicha qidirish")],
             [KeyboardButton(text="🚪 Chiqish")],
         ],
@@ -444,6 +445,69 @@ def broadcast_confirm_keyboard():
                 ),
                 InlineKeyboardButton(
                     text="❌ Bekor qilish", callback_data="broadcast:cancel"
+                ),
+            ]
+        ]
+    )
+
+
+def broadcast_target_keyboard():
+    """Broadcast maqsadini tanlash: barcha yoki maktab bo'yicha."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="👥 Barcha foydalanuvchilar",
+                    callback_data="bcast_target:all"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏫 Maktab bo'yicha tanlash",
+                    callback_data="bcast_target:school"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Bekor qilish",
+                    callback_data="bcast_target:cancel"
+                )
+            ],
+        ]
+    )
+
+
+def maktab_tanlash_keyboard(maktablar: list):
+    """Maktablar ro'yxatidan birini tanlash uchun inline keyboard."""
+    buttons = []
+    for m in maktablar:
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"🏫 {m['nomi']}",
+                callback_data=f"bcast_school:{m['id']}"
+            )
+        ])
+    buttons.append([
+        InlineKeyboardButton(
+            text="❌ Bekor qilish",
+            callback_data="bcast_school:cancel"
+        )
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def shaxsiy_xabar_confirm_keyboard(user_id: int):
+    """Shaxsiy xabarni tasdiqlash tugmalari."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Yuborish",
+                    callback_data=f"pmsend:confirm:{user_id}"
+                ),
+                InlineKeyboardButton(
+                    text="❌ Bekor qilish",
+                    callback_data="pmsend:cancel"
                 ),
             ]
         ]
