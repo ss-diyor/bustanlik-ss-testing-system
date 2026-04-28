@@ -273,20 +273,17 @@ async def scheduler():
     """Har kuni soat 23:00 da backup yuborish."""
     while True:
         now = datetime.now()
-        # Soat 23:00 da ishga tushadi
         if now.hour == 23 and now.minute == 0:
             await send_backup()
-            await asyncio.sleep(61)  # Bir marta ishlashi uchun
+            await asyncio.sleep(61)
         await asyncio.sleep(30)
 
 
 async def main():
     """Botni ishga tushiradi."""
-    # Bazani ishga tushiradi
     init_db()
     logging.info("Ma'lumotlar bazasi tayyor va indekslar tekshirildi.")
 
-    # Admin sessiyalari jadvalini yaratish
     from database import create_admin_sessions_table, create_admins_table
 
     try:
@@ -296,7 +293,6 @@ async def main():
     except Exception as e:
         logging.error(f"Admin jadvallarini yaratishda xato: {e}")
 
-    # Chatbot jadvali
     try:
         from database import create_chatbot_logs_table
         create_chatbot_logs_table()
@@ -304,23 +300,13 @@ async def main():
     except Exception as e:
         logging.error(f"Chatbot jadvali yaratishda xato: {e}")
 
-    # Scheduler ishga tushirish
     asyncio.create_task(scheduler())
     asyncio.create_task(reminder_scheduler())
     asyncio.create_task(group_ranking_scheduler())
-    
-    # Smart notifications system
-    try:
-        from smart_notifications import run_smart_notifications
-        asyncio.create_task(run_smart_notifications(bot))
-        logging.info("Smart notifications system started successfully!")
-    except Exception as e:
-        logging.error(f"Error starting smart notifications: {e}")
+
     await bot.delete_webhook(drop_pending_updates=True)
     logging.info("Bot ishga tushdi!")
 
-    # Fast polling config with conflict resolution
-    await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(
         bot,
         handle_signals=False,
