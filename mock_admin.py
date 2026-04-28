@@ -488,17 +488,33 @@ async def _ask_schema(message: Message, state: FSMContext, et: dict):
     Faqat bitta section ham bo'lishi mumkin:
       Ball | 100
     """
+    label = et.get("label", et.get("exam_key", "Mock"))
+    if et.get("exam_key") == "DTM_MOCK":
+        await state.update_data(
+            sections={},
+            section_idx=0,
+            section_defs=[
+                {"key": "majburiy", "label": "Majburiy fanlar", "max": 30.0},
+                {"key": "asosiy_1", "label": "1-asosiy fan", "max": 30.0},
+                {"key": "asosiy_2", "label": "2-asosiy fan", "max": 30.0},
+            ],
+            levels_list=None,
+            level=None,
+        )
+        await message.answer(
+            f"🧩 <b>{label}</b> uchun standart bo'limlar tanlandi.\n\n"
+            "To'g'ri javoblar sonini kiriting:\n"
+            "• Majburiy fanlar: 0–30\n"
+            "• 1-asosiy fan: 0–30\n"
+            "• 2-asosiy fan: 0–30\n\n"
+            "Agar sizda allaqachon hisoblangan ball bo'lsa, uni ham kiritsangiz bo'ladi.",
+            parse_mode="HTML",
+        )
+        await _ask_section(message, state)
+        return
+
     await state.update_data(sections={}, section_idx=0, section_defs=[])
     await state.set_state(MockNatijaQosh.schema_kutish)
-    label = et.get("label", et.get("exam_key", "Mock"))
-    extra_hint = ""
-    if et.get("exam_key") == "DTM_MOCK":
-        extra_hint = (
-            "\n\n<b>DTM Mock uchun tavsiya:</b>\n"
-            "<code>Majburiy fanlar | 30\n1-asosiy fan | 30\n2-asosiy fan | 30</code>\n"
-            "Keyin har bir bo'limga to'g'ri javoblar sonini kiriting.\n"
-            "Agar allaqachon hisoblangan ball kiritilsa ham, umumiy ball endi qayta ko'paytirilmaydi."
-        )
     await message.answer(
         f"🧩 <b>{label}</b> uchun <b>nimalar kiritilishini</b> yozing.\n\n"
         "Har qator: <code>nom | max</code> (max ixtiyoriy)\n"
@@ -506,7 +522,7 @@ async def _ask_schema(message: Message, state: FSMContext, et: dict):
         "<code>Listening | 9\nReading | 9\nWriting | 9\nSpeaking | 9</code>\n\n"
         "Bitta bo'lim bo'lsa:\n"
         "<code>Ball | 100</code>\n\n"
-        f"Davom etish uchun yuboring:{extra_hint}",
+        "Davom etish uchun yuboring:",
         parse_mode="HTML",
     )
 
