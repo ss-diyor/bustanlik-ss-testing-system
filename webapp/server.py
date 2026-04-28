@@ -301,6 +301,7 @@ async def admin_stats_api(request: web.Request) -> web.Response:
             "majburiy": float(sub_row["m"] or 0),
             "asosiy_1": float(sub_row["a1"] or 0),
             "asosiy_2": float(sub_row["a2"] or 0)
+        }
         # 5. Top 30 (Filtered for teacher)
         if role == "admin":
             cur.execute("SELECT t.kod, t.ismlar, t.sinf, t.yonalish, MAX(tn.umumiy_ball) as ball FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish ORDER BY ball DESC LIMIT 30")
