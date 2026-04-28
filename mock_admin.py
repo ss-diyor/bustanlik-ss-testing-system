@@ -37,6 +37,7 @@ class MockNatijaQosh(StatesGroup):
     levels_kutish       = State()    # admin darajalar ro'yxatini ixtiyoriy kiritadi
     section_kutish      = State()    # navbatma-navbat bo'limlar
     level_kutish        = State()    # CEFR daraja
+    language_level_kutish = State()  # ixtiyoriy daraja matni (C1/B2 va h.k.)
     notes_kutish        = State()
     tasdiq_kutish       = State()
 
@@ -115,10 +116,16 @@ def _build_confirm_text(data: dict) -> str:
 
     sec_map = {s["section_key"]: s for s in et.get("sections", [])}
     for k, v in sections.items():
-        sec = sec_map.get(k, {})
-        lbl = sec.get("label", k)
-        mx = sec.get("max_score")
-        lines.append(f"{lbl}: <b>{v}</b>" + (f" / {mx}" if mx else ""))
+        if isinstance(v, dict) and "value" in v:
+            lbl = v.get("label") or sec_map.get(k, {}).get("label") or k
+            mx = v.get("max")
+            val = v.get("value")
+        else:
+            sec = sec_map.get(k, {})
+            lbl = sec.get("label", k)
+            mx = sec.get("max_score")
+            val = v
+        lines.append(f"{lbl}: <b>{val}</b>" + (f" / {mx}" if mx is not None else ""))
 
     if data.get("level"):
         lines.append(f"🎯 Daraja: <b>{data['level']}</b>")
@@ -577,7 +584,7 @@ async def _ask_section(message: Message, state: FSMContext):
     idx = data.get("section_idx", 0)
 
     if idx >= len(section_defs):
-        await _ask_notes(message, state)
+        await _ask_language_level(message, state)
         return
 
     sec = section_defs[idx]
@@ -622,6 +629,44 @@ async def mock_section_val(message: Message, state: FSMContext):
     }
     await state.update_data(sections=sections, section_idx=idx + 1)
     await _ask_section(message, state)
+
+async def _ask_language_level(message: Message, state: FSMContext):
+    data = await state.get_data()
+    current = data.get("level")
+    await state.set_state(MockNatijaQosh.language_level_kutish)
+    if current:
+        await message.answer(
+            "🎯 <b>Til darajasi</b> (ixtiyoriy).\n"
+            f"Hozir: <b>{current}</b>\n\n"
+            "O'zgartirish uchun darajani yozing (masalan <code>C1</code> yoki <code>B2</code>).\n"
+            "O'zgarmasin desangiz <code>.</code>, o'chirish uchun <code>-</code>:",
+            parse_mode="HTML",
+        )
+    else:
+        await message.answer(
+            "🎯 <b>Til darajasi</b> (ixtiyoriy).\n"
+            "Masalan: <code>C1</code>, <code>B2</code>, <code>IELTS C1</code>.\n"
+            "Kerak bo'lmasa <code>-</code> yozing:",
+            parse_mode="HTML",
+        )
+
+
+@router.message(MockNatijaQosh.language_level_kutish)
+async def mock_language_level(message: Message, state: FSMContext):
+    if not await _admin_ok(message, state):
+        return
+    text = (message.text or "").strip()
+    if text == ".":
+        # mavjud level'ni o'zgartirmaymiz
+        await _ask_notes(message, state)
+        return
+    if not text or text == "-":
+        await state.update_data(level=None)
+        await _ask_notes(message, state)
+        return
+    # erkin matn (C1/B2 ...)
+    await state.update_data(level=text)
+    await _ask_notes(message, state)
 
 
 @router.callback_query(F.data.startswith("mock_level:"), MockNatijaQosh.level_kutish)
