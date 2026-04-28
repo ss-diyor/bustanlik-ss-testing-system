@@ -98,6 +98,7 @@ def _call_gemini_sync(history: list[dict], yangi_savol: str) -> str:
         headers={
             "Authorization": f"Bearer {AI_API_KEY}",
             "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0",  # Cloudflare 403 blokini oldini olish
         },
     )
 
