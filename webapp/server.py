@@ -203,14 +203,32 @@ async def admin_handler(request: web.Request) -> web.Response:
     html_path = os.path.join(STATIC_DIR, "admin.html")
     return web.FileResponse(html_path)
 
+async def get_user_role(user_id, conn):
+    """Foydalanuvchi rolini aniqlaydi (admin yoki oqituvchi)."""
+    from config import ADMIN_IDS
+    if user_id in ADMIN_IDS:
+        return "admin", None
+        
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    # admins jadvalini tekshirish
+    cur.execute("SELECT user_id FROM admins WHERE user_id = %s", (user_id,))
+    if cur.fetchone():
+        return "admin", None
+        
+    # oqituvchilar jadvalini tekshirish
+    cur.execute("SELECT sinf FROM oqituvchilar WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    if row:
+        return "teacher", row["sinf"]
+        
+    return None, None
+
 async def admin_stats_api(request: web.Request) -> web.Response:
-    """Admin uchun statistik ma'lumotlarni JSON formatida qaytaradi."""
+    """Admin uchun statistik ma'lumotlarni JSON formatida qaytaradi (Role-based)."""
     from config import ADMIN_IDS
     from database import get_connection, release_connection
 
     bot_token = request.app["bot_token"]
-
-    # Telegram initData tekshiruvi
     init_data = request.headers.get("X-Telegram-Init-Data", "")
     user, err_msg = validate_telegram_init_data(init_data, bot_token)
 
@@ -226,110 +244,128 @@ async def admin_stats_api(request: web.Request) -> web.Response:
     else:
         user_id = user.get("id", 0)
 
-    # Faqat adminlarga ruxsat beriladi
-    if user_id not in ADMIN_IDS:
-        return web.json_response({"error": "Sizda admin huquqi yo'q!"}, status=403)
-
     try:
         conn = get_connection()
+        role, teacher_sinf = await get_user_role(user_id, conn)
+        
+        if not role:
+            release_connection(conn)
+            return web.json_response({"error": "Sizda admin yoki o'qituvchi huquqi yo'q!"}, status=403)
+
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
+        # Filter logic
+        filter_sql = ""
+        params = []
+        if role == "teacher" and teacher_sinf:
+            filter_sql = " AND sinf = %s"
+            params = [teacher_sinf]
+
         # 1. KPI Stats
-        cur.execute("SELECT COUNT(*) as count FROM talabalar WHERE status = 'aktiv'")
+        cur.execute(f"SELECT COUNT(*) as count FROM talabalar WHERE status = 'aktiv' {filter_sql}", params)
         total_students = cur.fetchone()["count"]
 
-        cur.execute("SELECT COUNT(*) as count FROM test_natijalari")
-        total_tests = cur.fetchone()["count"]
+        if role == "admin":
+            cur.execute("SELECT COUNT(*) as count FROM test_natijalari")
+            total_tests = cur.fetchone()["count"]
+            cur.execute("SELECT AVG(umumiy_ball) as avg FROM test_natijalari")
+            school_avg = cur.fetchone()["avg"] or 0
+        else:
+            # Teacher sees stats for their class only
+            cur.execute(f"SELECT COUNT(*) as count FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s", [teacher_sinf])
+            total_tests = cur.fetchone()["count"]
+            cur.execute(f"SELECT AVG(tn.umumiy_ball) as avg FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s", [teacher_sinf])
+            school_avg = cur.fetchone()["avg"] or 0
 
-        cur.execute("SELECT AVG(umumiy_ball) as avg FROM test_natijalari")
-        row = cur.fetchone()
-        school_avg = row["avg"] if row and row["avg"] is not None else 0
+        # 2. Class Stats (Admin sees all, Teacher sees only their own)
+        if role == "admin":
+            cur.execute("SELECT sinf, AVG(umumiy_ball) as avg_score FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod GROUP BY t.sinf ORDER BY t.sinf ASC")
+        else:
+            cur.execute("SELECT sinf, AVG(umumiy_ball) as avg_score FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s GROUP BY t.sinf", [teacher_sinf])
+        class_stats = [{"sinf": r["sinf"], "avg_score": float(r["avg_score"])} for r in cur.fetchall() if r["sinf"]]
 
-        # 2. Class Stats
-        cur.execute(
-            """
-            SELECT t.sinf, AVG(tn.umumiy_ball) as avg_score
-            FROM test_natijalari tn
-            JOIN talabalar t ON tn.talaba_kod = t.kod
-            GROUP BY t.sinf
-            ORDER BY t.sinf ASC
-            """
-        )
-        class_stats_raw = cur.fetchall()
-        class_stats = [{"sinf": r["sinf"], "avg_score": float(r["avg_score"])} for r in class_stats_raw if r["sinf"]]
-
-        # 3. Direction Stats
-        cur.execute(
-            """
-            SELECT t.yonalish, AVG(tn.umumiy_ball) as avg_score
-            FROM test_natijalari tn
-            JOIN talabalar t ON tn.talaba_kod = t.kod
-            GROUP BY t.yonalish
-            ORDER BY avg_score DESC
-            """
-        )
-        direction_stats_raw = cur.fetchall()
-        direction_stats = [{"yonalish": r["yonalish"], "avg_score": float(r["avg_score"])} for r in direction_stats_raw]
+        # 3. Direction Stats (Filtered for teacher)
+        if role == "admin":
+            cur.execute("SELECT yonalish, AVG(umumiy_ball) as avg_score FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod GROUP BY t.yonalish ORDER BY avg_score DESC")
+        else:
+            cur.execute("SELECT yonalish, AVG(umumiy_ball) as avg_score FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s GROUP BY t.yonalish ORDER BY avg_score DESC", [teacher_sinf])
+        direction_stats = [{"yonalish": r["yonalish"], "avg_score": float(r["avg_score"])} for r in cur.fetchall()]
 
         # 4. Subject Averages
-        cur.execute(
-            """
-            SELECT 
-                AVG(majburiy_ball) as majburiy_avg,
-                AVG(asosiy_1_ball) as asosiy_1_avg,
-                AVG(asosiy_2_ball) as asosiy_2_avg
-            FROM test_natijalari
-            """
-        )
+        if role == "admin":
+            cur.execute("SELECT AVG(majburiy_ball) as m, AVG(asosiy_1_ball) as a1, AVG(asosiy_2_ball) as a2 FROM test_natijalari")
+        else:
+            cur.execute("SELECT AVG(majburiy_ball) as m, AVG(asosiy_1_ball) as a1, AVG(asosiy_2_ball) as a2 FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s", [teacher_sinf])
         sub_row = cur.fetchone()
         subject_stats = {
-            "majburiy": float(sub_row["majburiy_avg"] or 0),
-            "asosiy_1": float(sub_row["asosiy_1_avg"] or 0),
-            "asosiy_2": float(sub_row["asosiy_2_avg"] or 0)
-        }
-
-        # 5. Top 30 Students (eng yaxshi natijasi bo'yicha)
-        cur.execute(
-            """
-            SELECT t.kod, t.ismlar, t.sinf, t.yonalish, MAX(tn.umumiy_ball) as umumiy_ball
-            FROM test_natijalari tn
-            JOIN talabalar t ON tn.talaba_kod = t.kod
-            GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish
-            ORDER BY umumiy_ball DESC
-            LIMIT 30
-            """
-        )
-        top_students_raw = cur.fetchall()
-        top_students = [
-            {
-                "kod": r["kod"],
-                "ismlar": r["ismlar"],
-                "sinf": r["sinf"],
-                "yonalish": r["yonalish"],
-                "umumiy_ball": float(r["umumiy_ball"]) if r["umumiy_ball"] else 0
-            } for r in top_students_raw
-        ]
+            "majburiy": float(sub_row["m"] or 0),
+            "asosiy_1": float(sub_row["a1"] or 0),
+            "asosiy_2": float(sub_row["a2"] or 0)
+        # 5. Top 30 (Filtered for teacher)
+        if role == "admin":
+            cur.execute("SELECT t.kod, t.ismlar, t.sinf, t.yonalish, MAX(tn.umumiy_ball) as ball FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish ORDER BY ball DESC LIMIT 30")
+        else:
+            cur.execute("SELECT t.kod, t.ismlar, t.sinf, t.yonalish, MAX(tn.umumiy_ball) as ball FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish ORDER BY ball DESC LIMIT 30", [teacher_sinf])
+        top_students = [{"kod": r["kod"], "ismlar": r["ismlar"], "sinf": r["sinf"], "yonalish": r["yonalish"], "umumiy_ball": float(r["ball"] or 0)} for r in cur.fetchall()]
 
         cur.close()
         release_connection(conn)
 
-        return web.json_response(
-            {
-                "kpi": {
-                    "total_students": total_students,
-                    "total_tests": total_tests,
-                    "school_avg": float(school_avg)
-                },
-                "class_stats": class_stats,
-                "direction_stats": direction_stats,
-                "subject_stats": subject_stats,
-                "top_students": top_students
-            },
-            headers={"Access-Control-Allow-Origin": "*"},
-        )
-
+        return web.json_response({
+            "role": role,
+            "kpi": {"total_students": total_students, "total_tests": total_tests, "school_avg": float(school_avg)},
+            "class_stats": class_stats,
+            "direction_stats": direction_stats,
+            "subject_stats": subject_stats,
+            "top_students": top_students
+        })
     except Exception as e:
         logging.error(f"Admin API error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+async def admin_get_schedule_api(request: web.Request) -> web.Response:
+    """Testlar taqvimi."""
+    from database import get_connection, release_connection
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM test_taqvimi WHERE sana >= CURRENT_DATE ORDER BY sana ASC, vaqt ASC")
+        rows = cur.fetchall()
+        for r in rows:
+            if r.get("sana"): r["sana"] = r["sana"].strftime("%Y-%m-%d")
+        cur.close()
+        release_connection(conn)
+        return web.json_response({"schedule": rows})
+    except Exception as e:
+        logging.error(f"Schedule GET error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+async def admin_add_schedule_api(request: web.Request) -> web.Response:
+    """Yangi test qo'shish (Faqat Admin)."""
+    from config import ADMIN_IDS
+    from database import get_connection, release_connection
+    
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, _ = validate_telegram_init_data(init_data, bot_token)
+    
+    if not user or user.get("id", 0) not in ADMIN_IDS:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    data = await request.json()
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO test_taqvimi (test_nomi, sana, vaqt, sinf) VALUES (%s, %s, %s, %s)",
+            (data["test_nomi"], data["sana"], data["vaqt"], data.get("sinf", "Barchaga"))
+        )
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+        return web.json_response({"success": True})
+    except Exception as e:
+        logging.error(f"Schedule ADD error: {e}")
         return web.json_response({"error": "Server error"}, status=500)
 
 async def admin_search_api(request: web.Request) -> web.Response:

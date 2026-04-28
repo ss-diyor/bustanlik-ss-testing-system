@@ -28,8 +28,8 @@
   <!-- Main content -->
   <div id="app" class="hidden">
     <header class="admin-header">
-      <h1>Admin Tahlillari</h1>
-      <p>Maktab bo'yicha umumiy statistika</p>
+      <h1>Admin Web Panel <span id="admin-title-suffix" style="font-size: 0.8rem; opacity: 0.7;"></span></h1>
+      <p>Bo'stonliq SS - Maktab statistikasi va boshqaruv</p>
     </header>
 
     <!-- KPI Stats -->
@@ -64,6 +64,25 @@
         </select>
         <textarea id="broadcast-text" placeholder="Xabar matnini kiriting..."></textarea>
         <button id="btn-broadcast" onclick="sendBroadcast()">🚀 Xabarni yuborish</button>
+      </div>
+    </section>
+
+    <!-- Test Schedule Section -->
+    <section class="chart-section schedule-section">
+      <h2 class="section-title">📅 Testlar Taqvimi</h2>
+      <div id="schedule-list" class="schedule-list">
+        <!-- Upcoming tests will be loaded here -->
+      </div>
+      <div class="add-schedule-box admin-only hidden" id="admin-schedule-form">
+        <h4 style="margin-bottom:10px; color: #fff;">➕ Yangi test rejalashtirish</h4>
+        <input type="text" id="sched-name" placeholder="Test nomi (masalan: Mock 5)">
+        <input type="date" id="sched-date">
+        <input type="text" id="sched-time" placeholder="Vaqti (masalan: 09:00)">
+        <select id="sched-sinf">
+          <option value="Barchaga">Barcha sinflar</option>
+          <!-- Classes loaded via JS -->
+        </select>
+        <button onclick="addSchedule()">📅 Rejalashtirish</button>
       </div>
     </section>
 

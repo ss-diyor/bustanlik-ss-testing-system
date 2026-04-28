@@ -275,6 +275,17 @@ def init_db():
     """)
 
     cur.execute("""
+        CREATE TABLE IF NOT EXISTS test_taqvimi (
+            id SERIAL PRIMARY KEY,
+            test_nomi TEXT NOT NULL,
+            sana DATE NOT NULL,
+            vaqt TEXT,
+            sinf TEXT DEFAULT 'Barchaga',
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS maktablar (
             id SERIAL PRIMARY KEY,
             nomi TEXT UNIQUE NOT NULL,

@@ -78,23 +78,31 @@ async function loadAdminData() {
 }
 
 // ─── Render ──────────────────────────────
-function renderPage({ kpi, class_stats, direction_stats, subject_stats, top_students }) {
+function renderPage({ role, kpi, class_stats, direction_stats, subject_stats, top_students }) {
+  // Role based visibility
+  if (role === "admin") {
+    document.querySelectorAll(".admin-only").forEach(el => el.classList.remove("hidden"));
+    document.getElementById("admin-title-suffix").textContent = "(Super Admin)";
+  } else {
+    document.querySelectorAll(".admin-only").forEach(el => el.classList.add("hidden"));
+    document.getElementById("admin-title-suffix").textContent = "(O'qituvchi)";
+  }
+
   // Stats
   document.getElementById("stat-students").textContent = kpi.total_students ?? "—";
   document.getElementById("stat-tests").textContent    = kpi.total_tests ?? "—";
   document.getElementById("stat-avg").textContent      = kpi.school_avg ? kpi.school_avg.toFixed(1) : "—";
 
-  // Load classes into broadcast target
+  // Load classes into dropdowns
   if (class_stats) {
-    const select = document.getElementById("broadcast-target");
-    // Keep first option "Barchaga"
-    select.innerHTML = '<option value="Barchaga">Barcha o\'quvchilarga</option>';
-    class_stats.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.sinf;
-      opt.textContent = s.sinf + " sinfiga";
-      select.appendChild(opt);
-    });
+    const bTarget = document.getElementById("broadcast-target");
+    const sTarget = document.getElementById("sched-sinf");
+    
+    const html = '<option value="Barchaga">Barcha o\'quvchilarga</option>' + 
+                 class_stats.map(s => `<option value="${s.sinf}">${s.sinf} sinfiga</option>`).join("");
+    
+    if (bTarget) bTarget.innerHTML = html;
+    if (sTarget) sTarget.innerHTML = html.replace(/ sinfiga/g, "");
   }
 
   // Charts
@@ -105,9 +113,73 @@ function renderPage({ kpi, class_stats, direction_stats, subject_stats, top_stud
   // Top Students Table
   renderTopStudentsTable(top_students);
 
+  // Load Schedule
+  loadSchedule();
+
   // Show app
   document.getElementById("loading").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
+}
+
+// ─── Schedule Logic ──────────────────────
+async function loadSchedule() {
+  try {
+    const res = await fetch("/api/admin/schedule");
+    const { schedule } = await res.json();
+    const wrap = document.getElementById("schedule-list");
+    
+    if (!schedule || schedule.length === 0) {
+      wrap.innerHTML = '<p class="meta" style="text-align:center">Hozircha rejalashtirilgan testlar yo\'q</p>';
+      return;
+    }
+
+    wrap.innerHTML = schedule.map(s => `
+      <div class="schedule-item">
+        <div class="info">
+          <span class="test-name">${s.test_nomi}</span>
+          <span class="test-meta">${s.sinf} | ${s.vaqt || ''}</span>
+        </div>
+        <span class="test-date">${s.sana}</span>
+      </div>
+    `).join("");
+  } catch (e) {
+    console.error("Schedule load error:", e);
+  }
+}
+
+async function addSchedule() {
+  const test_nomi = document.getElementById("sched-name").value.trim();
+  const sana = document.getElementById("sched-date").value;
+  const vaqt = document.getElementById("sched-time").value.trim();
+  const sinf = document.getElementById("sched-sinf").value;
+
+  if (!test_nomi || !sana) {
+    tg.showAlert("Test nomi va sanasini kiriting!");
+    return;
+  }
+
+  try {
+    const headers = { "Content-Type": "application/json" };
+    if (tg?.initData) headers["X-Telegram-Init-Data"] = tg.initData;
+
+    const res = await fetch("/api/admin/schedule", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ test_nomi, sana, vaqt, sinf })
+    });
+
+    if (res.ok) {
+      tg.showAlert("Test muvaffaqiyatli rejalashtirildi!");
+      document.getElementById("sched-name").value = "";
+      document.getElementById("sched-date").value = "";
+      document.getElementById("sched-time").value = "";
+      loadSchedule();
+    } else {
+      tg.showAlert("Xatolik yuz berdi");
+    }
+  } catch (e) {
+    tg.showAlert("Serverga ulanishda xatolik!");
+  }
 }
 
 // ─── Admin Actions ───────────────────────
