@@ -671,6 +671,8 @@ async def parent_add_inline_callback(callback: CallbackQuery, state: FSMContext)
 
 async def ota_onalarga_xabar_yuborish(bot, talaba_kod: str, yangi_ball: float):
     """admin.py dan chaqiriladi — yangi natija kiritilganda."""
+    from database import is_notification_enabled
+
     ota_onalar = talaba_barcha_ota_onalari(talaba_kod)
     if not ota_onalar:
         return
@@ -687,6 +689,8 @@ async def ota_onalarga_xabar_yuborish(bot, talaba_kod: str, yangi_ball: float):
         f"📊 Ko'rish: <b>📊 Farzandim natijasi</b> tugmasini bosing."
     )
     for parent_id in ota_onalar:
+        if not is_notification_enabled(parent_id, "notify_results"):
+            continue
         try:
             await bot.send_message(parent_id, xabar, parse_mode="HTML")
         except Exception as e:
