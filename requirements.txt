@@ -6,6 +6,5 @@ openpyxl
 matplotlib
 fpdf2
 psycopg2-binary
-scikit-learn
 numpy
 python-dotenv
