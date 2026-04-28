@@ -298,9 +298,9 @@ async def admin_stats_api(request: web.Request) -> web.Response:
 
         # 4. Subject Averages
         if role == "admin":
-            cur.execute("SELECT AVG(majburiy_ball) as m, AVG(asosiy_1_ball) as a1, AVG(asosiy_2_ball) as a2 FROM test_natijalari")
+            cur.execute("SELECT AVG(majburiy) as m, AVG(asosiy_1) as a1, AVG(asosiy_2) as a2 FROM test_natijalari")
         else:
-            cur.execute("SELECT AVG(majburiy_ball) as m, AVG(asosiy_1_ball) as a1, AVG(asosiy_2_ball) as a2 FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s", [teacher_sinf])
+            cur.execute("SELECT AVG(majburiy) as m, AVG(asosiy_1) as a1, AVG(asosiy_2) as a2 FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s", [teacher_sinf])
         sub_row = cur.fetchone()
         subject_stats = {
             "majburiy": float(sub_row["m"] or 0),
@@ -433,13 +433,13 @@ async def admin_student_details_api(request: web.Request) -> web.Response:
             return web.json_response({"error": "Not found"}, status=404)
             
         # Natijalari
-        cur.execute("SELECT * FROM test_natijalari WHERE talaba_kod = %s ORDER BY sana ASC", (student_kod,))
+        cur.execute("SELECT * FROM test_natijalari WHERE talaba_kod = %s ORDER BY test_sanasi ASC", (student_kod,))
         natijalar = cur.fetchall()
         
         # Format dates
         for n in natijalar:
-            if n.get("sana"):
-                n["sana"] = n["sana"].strftime("%Y-%m-%d")
+            if n.get("test_sanasi"):
+                n["test_sanasi"] = n["test_sanasi"].strftime("%Y-%m-%d")
         
         cur.close()
         release_connection(conn)
