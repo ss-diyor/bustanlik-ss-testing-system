@@ -748,8 +748,14 @@ async def mock_save(cb: CallbackQuery, state: FSMContext):
 
 async def _xabar_talabaga(bot, talaba_kod: str):
     try:
+        from database import is_notification_enabled
+
         talaba = talaba_topish(talaba_kod)
         if not talaba or not talaba.get("user_id"):
+            return
+        if not is_notification_enabled(
+            talaba["user_id"], "notify_mock_results"
+        ):
             return
         natijalar = mock_natijalari_ol(talaba_kod, limit=1)
         if not natijalar:
