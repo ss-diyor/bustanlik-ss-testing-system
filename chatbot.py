@@ -8,12 +8,20 @@ Arxitektura:
   - "Chiqish" tugmasi bosiganda asosiy menyuga qaytadi
   - Admin panel orqali xususiyatni yoqish/o'chirish mumkin
   - Har bir suhbat chatbot_logs jadvaliga yoziladi
+
+TUZATISHLAR (Fixed):
+  - Gemini "system" rolini qabul qilmasligi muammosi hal qilindi
+  - HTTP xatolar aniq loglanadi (status kodi + body)
+  - Javob strukturasi tekshiriladi
+  - Timeout va network xatolari alohida handle qilinadi
+  - Debug logging qo'shildi
 """
 
 import asyncio
 import json
 import logging
 import urllib.request
+import urllib.error
 from typing import Optional
 
 from aiogram import Router, F
@@ -72,11 +80,34 @@ def chat_keyboard() -> ReplyKeyboardMarkup:
 # Gemini API chaqiruvi
 # ─────────────────────────────────────────
 
+def _build_messages(history: list[dict], yangi_savol: str) -> list[dict]:
+    """
+    Gemini ba'zi versiyalari 'system' rolini qabul qilmaydi.
+    System promptni birinchi 'user' xabarning boshiga qo'shamiz.
+    """
+    messages = []
+
+    if history:
+        # Tarix mavjud bo'lsa — faqat yangi savolni yuboramiz
+        messages.extend(history)
+        messages.append({"role": "user", "content": yangi_savol})
+    else:
+        # Birinchi savol — system promptni user xabariga birlashtiramiz
+        birinchi_savol = (
+            f"[Tizim ko'rsatmasi: {SYSTEM_PROMPT}]\n\n"
+            f"Savol: {yangi_savol}"
+        )
+        messages.append({"role": "user", "content": birinchi_savol})
+
+    return messages
+
+
 def _call_gemini_sync(history: list[dict], yangi_savol: str) -> str:
-    """Gemini Flash-Lite ga sinxron so'rov yuboradi (thread-safe)."""
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    messages.extend(history)
-    messages.append({"role": "user", "content": yangi_savol})
+    """
+    Gemini Flash-Lite ga sinxron so'rov yuboradi (thread-safe).
+    Xatolar aniq log qilinadi va re-raise qilinadi.
+    """
+    messages = _build_messages(history, yangi_savol)
 
     url = AI_BASE_URL.rstrip("/") + "/chat/completions"
     payload = {
@@ -85,6 +116,7 @@ def _call_gemini_sync(history: list[dict], yangi_savol: str) -> str:
         "max_tokens": 800,
         "messages": messages,
     }
+
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url=url,
@@ -95,19 +127,60 @@ def _call_gemini_sync(history: list[dict], yangi_savol: str) -> str:
             "Content-Type": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=25) as resp:
-        parsed = json.loads(resp.read().decode("utf-8"))
-    return parsed["choices"][0]["message"]["content"].strip()
+
+    logger.debug(f"Gemini API ga so'rov yuborilmoqda: url={url}, model={AI_MODEL}")
+
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            body = resp.read().decode("utf-8")
+
+        logger.debug(f"Gemini API javobi: {body[:300]}")  # birinchi 300 belgi
+        parsed = json.loads(body)
+
+    except urllib.error.HTTPError as e:
+        # HTTP xatosi — status kodi va body ni loglaymiz
+        error_body = ""
+        try:
+            error_body = e.read().decode("utf-8")
+        except Exception:
+            pass
+        logger.error(
+            f"Gemini API HTTP xatosi: status={e.code}, reason={e.reason}, "
+            f"body={error_body[:500]}"
+        )
+        raise
+
+    except urllib.error.URLError as e:
+        # Tarmoq xatosi — URL noto'g'ri yoki internet yo'q
+        logger.error(f"Gemini API tarmoq xatosi: {e.reason}")
+        raise
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Gemini API javobini parse qilishda xato: {e}")
+        raise
+
+    # Javob strukturasini tekshirish
+    if "choices" not in parsed or not parsed["choices"]:
+        logger.error(f"Gemini API kutilmagan javob strukturasi: {parsed}")
+        raise ValueError(f"API javobida 'choices' yo'q yoki bo'sh: {parsed}")
+
+    content = parsed["choices"][0].get("message", {}).get("content", "")
+    if not content:
+        logger.error(f"Gemini API bo'sh content qaytardi: {parsed}")
+        raise ValueError("API bo'sh javob qaytardi")
+
+    return content.strip()
 
 
 async def gemini_javob_ol(history: list[dict], savol: str) -> Optional[str]:
     """Async wrapper — threadpool orqali ishlaydi."""
     if not AI_API_KEY:
+        logger.warning("AI_API_KEY sozlanmagan!")
         return None
     try:
         return await asyncio.to_thread(_call_gemini_sync, history, savol)
     except Exception as e:
-        logger.error(f"Gemini API xatosi: {e}")
+        logger.error(f"Gemini API chaqiruvida xatolik: {type(e).__name__}: {e}")
         return None
 
 
@@ -117,15 +190,20 @@ async def gemini_javob_ol(history: list[dict], savol: str) -> Optional[str]:
 
 def _talaba_ol(user_id: int) -> Optional[dict]:
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        "SELECT kod, ismlar FROM talabalar WHERE user_id = %s",
-        (user_id,),
-    )
-    row = cur.fetchone()
-    cur.close()
-    release_connection(conn)
-    return row
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            "SELECT kod, ismlar FROM talabalar WHERE user_id = %s",
+            (user_id,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return row
+    except Exception as e:
+        logger.error(f"Talabani olishda xato: {e}")
+        return None
+    finally:
+        release_connection(conn)
 
 
 # ─────────────────────────────────────────
@@ -215,17 +293,30 @@ async def chatbot_savol_handler(message: Message, state: FSMContext):
 
     javob = await gemini_javob_ol(history, savol)
 
-    await wait_msg.delete()
+    # Kutish xabarini o'chirish
+    try:
+        await wait_msg.delete()
+    except Exception:
+        pass  # Agar o'chirib bo'lmasa, davom etamiz
 
     if not javob:
         await message.answer(
-            "❌ Javob olishda xatolik yuz berdi. Qayta urinib ko'ring.\n"
-            "<i>Agar muammo davom etsa, adminga xabar bering.</i>",
+            "❌ <b>Javob olishda xatolik yuz berdi.</b>\n\n"
+            "Sabab bo'lishi mumkin:\n"
+            "• Internet ulanishi muammosi\n"
+            "• API kaliti noto'g'ri\n"
+            "• Servis vaqtincha ishlamayapti\n\n"
+            "<i>Qayta urinib ko'ring yoki adminga xabar bering.</i>",
             parse_mode="HTML",
         )
         return
 
-    await message.answer(f"🤖 {javob}", parse_mode="HTML")
+    # HTML teglarini xavfsiz yuborish
+    try:
+        await message.answer(f"🤖 {javob}", parse_mode="HTML")
+    except Exception:
+        # Agar HTML parse bo'lmasa, oddiy matn sifatida yuboramiz
+        await message.answer(f"🤖 {javob}")
 
     # Tarixni yangilash (oxirgi MAX_HISTORY ta xabar)
     history.append({"role": "user", "content": savol})
