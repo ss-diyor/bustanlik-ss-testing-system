@@ -3,9 +3,11 @@ import json
 import hmac
 import hashlib
 import logging
+import asyncio
 from urllib.parse import parse_qsl
 
 from aiohttp import web
+import psycopg2
 import psycopg2.extras
 
 # ─────────────────────────────────────────
@@ -262,20 +264,23 @@ async def admin_stats_api(request: web.Request) -> web.Response:
             params = [teacher_sinf]
 
         # 1. KPI Stats
-        cur.execute(f"SELECT COUNT(*) as count FROM talabalar WHERE status = 'aktiv' {filter_sql}", params)
+        sql_kpi = f"SELECT COUNT(*) as count FROM talabalar WHERE status = 'aktiv' {filter_sql}"
+        cur.execute(sql_kpi, params)
         total_students = cur.fetchone()["count"]
 
         if role == "admin":
             cur.execute("SELECT COUNT(*) as count FROM test_natijalari")
             total_tests = cur.fetchone()["count"]
             cur.execute("SELECT AVG(umumiy_ball) as avg FROM test_natijalari")
-            school_avg = cur.fetchone()["avg"] or 0
+            row_avg = cur.fetchone()
+            school_avg = row_avg["avg"] or 0
         else:
             # Teacher sees stats for their class only
-            cur.execute(f"SELECT COUNT(*) as count FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s", [teacher_sinf])
+            cur.execute("SELECT COUNT(*) as count FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s", [teacher_sinf])
             total_tests = cur.fetchone()["count"]
-            cur.execute(f"SELECT AVG(tn.umumiy_ball) as avg FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s", [teacher_sinf])
-            school_avg = cur.fetchone()["avg"] or 0
+            cur.execute("SELECT AVG(tn.umumiy_ball) as avg FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s", [teacher_sinf])
+            row_avg = cur.fetchone()
+            school_avg = row_avg["avg"] or 0
 
         # 2. Class Stats (Admin sees all, Teacher sees only their own)
         if role == "admin":
@@ -321,8 +326,8 @@ async def admin_stats_api(request: web.Request) -> web.Response:
             "top_students": top_students
         })
     except Exception as e:
-        logging.error(f"Admin API error: {e}")
-        return web.json_response({"error": "Server error"}, status=500)
+        logging.error(f"Admin API error details: {e}", exc_info=True)
+        return web.json_response({"error": f"Server xatosi: {str(e)}"}, status=500)
 
 async def admin_get_schedule_api(request: web.Request) -> web.Response:
     """Testlar taqvimi."""
