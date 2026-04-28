@@ -226,6 +226,12 @@ async def send_full_results(message: Message, kod: str):
 
 @router.message(F.text == "✍️ Admin bilan bog'lanish")
 async def murojaat_boshlash(message: Message, state: FSMContext):
+    from parent import parent_ekanligini_tekshir, ota_ona_murojaat_start
+
+    if parent_ekanligini_tekshir(message.from_user.id):
+        await ota_ona_murojaat_start(message, state)
+        return
+
     await state.set_state(MurojaatState.xabar_kutish)
     await message.answer(
         "📝 <b>Murojaatingizni yozib yuboring.</b>\n\n"
