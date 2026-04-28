@@ -3111,22 +3111,54 @@ async def broadcast_target_school(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(Broadcast.maktab_tanlash, F.data.startswith("bcast_school:"))
 async def broadcast_school_selected(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id):
+        await callback.answer()
         return
-    data = callback.data.split(":")[1]
-    if data == "cancel":
+    # split faqat birinchi ":" dan keyin — maktab nomida ":" bo'lmasligi uchun
+    parts = callback.data.split(":", 1)
+    raw = parts[1] if len(parts) > 1 else ""
+    if raw == "cancel":
         await state.clear()
-        await callback.message.edit_text("❌ Xabar yuborish bekor qilindi.")
+        try:
+            await callback.message.edit_text("❌ Xabar yuborish bekor qilindi.")
+        except Exception:
+            pass
         await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
         await callback.answer()
         return
-    maktab_id = int(data)
+    try:
+        maktab_id = int(raw)
+    except ValueError:
+        await callback.answer("❌ Noto'g'ri tanlov.", show_alert=True)
+        return
     maktablar = maktablar_ol()
     maktab_nomi = next((m["nomi"] for m in maktablar if m["id"] == maktab_id), "Noma'lum")
-    await state.update_data(broadcast_target="school", broadcast_maktab_id=maktab_id)
+    # Nechta foydalanuvchi borligi
+    from database import count_users_by_maktab
+    user_count = count_users_by_maktab(maktab_id)
+    await state.update_data(broadcast_target="school", broadcast_maktab_id=maktab_id, broadcast_maktab_nomi=maktab_nomi)
     await state.set_state(Broadcast.xabar_kutish)
-    await callback.message.edit_text(f"✅ <b>{maktab_nomi}</b> tanlandi.", parse_mode="HTML")
+    # Inline klaviaturani o'chirish va tasdiqlash
+    try:
+        await callback.message.edit_text(
+            f"✅ <b>{maktab_nomi}</b> tanlandi.\n"
+            f"👥 Botga ulangan o'quvchilar: <b>{user_count} ta</b>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+    if user_count == 0:
+        await callback.message.answer(
+            f"⚠️ <b>{maktab_nomi}</b> maktabidan hali hech kim botga ulanmagan.\n"
+            "Boshqa maktab tanlang yoki barcha foydalanuvchilarga yuboring.",
+            parse_mode="HTML",
+            reply_markup=admin_menu_keyboard(),
+        )
+        await state.clear()
+        await callback.answer()
+        return
     await callback.message.answer(
-        "📝 Yubormoqchi bo'lgan xabaringizni yozing:",
+        f"📝 <b>{maktab_nomi}</b> ga yubormoqchi bo'lgan xabaringizni yozing:",
+        parse_mode="HTML",
         reply_markup=broadcast_cancel_keyboard(),
     )
     await callback.answer()
@@ -3203,16 +3235,31 @@ async def broadcast_confirm_callback(
 
     if broadcast_target == "school" and broadcast_maktab_id:
         user_ids = get_user_ids_by_maktab(broadcast_maktab_id)
+        maktab_nomi = data.get("broadcast_maktab_nomi", "Tanlangan maktab")
     else:
         user_ids = get_all_user_ids()
+        maktab_nomi = "Barcha foydalanuvchilar"
     total = len(user_ids)
+
+    if total == 0:
+        await state.clear()
+        await callback.message.edit_text(
+            f"⚠️ <b>{maktab_nomi}</b> uchun botga ulangan foydalanuvchi topilmadi.",
+            parse_mode="HTML",
+        )
+        await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
+        await callback.answer()
+        return
+
     sent_count = 0
     fail_count = 0
     processed = 0
     progress_step = 25
 
     await callback.message.edit_text(
-        f"📤 Xabar yuborish boshlandi...\n0/{total} ta foydalanuvchi ko'rib chiqildi."
+        f"📤 <b>{maktab_nomi}</b> ga xabar yuborish boshlandi...\n"
+        f"0/{total} ta foydalanuvchi ko'rib chiqildi.",
+        parse_mode="HTML",
     )
 
     for uid in user_ids:
@@ -3231,17 +3278,20 @@ async def broadcast_confirm_callback(
 
         if processed % progress_step == 0 or processed == total:
             await callback.message.edit_text(
-                "📤 Xabar yuborilmoqda...\n"
+                f"📤 <b>{maktab_nomi}</b> ga yuborilmoqda...\n"
                 f"{processed}/{total} ta foydalanuvchi ko'rib chiqildi.\n"
-                f"✅ Yuborildi: {sent_count} | ❌ Xatolik: {fail_count}"
+                f"✅ Yuborildi: {sent_count} | ❌ Xatolik: {fail_count}",
+                parse_mode="HTML",
             )
 
     await state.clear()
     await callback.message.edit_text(
-        "✅ Xabar yuborish yakunlandi.\n"
+        f"✅ Xabar yuborish yakunlandi.\n"
+        f"🏫 Maqsad: <b>{maktab_nomi}</b>\n"
         f"📊 Jami: {total}\n"
         f"✅ Yuborildi: {sent_count}\n"
-        f"❌ Xatolik: {fail_count}"
+        f"❌ Xatolik: {fail_count}",
+        parse_mode="HTML",
     )
     await callback.message.answer(
         "🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard()
