@@ -55,7 +55,7 @@ async function loadStudentData() {
 }
 
 // ─── Render ──────────────────────────────
-function renderPage({ student, stats, results }) {
+function renderPage({ student, stats, results, classmates }) {
   // Student info
   const initials = (student.ismlar || "?")
     .split(" ")
@@ -102,8 +102,8 @@ function renderPage({ student, stats, results }) {
   renderHistoryTable(results);
 
   // Classmates table
-  if (data.classmates) {
-    renderClassmates(data.classmates);
+  if (classmates) {
+    renderClassmates(classmates);
   }
 
   // Show app
