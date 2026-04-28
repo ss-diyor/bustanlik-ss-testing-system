@@ -296,25 +296,10 @@ function renderClassmates(classmates) {
   let html = '';
   
   classmates.forEach((c, i) => {
-    const rank = i + 1;
-    let rankClass = '';
-    if (rank === 1) rankClass = 'top-1';
-    else if (rank === 2) rankClass = 'top-2';
-    else if (rank === 3) rankClass = 'top-3';
-
-    let scoreHtml = '<span class="classmate-score" style="color:var(--tg-theme-hint-color)">Yo\'q</span>';
-    if (c.umumiy_ball !== null) {
-      const b = c.umumiy_ball;
-      const ballColor = b >= 140 ? "#43b581" : b >= 100 ? "#faa61a" : "#f04747";
-      scoreHtml = `<span class="classmate-score" style="color:${ballColor}">${b}</span>`;
-    }
-
-    // Only show first name and initial of last name to save space if needed, or just full name as it is.
     html += `
-      <div class="classmate-row">
-        <span class="classmate-rank ${rankClass}">${rank}</span>
-        <span class="classmate-name">${c.ismlar}</span>
-        ${scoreHtml}
+      <div class="classmate-row" style="grid-template-columns: 24px 1fr;">
+        <span class="classmate-rank" style="color: var(--tg-theme-hint-color); font-weight: normal;">•</span>
+        <span class="classmate-name" style="padding-right:0;">${c.ismlar}</span>
       </div>
     `;
   });
