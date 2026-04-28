@@ -2496,3 +2496,36 @@ def get_user_ids_by_maktab(maktab_id: int):
 def count_users_by_maktab(maktab_id: int) -> int:
     """Berilgan maktabdagi botga ulangan o'quvchilar sonini qaytaradi."""
     return len(get_user_ids_by_maktab(maktab_id))
+
+
+def talaba_qidirish(query: str, limit: int = 10) -> list:
+    """
+    Ism bo'yicha o'quvchini qidiradi (katta-kichik harfga sezgir emas).
+    Har bir natijaga eng so'nggi test natijasini ham qo'shadi.
+    """
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """
+        SELECT
+            t.kod, t.ismlar, t.sinf, t.yonalish,
+            tn.umumiy_ball, tn.majburiy, tn.asosiy_1, tn.asosiy_2, tn.test_sanasi
+        FROM talabalar t
+        LEFT JOIN LATERAL (
+            SELECT umumiy_ball, majburiy, asosiy_1, asosiy_2, test_sanasi
+            FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC
+            LIMIT 1
+        ) tn ON true
+        WHERE t.status = 'aktiv'
+          AND LOWER(t.ismlar) LIKE LOWER(%s)
+        ORDER BY t.ismlar ASC
+        LIMIT %s
+        """,
+        (f"%{query.strip()}%", limit),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]

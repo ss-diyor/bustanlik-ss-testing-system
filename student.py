@@ -1208,6 +1208,77 @@ async def inline_result_handler(inline_query: InlineQuery):
     await inline_query.answer(results, is_personal=True, cache_time=5)
 
 
+@router.inline_query(~F.query.contains("my_result") & (F.query.len() >= 2))
+async def inline_search_handler(inline_query: InlineQuery):
+    from database import talaba_qidirish
+    import hashlib
+
+    query = inline_query.query.strip()
+    if not query:
+        return
+
+    # Qidiruv
+    talabalar = talaba_qidirish(query, limit=10)
+    
+    if not talabalar:
+        return
+
+    bot_username = (await inline_query.bot.get_me()).username
+    results = []
+
+    m_max = 30 * 1.1
+    a1_max = 30 * 3.1
+    a2_max = 30 * 2.1
+    umumiy_max = m_max + a1_max + a2_max
+
+    for t in talabalar:
+        if t["umumiy_ball"] is None:
+            continue
+
+        sana = t["test_sanasi"].strftime("%d.%m.%Y") if t["test_sanasi"] else "—"
+        umumiy = float(t["umumiy_ball"])
+        foiz = round((umumiy / umumiy_max) * 100, 1)
+
+        m_ball = float(t.get("majburiy", 0)) * 1.1
+        a1_ball = float(t.get("asosiy_1", 0)) * 3.1
+        a2_ball = float(t.get("asosiy_2", 0)) * 2.1
+
+        filled = round(foiz / 10)
+        bar = "🟩" * filled + "⬜" * (10 - filled)
+
+        text = (
+            f"🎓 <b>DTM Test Natijasi</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>{t['ismlar']}</b>\n"
+            f"🏫 {t['sinf']}  •  🎯 {t.get('yonalish', '')}\n"
+            f"📅 {sana}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📊 Umumiy ball: <b>{umumiy:g} / {umumiy_max:g}</b> ({foiz}%)\n"
+            f"{bar}\n"
+            f"\n"
+            f"📌 Majburiy fanlar: <b>{m_ball:g}</b> / {m_max:g}\n"
+            f"📌 1-asosiy fan:    <b>{a1_ball:g}</b> / {a1_max:g}\n"
+            f"📌 2-asosiy fan:    <b>{a2_ball:g}</b> / {a2_max:g}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"🤖 @{bot_username}"
+        )
+
+        res_id = hashlib.md5(f"{t['kod']}_{umumiy}".encode()).hexdigest()
+        
+        results.append(
+            InlineQueryResultArticle(
+                id=res_id,
+                title=f"🔍 {t['ismlar']} — {umumiy:g} ball",
+                description=f"Sinf: {t['sinf']} | Sana: {sana}",
+                input_message_content=InputTextMessageContent(
+                    message_text=text, parse_mode="HTML"
+                ),
+            )
+        )
+
+    await inline_query.answer(results, is_personal=False, cache_time=10)
+
+
 # ─────────────────────────────────────────
 # Universal cancel buyrug'i
 # ─────────────────────────────────────────
