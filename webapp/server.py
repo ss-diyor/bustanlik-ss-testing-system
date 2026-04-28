@@ -71,7 +71,7 @@ async def student_api(request: web.Request) -> web.Response:
 
     # Telegram initData tekshiruvi
     init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user = validate_telegram_init_data(init_data, bot_token)
+    user, err_msg = validate_telegram_init_data(init_data, bot_token)
 
     if not user:
         # Debug rejimida query param orqali ham ishlaydi
@@ -82,7 +82,7 @@ async def student_api(request: web.Request) -> web.Response:
             except ValueError:
                 return web.json_response({"error": "Invalid user_id"}, status=400)
         else:
-            return web.json_response({"error": "Unauthorized"}, status=401)
+            return web.json_response({"error": f"Unauthorized: {err_msg}"}, status=401)
     else:
         user_id = user.get("id", 0)
 
