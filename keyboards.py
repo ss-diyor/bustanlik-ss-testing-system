@@ -477,8 +477,8 @@ def broadcast_target_keyboard():
     )
 
 
-def maktab_tanlash_keyboard(maktablar: list):
-    """Maktablar ro'yxatidan birini tanlash uchun inline keyboard."""
+def broadcast_maktab_tanlash_keyboard(maktablar: list):
+    """Broadcast uchun maktablar ro'yxatidan birini tanlash uchun inline keyboard."""
     buttons = []
     for m in maktablar:
         buttons.append([
