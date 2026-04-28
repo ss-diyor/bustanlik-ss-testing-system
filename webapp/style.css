@@ -246,6 +246,42 @@ body {
 .delta-down { color: var(--danger); }
 .delta-neutral { color: var(--tg-theme-hint-color); }
 
+/* ─── Admin Dashboard ─── */
+.admin-header {
+  padding: 24px 20px 16px;
+  background: linear-gradient(135deg, #1e1e38 0%, #2a2a4a 100%);
+  border-radius: 0 0 var(--radius) var(--radius);
+  animation: fadeDown 0.4s ease;
+  text-align: center;
+  border-bottom: 2px solid var(--accent);
+}
+
+.admin-header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.admin-header p {
+  font-size: 0.85rem;
+  color: var(--tg-theme-hint-color);
+  margin-top: 4px;
+}
+
+.admin-stats {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.admin-stats .stat-card {
+  padding: 16px 8px;
+}
+
+.admin-stats .stat-value {
+  font-size: 1.4rem;
+  color: #43b581;
+}
+
 /* ─── Footer ─── */
 .footer {
   text-align: center;

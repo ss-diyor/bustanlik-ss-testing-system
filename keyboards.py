@@ -18,57 +18,64 @@ from database import (
 
 def admin_menu_keyboard():
     """Admin bosh menyusi — reply keyboard."""
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="➕ O'quvchi qo'shish")],
-            [KeyboardButton(text="📥 Exceldan import")],
-            [
-                KeyboardButton(text="📝 Mock natija qo'shish"),
-                KeyboardButton(text="📊 Mock natijalarini ko'rish"),
-            ],
-            [KeyboardButton(text="⚙️ Mock fanlar boshqaruvi")],
-            [KeyboardButton(text="✏️ O'quvchi ma'lumotlarini tahrirlash")],
-            [KeyboardButton(text="🗑️ Bitta natijani o'chirish")],
-            [KeyboardButton(text="🔑 Test kalitlarini boshqarish")],
-            [KeyboardButton(text="✏️ Natijani tahrirlash")],
-            [KeyboardButton(text="⚙️ Yo'nalishlarni boshqarish")],
-            [KeyboardButton(text="🏫 Sinflarni boshqarish")],
-            [KeyboardButton(text="🔄 Sinf transferi")],
-            [KeyboardButton(text="📦 Bitiruvchilarni arxivlash")],
-            [KeyboardButton(text="🔍 Dublikatlarni topish")],
-            [KeyboardButton(text="👨‍🏫 O'qituvchilarni boshqarish")],
-            [KeyboardButton(text="👥 Adminlarni boshqarish")],
-            [
-                KeyboardButton(text="📊 Statistika"),
-                KeyboardButton(text="🏫 Maktab statistikasi"),
-            ],
-            [
-                KeyboardButton(text="🏆 Reyting"),
-                KeyboardButton(text="📄 PDF Hisobot"),
-            ],
-            [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
-            [KeyboardButton(text="📱 Ro'yxatdan o'tganlar")],
-            [
-                KeyboardButton(text="⏰ Eslatmalar"),
-                KeyboardButton(text="🏫 Maktablarni boshqarish"),
-            ],
-            [KeyboardButton(text="📢 Guruhlarni boshqarish")],
-            [
-                KeyboardButton(text="🔔 So'rovlar"),
-                KeyboardButton(text="⚖️ Apellyatsiyalar"),
-            ],
-            [
-                KeyboardButton(text="⚙️ Sozlamalar"),
-                KeyboardButton(text="📥 Excelga yuklash"),
-            ],
-            [KeyboardButton(text="🤖 Chatbot foydalanuvchilar")],
-            [KeyboardButton(text="🏆 Reyting Excel")],
-            [KeyboardButton(text="🧹 Bazani tozalash")],
-            [KeyboardButton(text="📢 Xabar yuborish")],
-            [KeyboardButton(text="✉️ Shaxsiy xabar yuborish")],
-            [KeyboardButton(text="🔍 Kod bo'yicha qidirish")],
-            [KeyboardButton(text="🚪 Chiqish")],
+    from config import WEBAPP_URL
+    
+    keyboard = [
+        [KeyboardButton(text="➕ O'quvchi qo'shish")],
+        [KeyboardButton(text="📥 Exceldan import")],
+        [
+            KeyboardButton(text="📝 Mock natija qo'shish"),
+            KeyboardButton(text="📊 Mock natijalarini ko'rish"),
         ],
+        [KeyboardButton(text="⚙️ Mock fanlar boshqaruvi")],
+        [KeyboardButton(text="✏️ O'quvchi ma'lumotlarini tahrirlash")],
+        [KeyboardButton(text="🗑️ Bitta natijani o'chirish")],
+        [KeyboardButton(text="🔑 Test kalitlarini boshqarish")],
+        [KeyboardButton(text="✏️ Natijani tahrirlash")],
+        [KeyboardButton(text="⚙️ Yo'nalishlarni boshqarish")],
+        [KeyboardButton(text="🏫 Sinflarni boshqarish")],
+        [KeyboardButton(text="🔄 Sinf transferi")],
+        [KeyboardButton(text="📦 Bitiruvchilarni arxivlash")],
+        [KeyboardButton(text="🔍 Dublikatlarni topish")],
+        [KeyboardButton(text="👨‍🏫 O'qituvchilarni boshqarish")],
+        [KeyboardButton(text="👥 Adminlarni boshqarish")],
+        [
+            KeyboardButton(text="📊 Statistika"),
+            KeyboardButton(text="🏫 Maktab statistikasi"),
+        ],
+        [
+            KeyboardButton(text="🏆 Reyting"),
+            KeyboardButton(text="📄 PDF Hisobot"),
+        ],
+        [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
+        [KeyboardButton(text="📱 Ro'yxatdan o'tganlar")],
+        [
+            KeyboardButton(text="⏰ Eslatmalar"),
+            KeyboardButton(text="🏫 Maktablarni boshqarish"),
+        ],
+        [KeyboardButton(text="📢 Guruhlarni boshqarish")],
+        [
+            KeyboardButton(text="🔔 So'rovlar"),
+            KeyboardButton(text="⚖️ Apellyatsiyalar"),
+        ],
+        [
+            KeyboardButton(text="⚙️ Sozlamalar"),
+            KeyboardButton(text="📥 Excelga yuklash"),
+        ],
+        [KeyboardButton(text="🤖 Chatbot foydalanuvchilar")],
+        [KeyboardButton(text="🏆 Reyting Excel")],
+        [KeyboardButton(text="🧹 Bazani tozalash")],
+        [KeyboardButton(text="📢 Xabar yuborish")],
+        [KeyboardButton(text="✉️ Shaxsiy xabar yuborish")],
+        [KeyboardButton(text="🔍 Kod bo'yicha qidirish")],
+        [KeyboardButton(text="🚪 Chiqish")],
+    ]
+    
+    if WEBAPP_URL:
+        keyboard.insert(0, [KeyboardButton(text="🌐 Admin Web Panel", web_app=WebAppInfo(url=f"{WEBAPP_URL}/admin"))])
+
+    return ReplyKeyboardMarkup(
+        keyboard=keyboard,
         resize_keyboard=True,
         one_time_keyboard=False,
     )

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Admin Panel - Tahlillar</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- Loading state -->
+  <div id="loading" class="loading-screen">
+    <div class="spinner"></div>
+    <p>Ma'lumotlar yuklanmoqda...</p>
+  </div>
+
+  <!-- Error state -->
+  <div id="error-screen" class="error-screen hidden">
+    <div class="error-icon">😕</div>
+    <h2>Xato yuz berdi</h2>
+    <p id="error-msg">Sizda admin huquqi yo'q yoki server xatosi.</p>
+    <button class="btn-primary" onclick="Telegram.WebApp.close()">Yopish</button>
+  </div>
+
+  <!-- Main content -->
+  <div id="app" class="hidden">
+    <header class="admin-header">
+      <h1>Admin Tahlillari</h1>
+      <p>Maktab bo'yicha umumiy statistika</p>
+    </header>
+
+    <!-- KPI Stats -->
+    <section class="stats-row admin-stats">
+      <div class="stat-card">
+        <span class="stat-value" id="stat-students">—</span>
+        <span class="stat-label">O'quvchilar</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-tests">—</span>
+        <span class="stat-label">Natijalar</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-avg">—</span>
+        <span class="stat-label">Maktab O'rtacha</span>
+      </div>
+    </section>
+
+    <!-- Chart: Classes Average -->
+    <section class="chart-section">
+      <h2 class="section-title">📊 Sinflar o'zlashtirishi (O'rtacha ball)</h2>
+      <div class="chart-wrapper">
+        <canvas id="classesChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Chart: Directions Average -->
+    <section class="chart-section">
+      <h2 class="section-title">📊 Yo'nalishlar bo'yicha (O'rtacha ball)</h2>
+      <div class="chart-wrapper">
+        <canvas id="directionsChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Top Students Table -->
+    <section class="history-section" style="padding-top: 20px;">
+      <h2 class="section-title">🏆 Top 30 O'quvchilar Reytingi</h2>
+      <div class="table-wrapper" id="top-students-list"></div>
+    </section>
+
+    <footer class="footer">Bo'stonliq ITMA · DTM Natijalar Tizimi</footer>
+  </div>
+
+  <script src="/static/admin.js"></script>
+</body>
+</html>
