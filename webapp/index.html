@@ -25,61 +25,79 @@
 
   <!-- Main content -->
   <div id="app" class="hidden">
-    <!-- Header: student info -->
-    <header class="student-card">
-      <div class="student-avatar" id="avatar-initials"></div>
-      <div class="student-info">
-        <h1 id="student-name">—</h1>
-        <p id="student-meta">—</p>
-      </div>
-    </header>
+    
+    <!-- Tab Navigation -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('personal')">Shaxsiy Natijalar</button>
+      <button class="tab-btn" onclick="switchTab('classmates')">Sinfdoshlar</button>
+    </div>
 
-    <!-- Stats row -->
-    <section class="stats-row">
-      <div class="stat-card">
-        <span class="stat-value" id="stat-last">—</span>
-        <span class="stat-label">Oxirgi ball</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value" id="stat-best">—</span>
-        <span class="stat-label">Eng yuqori</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value" id="stat-avg">—</span>
-        <span class="stat-label">O'rtacha</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value" id="stat-rank">—</span>
-        <span class="stat-label">Sinf o'rni</span>
-      </div>
-    </section>
+    <!-- Personal Tab -->
+    <div id="tab-personal" class="tab-content active-tab">
+      <!-- Header: student info -->
+      <header class="student-card">
+        <div class="student-avatar" id="avatar-initials"></div>
+        <div class="student-info">
+          <h1 id="student-name">—</h1>
+          <p id="student-meta">—</p>
+        </div>
+      </header>
 
-    <!-- Trend badge -->
-    <div class="trend-badge" id="trend-badge"></div>
+      <!-- Stats row -->
+      <section class="stats-row">
+        <div class="stat-card">
+          <span class="stat-value" id="stat-last">—</span>
+          <span class="stat-label">Oxirgi ball</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-best">—</span>
+          <span class="stat-label">Eng yuqori</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-avg">—</span>
+          <span class="stat-label">O'rtacha</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-rank">—</span>
+          <span class="stat-label">Sinf o'rni</span>
+        </div>
+      </section>
 
-    <!-- Chart -->
-    <section class="chart-section">
-      <h2 class="section-title">📈 Natijalar Dinamikasi</h2>
-      <div class="chart-wrapper">
-        <canvas id="progressChart"></canvas>
-      </div>
-    </section>
+      <!-- Trend badge -->
+      <div class="trend-badge" id="trend-badge"></div>
 
-    <!-- Bar chart: subject breakdown -->
-    <section class="chart-section">
-      <h2 class="section-title">📊 Fanlar bo'yicha (so'nggi test)</h2>
-      <div class="chart-wrapper short">
-        <canvas id="subjectChart"></canvas>
-      </div>
-    </section>
+      <!-- Chart -->
+      <section class="chart-section">
+        <h2 class="section-title">📈 Natijalar Dinamikasi</h2>
+        <div class="chart-wrapper">
+          <canvas id="progressChart"></canvas>
+        </div>
+      </section>
 
-    <!-- History table -->
-    <section class="history-section">
-      <h2 class="section-title">📜 Testlar Tarixi</h2>
-      <div class="table-wrapper" id="history-table"></div>
-    </section>
+      <!-- Bar chart: subject breakdown -->
+      <section class="chart-section">
+        <h2 class="section-title">📊 Fanlar bo'yicha (so'nggi test)</h2>
+        <div class="chart-wrapper short">
+          <canvas id="subjectChart"></canvas>
+        </div>
+      </section>
 
-    <footer class="footer">2026 · Bo'stonliq ITMA · DTM Natijalar Tizimi</footer>
+      <!-- History table -->
+      <section class="history-section">
+        <h2 class="section-title">📜 Testlar Tarixi</h2>
+        <div class="table-wrapper" id="history-table"></div>
+      </section>
+    </div>
+
+    <!-- Classmates Tab -->
+    <div id="tab-classmates" class="tab-content hidden">
+      <section class="history-section" style="padding-top: 20px;">
+        <h2 class="section-title">👥 Sinfdoshlar Reytingi</h2>
+        <div class="table-wrapper" id="classmates-list"></div>
+      </section>
+    </div>
+
+    <footer class="footer">Bo'stonliq ITMA · DTM Natijalar Tizimi</footer>
   </div>
 
   <script src="/static/app.js"></script>

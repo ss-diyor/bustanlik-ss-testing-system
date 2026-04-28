@@ -255,6 +255,83 @@ body {
   animation: fadeUp 0.4s ease 0.35s both;
 }
 
+/* ─── Tabs ─── */
+.tabs {
+  display: flex;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--card-border);
+  padding: 8px 14px 0;
+  gap: 16px;
+  justify-content: center;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--tg-theme-hint-color);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+.tab-content {
+  display: none;
+  animation: fadeUp 0.3s ease;
+}
+
+.tab-content.active-tab {
+  display: block;
+}
+
+/* ─── Classmates List ─── */
+.classmate-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 60px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--card-border);
+  transition: background 0.15s;
+}
+
+.classmate-row:last-child {
+  border-bottom: none;
+}
+
+.classmate-rank {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--tg-theme-hint-color);
+}
+
+.classmate-rank.top-1 { color: #faa61a; }
+.classmate-rank.top-2 { color: #aaaacc; }
+.classmate-rank.top-3 { color: #cd7f32; }
+
+.classmate-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--tg-theme-text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 10px;
+}
+
+.classmate-score {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: right;
+  color: var(--accent2);
+}
+
 /* ─── Animations ─── */
 @keyframes fadeDown {
   from { opacity: 0; transform: translateY(-12px); }

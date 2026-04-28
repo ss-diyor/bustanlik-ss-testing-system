@@ -128,6 +128,28 @@ async def student_api(request: web.Request) -> web.Response:
         rank_row = cur.fetchone()
         sinf_rank = rank_row["sinf_rank"] if rank_row else "—"
 
+        # Sinfdoshlar ro'yxati (eng so'nggi ballari bilan)
+        cur.execute(
+            """
+            SELECT
+                t.ismlar,
+                tn.umumiy_ball,
+                tn.test_sanasi
+            FROM talabalar t
+            LEFT JOIN LATERAL (
+                SELECT umumiy_ball, test_sanasi
+                FROM test_natijalari
+                WHERE talaba_kod = t.kod
+                ORDER BY test_sanasi DESC
+                LIMIT 1
+            ) tn ON true
+            WHERE t.sinf = %s AND t.status = 'aktiv'
+            ORDER BY tn.umumiy_ball DESC NULLS LAST, t.ismlar ASC
+            """,
+            (talaba["sinf"],)
+        )
+        classmates = cur.fetchall()
+
         cur.close()
         release_connection(conn)
 
@@ -165,6 +187,14 @@ async def student_api(request: web.Request) -> web.Response:
                     "last": balls[-1] if balls else 0,
                 },
                 "results": results_list,
+                "classmates": [
+                    {
+                        "ismlar": c["ismlar"],
+                        "umumiy_ball": float(c["umumiy_ball"]) if c["umumiy_ball"] is not None else None,
+                        "sana": c["test_sanasi"].strftime("%d.%m.%Y") if c["test_sanasi"] else None,
+                    }
+                    for c in classmates
+                ],
             },
             headers={"Access-Control-Allow-Origin": "*"},
         )

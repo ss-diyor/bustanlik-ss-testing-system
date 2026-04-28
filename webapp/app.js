@@ -101,9 +101,31 @@ function renderPage({ student, stats, results }) {
   // History table
   renderHistoryTable(results);
 
+  // Classmates table
+  if (data.classmates) {
+    renderClassmates(data.classmates);
+  }
+
   // Show app
   document.getElementById("loading").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
+}
+
+// ─── Tab Switching ────────────────────────
+function switchTab(tabId) {
+  // Update buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`).classList.add('active');
+
+  // Update content
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.remove('active-tab');
+    content.classList.add('hidden');
+  });
+  document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+  document.getElementById(`tab-${tabId}`).classList.add('active-tab');
 }
 
 // ─── Progress Line Chart ─────────────────
@@ -258,6 +280,43 @@ function renderHistoryTable(results) {
       <span class="hist-ball" style="color:${ballColor}">${b}</span>
       ${deltaHtml}
     </div>`;
+  });
+
+  wrap.innerHTML = html;
+}
+
+// ─── Classmates List ──────────────────────
+function renderClassmates(classmates) {
+  const wrap = document.getElementById("classmates-list");
+  if (!classmates || !classmates.length) {
+    wrap.innerHTML = `<p style="text-align:center;padding:20px;color:var(--tg-theme-hint-color)">Sinfdoshlar topilmadi</p>`;
+    return;
+  }
+
+  let html = '';
+  
+  classmates.forEach((c, i) => {
+    const rank = i + 1;
+    let rankClass = '';
+    if (rank === 1) rankClass = 'top-1';
+    else if (rank === 2) rankClass = 'top-2';
+    else if (rank === 3) rankClass = 'top-3';
+
+    let scoreHtml = '<span class="classmate-score" style="color:var(--tg-theme-hint-color)">Yo\'q</span>';
+    if (c.umumiy_ball !== null) {
+      const b = c.umumiy_ball;
+      const ballColor = b >= 140 ? "#43b581" : b >= 100 ? "#faa61a" : "#f04747";
+      scoreHtml = `<span class="classmate-score" style="color:${ballColor}">${b}</span>`;
+    }
+
+    // Only show first name and initial of last name to save space if needed, or just full name as it is.
+    html += `
+      <div class="classmate-row">
+        <span class="classmate-rank ${rankClass}">${rank}</span>
+        <span class="classmate-name">${c.ismlar}</span>
+        ${scoreHtml}
+      </div>
+    `;
   });
 
   wrap.innerHTML = html;
