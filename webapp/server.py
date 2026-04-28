@@ -17,10 +17,15 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
     Telegram WebApp initData ni kriptografik tekshiradi.
     Muvaffaqiyatli bo'lsa user dict qaytaradi, aks holda None.
     """
+    if not init_data:
+        logging.warning("initData is empty")
+        return None
+        
     try:
-        parsed = dict(parse_qsl(init_data, strict_parsing=True))
+        parsed = dict(parse_qsl(init_data))
         received_hash = parsed.pop("hash", None)
         if not received_hash:
+            logging.warning("initData missing hash")
             return None
 
         data_check_string = "\n".join(
@@ -34,6 +39,7 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
         ).hexdigest()
 
         if not hmac.compare_digest(expected_hash, received_hash):
+            logging.warning("initData hash mismatch")
             return None
 
         return json.loads(parsed.get("user", "{}"))
