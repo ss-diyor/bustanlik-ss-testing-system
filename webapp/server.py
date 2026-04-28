@@ -22,7 +22,7 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
         return None
         
     try:
-        parsed = dict(parse_qsl(init_data))
+        parsed = dict(parse_qsl(init_data, keep_blank_values=True))
         received_hash = parsed.pop("hash", None)
         if not received_hash:
             logging.warning("initData missing hash")
