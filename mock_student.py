@@ -1,11 +1,19 @@
+from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
 
-from database import talaba_topish, check_access
+from database import check_access, talaba_topish
 from mock_database import (
-    EXAM_TYPES,
-    mock_natijalari_ol,
-    mock_natija_turlari,
+    exam_type_ol,
     format_mock_natija_matn,
+    mock_natija_turlari,
+    mock_natijalari_ol,
 )
 
 router = Router()
@@ -29,7 +37,7 @@ def _mock_turlar_keyboard(kod: str, turlari: list):
     for t in turlari:
         buttons.append([InlineKeyboardButton(
             text=f"{t['exam_label']} ({t['soni']} ta)",
-            callback_data=f"student_mock_type:{kod}:{t['exam_type']}"
+            callback_data=f"student_mock_type:{kod}:{t['exam_key']}"
         )])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -102,14 +110,15 @@ async def _show_mock_types(message: Message, kod: str):
     ]
 
     for t in turlari:
-        natijalari = mock_natijalari_ol(kod, exam_type=t["exam_type"], limit=1)
+        exam_key = t.get("exam_key")
+        natijalari = mock_natijalari_ol(kod, exam_key=exam_key, limit=1)
         if natijalari:
             natija = natijalari[0]
             # Faqat oxirgi natijaning qisqa ko'rinishi
             umumiy = natija.get("umumiy_ball")
             sana = str(natija.get("test_sanasi", ""))[:10]
-            cfg = EXAM_TYPES.get(t["exam_type"], EXAM_TYPES["CUSTOM"])
-            total_max = cfg.get("total_max")
+            et = exam_type_ol(exam_key) or {}
+            total_max = et.get("total_max")
 
             if umumiy is not None:
                 ball_text = f"<b>{umumiy}</b>/{total_max}" if total_max else f"<b>{umumiy}</b>"
@@ -141,16 +150,16 @@ async def _show_mock_types(message: Message, kod: str):
 async def student_mock_type(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
     kod = parts[1]
-    exam_type = parts[2]
+    exam_key = parts[2]
 
-    natijalari = mock_natijalari_ol(kod, exam_type=exam_type, limit=1)
+    natijalari = mock_natijalari_ol(kod, exam_key=exam_key, limit=1)
     if not natijalari:
         await callback.answer("Natijalar topilmadi", show_alert=True)
         return
 
     natija = natijalari[0]
     talaba = talaba_topish(kod)
-    cfg = EXAM_TYPES.get(exam_type, EXAM_TYPES["CUSTOM"])
+    et = exam_type_ol(exam_key) or {}
 
     matn = (
         f"👤 <b>{talaba['ismlar']}</b>\n"
@@ -161,7 +170,7 @@ async def student_mock_type(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         matn,
         parse_mode="HTML",
-        reply_markup=_mock_history_keyboard(kod, exam_type),
+        reply_markup=_mock_history_keyboard(kod, exam_key),
     )
     await callback.answer()
 
@@ -174,24 +183,24 @@ async def student_mock_type(callback: CallbackQuery, state: FSMContext):
 async def student_mock_history(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
     kod = parts[1]
-    exam_type = parts[2]
+    exam_key = parts[2]
 
-    natijalari = mock_natijalari_ol(kod, exam_type=exam_type, limit=10)
+    natijalari = mock_natijalari_ol(kod, exam_key=exam_key, limit=10)
     if not natijalari:
         await callback.answer("Natijalar topilmadi", show_alert=True)
         return
 
-    cfg = EXAM_TYPES.get(exam_type, EXAM_TYPES["CUSTOM"])
+    et = exam_type_ol(exam_key) or {"label": "Mock"}
     talaba = talaba_topish(kod)
 
     lines = [
-        f"📅 <b>{talaba['ismlar']}</b> — {cfg['label']} tarixi\n"
+        f"📅 <b>{talaba['ismlar']}</b> — {et.get('label', 'Mock')} tarixi\n"
     ]
 
     for i, n in enumerate(natijalari, 1):
         sana = str(n.get("test_sanasi", ""))[:10]
         umumiy = n.get("umumiy_ball")
-        total_max = cfg.get("total_max")
+        total_max = et.get("total_max")
 
         if umumiy is not None:
             ball = f"{umumiy}/{total_max}" if total_max else str(umumiy)
@@ -242,12 +251,13 @@ async def student_mock_back(callback: CallbackQuery, state: FSMContext):
 
     lines = [f"🧪 <b>{talaba['ismlar']}</b> — Mock natijalari\n"]
     for t in turlari:
-        natijalari = mock_natijalari_ol(kod, exam_type=t["exam_type"], limit=1)
+        exam_key = t.get("exam_key")
+        natijalari = mock_natijalari_ol(kod, exam_key=exam_key, limit=1)
         if natijalari:
             n = natijalari[0]
             umumiy = n.get("umumiy_ball")
-            cfg = EXAM_TYPES.get(t["exam_type"], EXAM_TYPES["CUSTOM"])
-            total_max = cfg.get("total_max")
+            et = exam_type_ol(exam_key) or {}
+            total_max = et.get("total_max")
             sana = str(n.get("test_sanasi", ""))[:10]
             if umumiy is not None:
                 ball_text = f"<b>{umumiy}</b>/{total_max}" if total_max else f"<b>{umumiy}</b>"
