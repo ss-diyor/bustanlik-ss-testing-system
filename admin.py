@@ -593,7 +593,7 @@ async def bildirishnoma_yuborish(
             diff_text = "\n⏺ Natijangiz o'zgarmadi."
 
     matn = (
-        f"🔔 <b>Yangi test natijangiz kiritildi!</b>\n\n"
+        f"✅ <b>Natija chiqdi!</b>\n\n"
         f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
         f"🆔 Kod: <b>{talaba['kod']}</b>\n\n"
         f"📊 <b>Natijalar:</b>\n"
@@ -1801,6 +1801,22 @@ async def natija_tahrir_asosiy2(message: Message, state: FSMContext):
 
     # Ma'lumotlarni yangilash
     natija_qosh(data["kod"], data["majburiy"], data["asosiy1"], son)
+
+    # O'quvchiga avtomatik xabarnoma (profil ulangan bo'lsa)
+    try:
+        talaba = talaba_topish(data["kod"])
+        if talaba:
+            natija = {
+                "majburiy": data["majburiy"],
+                "asosiy_1": data["asosiy1"],
+                "asosiy_2": son,
+                "umumiy_ball": ball,
+            }
+            asyncio.create_task(
+                bildirishnoma_yuborish(message.bot, data["kod"], natija, talaba)
+            )
+    except Exception:
+        pass
 
     # Ota-onalarga avtomatik xabarnoma
     asyncio.create_task(

@@ -592,7 +592,7 @@ async def _xabar_talabaga(bot, talaba_kod: str):
         natijalar = mock_natijalari_ol(talaba_kod, limit=1)
         if not natijalar:
             return
-        matn = "🔔 <b>Yangi mock natijangiz qo'shildi!</b>\n\n" + format_mock_natija_matn(natijalar[0])
+        matn = "✅ <b>Natija chiqdi!</b>\n\n" + format_mock_natija_matn(natijalar[0])
         await bot.send_message(talaba["user_id"], matn, parse_mode="HTML")
     except Exception:
         pass
