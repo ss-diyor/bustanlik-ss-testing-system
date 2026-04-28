@@ -2990,30 +2990,7 @@ async def ranking_start(message: Message, state: FSMContext):
     )
 
 
-@router.callback_query(F.data.startswith("student_ranking:"))
-async def student_ranking_callback(callback: CallbackQuery, state: FSMContext):
-    """Student panel ranking callback handler."""
-    # This is for regular users, not admin verification needed
-    action = callback.data.split(":")[1]
-    
-    if action == "overall_top50":
-        from database import get_overall_ranking
-        
-        try:
-            ranking = get_overall_ranking(limit=50)
-            if not ranking:
-                await callback.answer("📊 Reyting ma'lumotlari topilmadi.", show_alert=True)
-                return
-            
-            text = "🏆 <b>Umumiy Top 50 reyting:</b>\n\n"
-            for i, student in enumerate(ranking, 1):
-                text += f"{i}. {student['ismlar']} ({student['sinf']}) - {student['umumiy_ball']} ball\n"
-            
-            await callback.message.edit_text(text, parse_mode="HTML")
-        except Exception as e:
-            await callback.answer("❌ Xatolik yuz berdi.", show_alert=True)
-    
-    await callback.answer()
+
 
 
 @router.callback_query(
