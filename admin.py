@@ -153,6 +153,7 @@ from database import (
     talaba_filtrlangan_by_maktab,
     get_all_students_for_excel,
     get_all_user_ids,
+    get_user_ids_by_maktab,
     get_pending_requests,
     update_request_status,
     get_all_in_class,
@@ -272,6 +273,9 @@ from keyboards import (
     maktab_tanlash_keyboard,
     broadcast_cancel_keyboard,
     broadcast_confirm_keyboard,
+    broadcast_target_keyboard,
+    maktab_tanlash_keyboard,
+    shaxsiy_xabar_confirm_keyboard,
 )
 
 router = Router()
@@ -348,6 +352,13 @@ class SinfBoshqar(StatesGroup):
 
 
 class Broadcast(StatesGroup):
+    maktab_tanlash = State()
+    xabar_kutish = State()
+    tasdiq_kutish = State()
+
+
+class ShaxsiyXabar(StatesGroup):
+    kod_kutish = State()
     xabar_kutish = State()
     tasdiq_kutish = State()
 
@@ -3050,12 +3061,75 @@ async def ranking_admin_callback(callback: CallbackQuery, state: FSMContext):
 async def broadcast_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
-    await state.set_state(Broadcast.xabar_kutish)
+    await state.set_state(Broadcast.maktab_tanlash)
     await message.answer(
-        "📢 Barcha foydalanuvchilarga yuboriladigan xabarni yuboring.\n"
-        "Bekor qilish uchun tugmani bosing.",
+        "📢 <b>Xabar yuborish</b>\n\nKimga yubormoqchisiz?",
+        parse_mode="HTML",
+        reply_markup=broadcast_target_keyboard(),
+    )
+
+
+@router.callback_query(Broadcast.maktab_tanlash, F.data == "bcast_target:cancel")
+async def broadcast_target_cancel(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    await state.clear()
+    await callback.message.edit_text("❌ Xabar yuborish bekor qilindi.")
+    await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(Broadcast.maktab_tanlash, F.data == "bcast_target:all")
+async def broadcast_target_all(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    await state.update_data(broadcast_target="all", broadcast_maktab_id=None)
+    await state.set_state(Broadcast.xabar_kutish)
+    await callback.message.edit_text("✅ Barcha foydalanuvchilar tanlandi.")
+    await callback.message.answer(
+        "📝 Yubormoqchi bo'lgan xabaringizni yozing:",
         reply_markup=broadcast_cancel_keyboard(),
     )
+    await callback.answer()
+
+
+@router.callback_query(Broadcast.maktab_tanlash, F.data == "bcast_target:school")
+async def broadcast_target_school(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    maktablar = maktablar_ol()
+    if not maktablar:
+        await callback.answer("❌ Hozircha maktablar yo'q.", show_alert=True)
+        return
+    await callback.message.edit_text(
+        "🏫 Qaysi maktabga yubormoqchisiz?",
+        reply_markup=maktab_tanlash_keyboard(maktablar),
+    )
+    await callback.answer()
+
+
+@router.callback_query(Broadcast.maktab_tanlash, F.data.startswith("bcast_school:"))
+async def broadcast_school_selected(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    data = callback.data.split(":")[1]
+    if data == "cancel":
+        await state.clear()
+        await callback.message.edit_text("❌ Xabar yuborish bekor qilindi.")
+        await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
+        await callback.answer()
+        return
+    maktab_id = int(data)
+    maktablar = maktablar_ol()
+    maktab_nomi = next((m["nomi"] for m in maktablar if m["id"] == maktab_id), "Noma'lum")
+    await state.update_data(broadcast_target="school", broadcast_maktab_id=maktab_id)
+    await state.set_state(Broadcast.xabar_kutish)
+    await callback.message.edit_text(f"✅ <b>{maktab_nomi}</b> tanlandi.", parse_mode="HTML")
+    await callback.message.answer(
+        "📝 Yubormoqchi bo'lgan xabaringizni yozing:",
+        reply_markup=broadcast_cancel_keyboard(),
+    )
+    await callback.answer()
 
 
 @router.message(
@@ -3113,6 +3187,9 @@ async def broadcast_confirm_callback(
     data = await state.get_data()
     src_chat_id = data.get("broadcast_source_chat_id")
     src_message_id = data.get("broadcast_source_message_id")
+    broadcast_target = data.get("broadcast_target", "all")
+    broadcast_maktab_id = data.get("broadcast_maktab_id")
+
     if not src_chat_id or not src_message_id:
         await state.clear()
         await callback.message.edit_text(
@@ -3124,7 +3201,10 @@ async def broadcast_confirm_callback(
         await callback.answer()
         return
 
-    user_ids = get_all_user_ids()
+    if broadcast_target == "school" and broadcast_maktab_id:
+        user_ids = get_user_ids_by_maktab(broadcast_maktab_id)
+    else:
+        user_ids = get_all_user_ids()
     total = len(user_ids)
     sent_count = 0
     fail_count = 0
@@ -3166,6 +3246,133 @@ async def broadcast_confirm_callback(
     await callback.message.answer(
         "🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard()
     )
+    await callback.answer()
+
+
+# ─────────────────────────────────────────────
+# ✉️ SHAXSIY XABAR YUBORISH
+# ─────────────────────────────────────────────
+
+@router.message(F.text == "✉️ Shaxsiy xabar yuborish")
+async def shaxsiy_xabar_start(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    await state.set_state(ShaxsiyXabar.kod_kutish)
+    await message.answer(
+        "✉️ <b>Shaxsiy xabar yuborish</b>\n\n"
+        "O'quvchining shaxsiy kodini kiriting:\n"
+        "<i>Masalan: A-007 yoki 52B</i>",
+        parse_mode="HTML",
+        reply_markup=broadcast_cancel_keyboard(),
+    )
+
+
+@router.message(ShaxsiyXabar.kod_kutish, F.text == "❌ Xabar yuborishni bekor qilish")
+async def shaxsiy_xabar_cancel_kod(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    await state.clear()
+    await message.answer("❌ Bekor qilindi.", reply_markup=admin_menu_keyboard())
+
+
+@router.message(ShaxsiyXabar.kod_kutish)
+async def shaxsiy_xabar_kod_qabul(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    kod = message.text.strip().upper()
+    talaba = talaba_topish(kod)
+    if not talaba:
+        await message.answer(
+            f"❌ <b>{kod}</b> kodi bo'yicha o'quvchi topilmadi.\n"
+            "Qaytadan kiriting yoki bekor qiling.",
+            parse_mode="HTML",
+        )
+        return
+    if not talaba.get("user_id"):
+        await message.answer(
+            f"⚠️ <b>{talaba['ismlar']}</b> ({kod}) hali botga ulanmagan.\n"
+            "Unga xabar yuborib bo'lmaydi.",
+            parse_mode="HTML",
+        )
+        return
+    await state.update_data(pm_talaba_kod=kod, pm_talaba_user_id=talaba["user_id"], pm_talaba_ismi=talaba["ismlar"])
+    await state.set_state(ShaxsiyXabar.xabar_kutish)
+    await message.answer(
+        f"✅ O'quvchi topildi:\n"
+        f"👤 <b>{talaba['ismlar']}</b>\n"
+        f"🏫 Sinf: {talaba.get('sinf', '—')}\n"
+        f"🆔 Kod: <code>{kod}</code>\n\n"
+        f"📝 Yubormoqchi bo'lgan xabaringizni yozing:",
+        parse_mode="HTML",
+        reply_markup=broadcast_cancel_keyboard(),
+    )
+
+
+@router.message(ShaxsiyXabar.xabar_kutish, F.text == "❌ Xabar yuborishni bekor qilish")
+async def shaxsiy_xabar_cancel_xabar(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    await state.clear()
+    await message.answer("❌ Bekor qilindi.", reply_markup=admin_menu_keyboard())
+
+
+@router.message(ShaxsiyXabar.xabar_kutish)
+async def shaxsiy_xabar_xabar_qabul(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    data = await state.get_data()
+    ismi = data.get("pm_talaba_ismi", "")
+    user_id = data.get("pm_talaba_user_id")
+    preview = message.text or message.caption or f"{message.content_type} formatdagi xabar"
+    await state.update_data(
+        pm_src_chat_id=message.chat.id,
+        pm_src_message_id=message.message_id,
+    )
+    await state.set_state(ShaxsiyXabar.tasdiq_kutish)
+    await message.answer(
+        f"📨 <b>{ismi}</b> ga yubormoqchi bo'lgan xabar:\n\n"
+        f"{preview}\n\n"
+        f"Tasdiqlaysizmi?",
+        parse_mode="HTML",
+        reply_markup=shaxsiy_xabar_confirm_keyboard(user_id),
+    )
+
+
+@router.callback_query(ShaxsiyXabar.tasdiq_kutish, F.data == "pmsend:cancel")
+async def shaxsiy_xabar_tasdiq_cancel(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    await state.clear()
+    await callback.message.edit_text("❌ Xabar yuborish bekor qilindi.")
+    await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(ShaxsiyXabar.tasdiq_kutish, F.data.startswith("pmsend:confirm:"))
+async def shaxsiy_xabar_tasdiq_confirm(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    data = await state.get_data()
+    target_user_id = int(callback.data.split(":")[2])
+    src_chat_id = data.get("pm_src_chat_id")
+    src_message_id = data.get("pm_src_message_id")
+    ismi = data.get("pm_talaba_ismi", "")
+    try:
+        await callback.bot.copy_message(
+            chat_id=target_user_id,
+            from_chat_id=src_chat_id,
+            message_id=src_message_id,
+        )
+        await callback.message.edit_text(
+            f"✅ Xabar <b>{ismi}</b> ga muvaffaqiyatli yuborildi!",
+            parse_mode="HTML",
+        )
+    except Exception as e:
+        await callback.message.edit_text(
+            f"❌ Xabar yuborishda xatolik: {e}"
+        )
+    await state.clear()
+    await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
     await callback.answer()
 
 
