@@ -4,6 +4,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
     SwitchInlineQueryChosenChat,
+    WebAppInfo,
 )
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from database import (
@@ -1522,31 +1523,49 @@ def request_actions_keyboard(request_id, user_id=None):
 
 def profile_keyboard():
     """Shaxsiy kabinet uchun inline tugmalar."""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+    from config import WEBAPP_URL
+
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text="📜 Testlar tarixi", callback_data="profile:history"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="📈 Mening dinamikam", callback_data="profile:chart"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🔄 Yangilash", callback_data="profile:refresh"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="📤 Natijani ulashish",
+                switch_inline_query_chosen_chat=SwitchInlineQueryChosenChat(
+                    query="my_result",
+                    allow_user_chats=True,
+                    allow_group_chats=True,
+                    allow_channel_chats=False,
+                ),
+            )
+        ],
+    ]
+
+    # Web App tugmasi faqat WEBAPP_URL sozlanganda ko'rinadi
+    if WEBAPP_URL:
+        buttons.append(
             [
                 InlineKeyboardButton(
-                    text="📜 Testlar tarixi", callback_data="profile:history"
+                    text="🌐 Web Panel",
+                    web_app=WebAppInfo(url=WEBAPP_URL),
                 )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🔄 Yangilash", callback_data="profile:refresh"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="📤 Natijani ulashish",
-                    switch_inline_query_chosen_chat=SwitchInlineQueryChosenChat(
-                        query="my_result",
-                        allow_user_chats=True,
-                        allow_group_chats=True,
-                        allow_channel_chats=False,
-                    ),
-                )
-            ],
-        ]
-    )
+            ]
+        )
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def oqituvchi_boshqarish_keyboard():

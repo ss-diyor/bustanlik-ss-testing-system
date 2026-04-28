@@ -8,3 +8,4 @@ fpdf2
 psycopg2-binary
 numpy
 python-dotenv
+aiohttp

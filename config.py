@@ -56,6 +56,10 @@ AI_MODEL = _env("AI_MODEL", "llama-3.3-70b-versatile")
 AI_BASE_URL = _env("AI_BASE_URL", "https://api.groq.com/openai/v1")
 AI_DAILY_LIMIT = _env_int("AI_DAILY_LIMIT", 50)
 
+# Telegram Mini Web App public URL (Railway'da WEBAPP_URL env variable sifatida bering)
+# Masalan: https://your-app.up.railway.app
+WEBAPP_URL = _env("WEBAPP_URL", "")
+
 # Mavjud yo'nalishlar (asosiy fan juftliklari)
 YONALISHLAR = [
     "Matematika + Fizika",

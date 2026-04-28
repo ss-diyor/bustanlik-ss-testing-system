@@ -9,6 +9,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
+from webapp.server import start_web_server
 from database import (
     init_db,
     add_user,
@@ -314,6 +315,8 @@ async def main():
     asyncio.create_task(scheduler())
     asyncio.create_task(reminder_scheduler())
     asyncio.create_task(group_ranking_scheduler())
+    asyncio.create_task(start_web_server(BOT_TOKEN))
+    logging.info("Web server task scheduled.")
 
     await bot.delete_webhook(drop_pending_updates=True)
     logging.info("Bot ishga tushdi!")

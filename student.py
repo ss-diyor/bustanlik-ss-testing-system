@@ -948,6 +948,86 @@ async def student_profile(message: Message):
     )
 
 
+
+def _generate_student_chart(talaba: dict, results: list) -> str:
+    """
+    O'quvchining barcha test natijalaridan line chart yaratadi.
+    results: talaba_natijalari() dan qaytgan ro'yxat (eng yangi birinchi).
+    Fayl yo'lini qaytaradi.
+    """
+    import numpy as np
+
+    # Eng eski → eng yangi tartibda
+    data = list(reversed(results))
+    balls = [float(r["umumiy_ball"]) for r in data]
+    labels = [r["test_sanasi"].strftime("%d.%m") if r.get("test_sanasi") else str(i + 1)
+              for i, r in enumerate(data)]
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    fig.patch.set_facecolor("#1a1a2e")
+    ax.set_facecolor("#16213e")
+
+    # Grid
+    ax.grid(axis="y", color="rgba(255,255,255,0.08)", linestyle="--", linewidth=0.6, alpha=0.5)
+    ax.grid(axis="x", color="rgba(255,255,255,0.04)", linestyle=":", linewidth=0.5, alpha=0.3)
+
+    # Trend chizig'i
+    if len(balls) >= 3:
+        x_num = np.arange(len(balls))
+        z = np.polyfit(x_num, balls, 1)
+        p = np.poly1d(z)
+        ax.plot(labels, p(x_num), "--", color="#faa61a", linewidth=1.4,
+                alpha=0.6, label="Trend")
+
+    # Asosiy chiziq
+    ax.plot(labels, balls, color="#7289da", linewidth=2.5,
+            marker="o", markersize=6, zorder=3,
+            markerfacecolor="white", markeredgecolor="#7289da", markeredgewidth=2)
+
+    # Fill under line
+    ax.fill_between(range(len(balls)), balls,
+                    min(balls) * 0.97 if balls else 0,
+                    alpha=0.15, color="#7289da")
+
+    # Nuqtalar ustidagi qiymatlar
+    for i, (lbl, ball) in enumerate(zip(labels, balls)):
+        color = "#43b581" if ball >= 140 else "#faa61a" if ball >= 100 else "#f04747"
+        ax.annotate(
+            f"{ball:g}",
+            xy=(i, ball),
+            xytext=(0, 9),
+            textcoords="offset points",
+            ha="center",
+            fontsize=8,
+            fontweight="bold",
+            color=color,
+        )
+
+    # Eksa sozlamalari
+    ax.set_xticks(range(len(labels)))
+    ax.set_xticklabels(labels, rotation=30, ha="right", color="#aaaacc", fontsize=8)
+    ax.tick_params(axis="y", colors="#aaaacc", labelsize=8)
+    for spine in ax.spines.values():
+        spine.set_edgecolor("#333355")
+
+    ax.set_title(
+        f"📊  {talaba['ismlar']} — Natijalar Dinamikasi",
+        color="#e8e8f0", fontsize=13, fontweight="bold", pad=14,
+    )
+    ax.set_ylabel("Ball", color="#8888aa", fontsize=9)
+
+    # Legend
+    if len(balls) >= 3:
+        legend = ax.legend(facecolor="#1a1a2e", edgecolor="#333355",
+                           labelcolor="#aaaacc", fontsize=8)
+
+    plt.tight_layout()
+    path = f"student_chart_{talaba['kod']}.png"
+    plt.savefig(path, dpi=130, bbox_inches="tight", facecolor=fig.get_facecolor())
+    plt.close(fig)
+    return path
+
+
 @router.callback_query(F.data.startswith("profile:"))
 async def profile_callback(callback: CallbackQuery):
     action = callback.data.split(":")[1]
@@ -990,6 +1070,47 @@ async def profile_callback(callback: CallbackQuery):
         await callback.message.edit_text(
             text, parse_mode="HTML", reply_markup=profile_keyboard()
         )
+
+    elif action == "chart":
+        all_results = talaba_natijalari(talaba["kod"], limit=1000)
+        if not all_results or len(all_results) < 2:
+            await callback.answer(
+                "📊 Grafik uchun kamida 2 ta test natijasi kerak.", show_alert=True
+            )
+            return
+
+        await callback.answer()
+        wait_msg = await callback.message.answer(
+            "📊 <b>Grafik tayyorlanmoqda...</b>", parse_mode="HTML"
+        )
+        try:
+            chart_path = await asyncio.get_event_loop().run_in_executor(
+                None, _generate_student_chart, talaba, all_results
+            )
+            last = float(all_results[0]["umumiy_ball"])
+            prev = float(all_results[1]["umumiy_ball"])
+            delta = last - prev
+            trend = "📈" if delta > 0 else "📉" if delta < 0 else "➡️"
+            caption = (
+                f"📊 <b>{talaba['ismlar']} — natijalar dinamikasi</b>\n\n"
+                f"📅 Jami testlar: <b>{len(all_results)} ta</b>\n"
+                f"🏆 Eng yuqori: <b>{max(float(r['umumiy_ball']) for r in all_results):g} ball</b>\n"
+                f"📐 O'rtacha: <b>{sum(float(r['umumiy_ball']) for r in all_results)/len(all_results):.1f} ball</b>\n"
+                f"{trend} So'nggi o'zgarish: <b>{delta:+.1f} ball</b>"
+            )
+            await callback.message.answer_photo(
+                FSInputFile(chart_path),
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=profile_keyboard(),
+            )
+            if os.path.exists(chart_path):
+                os.remove(chart_path)
+        except Exception as e:
+            await callback.message.answer(f"❌ Grafik yaratishda xatolik: {e}")
+        finally:
+            await wait_msg.delete()
+        return
 
     elif action == "refresh":
         await callback.message.delete()

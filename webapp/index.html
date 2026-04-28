@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DTM Natijalar Paneli</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- Loading state -->
+  <div id="loading" class="loading-screen">
+    <div class="spinner"></div>
+    <p>Ma'lumotlar yuklanmoqda...</p>
+  </div>
+
+  <!-- Error state -->
+  <div id="error-screen" class="error-screen hidden">
+    <div class="error-icon">😕</div>
+    <h2>Xato yuz berdi</h2>
+    <p id="error-msg">Profil topilmadi. Avval botga profilingizni ulang.</p>
+    <button class="btn-primary" onclick="Telegram.WebApp.close()">Yopish</button>
+  </div>
+
+  <!-- Main content -->
+  <div id="app" class="hidden">
+    <!-- Header: student info -->
+    <header class="student-card">
+      <div class="student-avatar" id="avatar-initials"></div>
+      <div class="student-info">
+        <h1 id="student-name">—</h1>
+        <p id="student-meta">—</p>
+      </div>
+    </header>
+
+    <!-- Stats row -->
+    <section class="stats-row">
+      <div class="stat-card">
+        <span class="stat-value" id="stat-last">—</span>
+        <span class="stat-label">Oxirgi ball</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-best">—</span>
+        <span class="stat-label">Eng yuqori</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-avg">—</span>
+        <span class="stat-label">O'rtacha</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-rank">—</span>
+        <span class="stat-label">Sinf o'rni</span>
+      </div>
+    </section>
+
+    <!-- Trend badge -->
+    <div class="trend-badge" id="trend-badge"></div>
+
+    <!-- Chart -->
+    <section class="chart-section">
+      <h2 class="section-title">📈 Natijalar Dinamikasi</h2>
+      <div class="chart-wrapper">
+        <canvas id="progressChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Bar chart: subject breakdown -->
+    <section class="chart-section">
+      <h2 class="section-title">📊 Fanlar bo'yicha (so'nggi test)</h2>
+      <div class="chart-wrapper short">
+        <canvas id="subjectChart"></canvas>
+      </div>
+    </section>
+
+    <!-- History table -->
+    <section class="history-section">
+      <h2 class="section-title">📜 Testlar Tarixi</h2>
+      <div class="table-wrapper" id="history-table"></div>
+    </section>
+
+    <footer class="footer">Bo'stonliq ITMA · DTM Natijalar Tizimi</footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
