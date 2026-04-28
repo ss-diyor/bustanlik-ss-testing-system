@@ -48,6 +48,22 @@
       </div>
     </section>
 
+    <!-- Search Section -->
+    <section class="search-section">
+      <div class="search-box">
+        <input type="text" id="student-search" placeholder="Ism yoki kod bo'yicha qidirish...">
+        <div id="search-results" class="search-results hidden"></div>
+      </div>
+    </section>
+
+    <!-- Chart: Subject Analysis -->
+    <section class="chart-section">
+      <h2 class="section-title">📊 Fanlar kesimida o'zlashtirish</h2>
+      <div class="chart-wrapper">
+        <canvas id="subjectsChart"></canvas>
+      </div>
+    </section>
+
     <!-- Chart: Classes Average -->
     <section class="chart-section">
       <h2 class="section-title">📊 Sinflar o'zlashtirishi (O'rtacha ball)</h2>
@@ -71,6 +87,29 @@
     </section>
 
     <footer class="footer">Bo'stonliq ITMA · DTM Natijalar Tizimi</footer>
+  </div>
+
+  <!-- Student Details Modal -->
+  <div id="student-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-student-name">O'quvchi ma'lumotlari</h3>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="student-info-grid">
+          <div><small>Sinf:</small> <span id="modal-student-class">—</span></div>
+          <div><small>Yo'nalish:</small> <span id="modal-student-dir">—</span></div>
+          <div><small>Kod:</small> <span id="modal-student-kod">—</span></div>
+        </div>
+        <div class="modal-chart-container">
+          <canvas id="studentDetailChart"></canvas>
+        </div>
+        <div class="modal-table-wrapper" id="modal-history-table">
+          <!-- History table will be rendered here -->
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/static/admin.js"></script>

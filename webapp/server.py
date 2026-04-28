@@ -12,21 +12,21 @@ import psycopg2.extras
 # Telegram initData validation
 # ─────────────────────────────────────────
 
-def validate_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
+def validate_telegram_init_data(init_data: str, bot_token: str) -> tuple[dict | None, str]:
     """
     Telegram WebApp initData ni kriptografik tekshiradi.
-    Muvaffaqiyatli bo'lsa user dict qaytaradi, aks holda None.
+    Muvaffaqiyatli bo'lsa (user_dict, "Success") qaytaradi, aks holda (None, xato_sababi).
     """
     if not init_data:
         logging.warning("initData is empty")
-        return None
+        return None, "initData is empty"
         
     try:
         parsed = dict(parse_qsl(init_data, keep_blank_values=True))
         received_hash = parsed.pop("hash", None)
         if not received_hash:
             logging.warning("initData missing hash")
-            return None
+            return None, "initData missing hash"
 
         data_check_string = "\n".join(
             f"{k}={v}" for k, v in sorted(parsed.items())
@@ -40,12 +40,12 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
 
         if not hmac.compare_digest(expected_hash, received_hash):
             logging.warning("initData hash mismatch")
-            return None
+            return None, "initData hash mismatch"
 
-        return json.loads(parsed.get("user", "{}"))
+        return json.loads(parsed.get("user", "{}")), "Success"
     except Exception as e:
         logging.warning(f"initData validation error: {e}")
-        return None
+        return None, f"Exception: {e}"
 
 
 # ─────────────────────────────────────────
@@ -212,7 +212,7 @@ async def admin_stats_api(request: web.Request) -> web.Response:
 
     # Telegram initData tekshiruvi
     init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user = validate_telegram_init_data(init_data, bot_token)
+    user, err_msg = validate_telegram_init_data(init_data, bot_token)
 
     if not user:
         debug = os.getenv("WEBAPP_DEBUG", "")
@@ -222,7 +222,7 @@ async def admin_stats_api(request: web.Request) -> web.Response:
             except ValueError:
                 return web.json_response({"error": "Invalid user_id"}, status=400)
         else:
-            return web.json_response({"error": "Unauthorized"}, status=401)
+            return web.json_response({"error": f"Unauthorized: {err_msg}"}, status=401)
     else:
         user_id = user.get("id", 0)
 
@@ -271,10 +271,27 @@ async def admin_stats_api(request: web.Request) -> web.Response:
         direction_stats_raw = cur.fetchall()
         direction_stats = [{"yonalish": r["yonalish"], "avg_score": float(r["avg_score"])} for r in direction_stats_raw]
 
-        # 4. Top 30 Students (eng yaxshi natijasi bo'yicha)
+        # 4. Subject Averages
         cur.execute(
             """
-            SELECT t.ismlar, t.sinf, t.yonalish, MAX(tn.umumiy_ball) as umumiy_ball
+            SELECT 
+                AVG(majburiy_ball) as majburiy_avg,
+                AVG(asosiy_1_ball) as asosiy_1_avg,
+                AVG(asosiy_2_ball) as asosiy_2_avg
+            FROM test_natijalari
+            """
+        )
+        sub_row = cur.fetchone()
+        subject_stats = {
+            "majburiy": float(sub_row["majburiy_avg"] or 0),
+            "asosiy_1": float(sub_row["asosiy_1_avg"] or 0),
+            "asosiy_2": float(sub_row["asosiy_2_avg"] or 0)
+        }
+
+        # 5. Top 30 Students (eng yaxshi natijasi bo'yicha)
+        cur.execute(
+            """
+            SELECT t.kod, t.ismlar, t.sinf, t.yonalish, MAX(tn.umumiy_ball) as umumiy_ball
             FROM test_natijalari tn
             JOIN talabalar t ON tn.talaba_kod = t.kod
             GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish
@@ -285,6 +302,7 @@ async def admin_stats_api(request: web.Request) -> web.Response:
         top_students_raw = cur.fetchall()
         top_students = [
             {
+                "kod": r["kod"],
                 "ismlar": r["ismlar"],
                 "sinf": r["sinf"],
                 "yonalish": r["yonalish"],
@@ -304,6 +322,7 @@ async def admin_stats_api(request: web.Request) -> web.Response:
                 },
                 "class_stats": class_stats,
                 "direction_stats": direction_stats,
+                "subject_stats": subject_stats,
                 "top_students": top_students
             },
             headers={"Access-Control-Allow-Origin": "*"},
@@ -311,6 +330,83 @@ async def admin_stats_api(request: web.Request) -> web.Response:
 
     except Exception as e:
         logging.error(f"Admin API error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+async def admin_search_api(request: web.Request) -> web.Response:
+    """O'quvchilarni ismi yoki kodi bo'yicha qidirish."""
+    from config import ADMIN_IDS
+    from database import get_connection, release_connection
+    
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, _ = validate_telegram_init_data(init_data, bot_token)
+    
+    if not user or user.get("id", 0) not in ADMIN_IDS:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+    
+    query = request.rel_url.query.get("q", "").strip()
+    if not query:
+        return web.json_response({"results": []})
+        
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Ism yoki kod bo'yicha qidirish
+        sql = "SELECT kod, ismlar, sinf, yonalish FROM talabalar WHERE status = 'aktiv' AND (ismlar ILIKE %s OR kod::text ILIKE %s) LIMIT 20"
+        cur.execute(sql, (f"%{query}%", f"%{query}%"))
+        results = cur.fetchall()
+        
+        cur.close()
+        release_connection(conn)
+        return web.json_response({"results": [dict(r) for r in results]})
+    except Exception as e:
+        logging.error(f"Search API error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+async def admin_student_details_api(request: web.Request) -> web.Response:
+    """Ma'lum bir o'quvchining barcha test tarixini qaytarish."""
+    from config import ADMIN_IDS
+    from database import get_connection, release_connection
+    
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, _ = validate_telegram_init_data(init_data, bot_token)
+    
+    if not user or user.get("id", 0) not in ADMIN_IDS:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+    
+    student_kod = request.rel_url.query.get("kod", "")
+    if not student_kod:
+        return web.json_response({"error": "Student code required"}, status=400)
+        
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Talaba ma'lumotlari
+        cur.execute("SELECT * FROM talabalar WHERE kod = %s", (student_kod,))
+        student = cur.fetchone()
+        if not student:
+            return web.json_response({"error": "Not found"}, status=404)
+            
+        # Natijalari
+        cur.execute("SELECT * FROM test_natijalari WHERE talaba_kod = %s ORDER BY sana ASC", (student_kod,))
+        natijalar = cur.fetchall()
+        
+        # Format dates
+        for n in natijalar:
+            if n.get("sana"):
+                n["sana"] = n["sana"].strftime("%Y-%m-%d")
+        
+        cur.close()
+        release_connection(conn)
+        return web.json_response({
+            "student": dict(student),
+            "natijalar": [dict(n) for n in natijalar]
+        })
+    except Exception as e:
+        logging.error(f"Details API error: {e}")
         return web.json_response({"error": "Server error"}, status=500)
 
 
@@ -327,6 +423,8 @@ def create_app(bot_token: str) -> web.Application:
     
     app.router.add_get("/admin", admin_handler)
     app.router.add_get("/api/admin_stats", admin_stats_api)
+    app.router.add_get("/api/admin/search", admin_search_api)
+    app.router.add_get("/api/admin/student_details", admin_student_details_api)
 
     # CSS / JS / assets
     app.router.add_static("/static", STATIC_DIR)

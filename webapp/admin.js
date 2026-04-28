@@ -5,6 +5,9 @@
 const tg = window.Telegram?.WebApp;
 let classesChart = null;
 let directionsChart = null;
+let subjectsChart = null;
+let studentDetailChart = null;
+let searchTimeout = null;
 
 // ─── Init ───────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -14,6 +17,26 @@ document.addEventListener("DOMContentLoaded", () => {
     applyTelegramTheme();
     tg.onEvent("themeChanged", applyTelegramTheme);
   }
+  
+  // Search listener
+  const searchInput = document.getElementById("student-search");
+  searchInput.addEventListener("input", (e) => {
+    clearTimeout(searchTimeout);
+    const q = e.target.value.trim();
+    if (q.length < 2) {
+      document.getElementById("search-results").classList.add("hidden");
+      return;
+    }
+    searchTimeout = setTimeout(() => handleSearch(q), 400);
+  });
+
+  // Close search results when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-box")) {
+      document.getElementById("search-results").classList.add("hidden");
+    }
+  });
+
   loadAdminData();
 });
 
@@ -55,24 +78,16 @@ async function loadAdminData() {
 }
 
 // ─── Render ──────────────────────────────
-function renderPage({ kpi, class_stats, direction_stats, top_students }) {
+function renderPage({ kpi, class_stats, direction_stats, subject_stats, top_students }) {
   // Stats
   document.getElementById("stat-students").textContent = kpi.total_students ?? "—";
   document.getElementById("stat-tests").textContent    = kpi.total_tests ?? "—";
   document.getElementById("stat-avg").textContent      = kpi.school_avg ? kpi.school_avg.toFixed(1) : "—";
 
   // Charts
-  if (class_stats && class_stats.length > 0) {
-    renderClassesChart(class_stats);
-  } else {
-    document.getElementById("classesChart").parentElement.style.display = 'none';
-  }
-
-  if (direction_stats && direction_stats.length > 0) {
-    renderDirectionsChart(direction_stats);
-  } else {
-    document.getElementById("directionsChart").parentElement.style.display = 'none';
-  }
+  if (subject_stats) renderSubjectsChart(subject_stats);
+  if (class_stats && class_stats.length > 0) renderClassesChart(class_stats);
+  if (direction_stats && direction_stats.length > 0) renderDirectionsChart(direction_stats);
 
   // Top Students Table
   renderTopStudentsTable(top_students);
@@ -80,6 +95,146 @@ function renderPage({ kpi, class_stats, direction_stats, top_students }) {
   // Show app
   document.getElementById("loading").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
+}
+
+// ─── Bar Chart: Subjects ─────────────────
+function renderSubjectsChart(stats) {
+  const labels = ["Majburiy", "1-Asosiy", "2-Asosiy"];
+  const data = [stats.majburiy, stats.asosiy_1, stats.asosiy_2];
+
+  const ctx = document.getElementById("subjectsChart").getContext("2d");
+  if (subjectsChart) subjectsChart.destroy();
+
+  subjectsChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "O'rtacha ball",
+        data,
+        backgroundColor: ["#7289da", "#43b581", "#faa61a"],
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#8e9297" } },
+        x: { grid: { display: false }, ticks: { color: "#8e9297" } }
+      }
+    }
+  });
+}
+
+// ─── Search Logic ───────────────────────
+async function handleSearch(query) {
+  const resultsDiv = document.getElementById("search-results");
+  try {
+    const headers = { "Content-Type": "application/json" };
+    if (tg?.initData) headers["X-Telegram-Init-Data"] = tg.initData;
+
+    const res = await fetch(`/api/admin/search?q=${encodeURIComponent(query)}`, { headers });
+    const { results } = await res.json();
+
+    if (!results || results.length === 0) {
+      resultsDiv.innerHTML = '<div class="search-item"><span class="meta">Hech kim topilmadi</span></div>';
+    } else {
+      resultsDiv.innerHTML = results.map(r => `
+        <div class="search-item" onclick="openStudentDetails('${r.kod}')">
+          <span class="name">${r.ismlar}</span>
+          <span class="meta">${r.sinf} | ${r.kod}</span>
+        </div>
+      `).join("");
+    }
+    resultsDiv.classList.remove("hidden");
+  } catch (e) {
+    console.error("Search error:", e);
+  }
+}
+
+// ─── Student Details Modal ───────────────
+async function openStudentDetails(kod) {
+  const modal = document.getElementById("student-modal");
+  modal.classList.remove("hidden");
+  
+  try {
+    const headers = { "Content-Type": "application/json" };
+    if (tg?.initData) headers["X-Telegram-Init-Data"] = tg.initData;
+
+    const res = await fetch(`/api/admin/student_details?kod=${kod}`, { headers });
+    const { student, natijalar } = await res.json();
+
+    document.getElementById("modal-student-name").textContent = student.ismlar;
+    document.getElementById("modal-student-class").textContent = student.sinf;
+    document.getElementById("modal-student-dir").textContent = student.yonalish || "Umumiy";
+    document.getElementById("modal-student-kod").textContent = student.kod;
+
+    renderStudentDetailChart(natijalar);
+    renderModalTable(natijalar);
+  } catch (e) {
+    console.error("Details fetch error:", e);
+  }
+}
+
+function renderStudentDetailChart(natijalar) {
+  const ctx = document.getElementById("studentDetailChart").getContext("2d");
+  if (studentDetailChart) studentDetailChart.destroy();
+
+  const labels = natijalar.map(n => n.sana);
+  const scores = natijalar.map(n => n.umumiy_ball);
+
+  studentDetailChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Ball",
+        data: scores,
+        borderColor: "#7289da",
+        backgroundColor: "rgba(114, 137, 218, 0.1)",
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#8e9297" } },
+        x: { grid: { display: false }, ticks: { color: "#8e9297" } }
+      }
+    }
+  });
+}
+
+function renderModalTable(natijalar) {
+  const wrap = document.getElementById("modal-history-table");
+  if (!natijalar || natijalar.length === 0) {
+    wrap.innerHTML = '<p class="meta" style="text-align:center">Natijalar yo\'q</p>';
+    return;
+  }
+
+  let html = `<table class="history-table" style="width:100%; font-size:0.8rem;">
+    <thead><tr><th>Sana</th><th>Ball</th><th>M</th><th>A1</th><th>A2</th></tr></thead><tbody>`;
+  
+  natijalar.reverse().forEach(n => {
+    html += `<tr>
+      <td>${n.sana}</td>
+      <td style="font-weight:bold; color:var(--accent)">${n.umumiy_ball}</td>
+      <td>${n.majburiy_ball}</td>
+      <td>${n.asosiy_1_ball}</td>
+      <td>${n.asosiy_2_ball}</td>
+    </tr>`;
+  });
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+}
+
+function closeModal() {
+  document.getElementById("student-modal").classList.add("hidden");
 }
 
 // ─── Bar Chart: Classes ─────────────────
@@ -189,7 +344,7 @@ function renderTopStudentsTable(students) {
     }
 
     html += `
-      <div class="classmate-row" style="grid-template-columns: 28px 1fr 60px;">
+      <div class="classmate-row" style="grid-template-columns: 28px 1fr 60px;" onclick="openStudentDetails('${s.kod}')">
         <span class="classmate-rank ${rankClass}">${rank}</span>
         <div style="display:flex; flex-direction:column; padding-right:10px;">
           <span class="classmate-name">${s.ismlar}</span>
@@ -203,7 +358,6 @@ function renderTopStudentsTable(students) {
   wrap.innerHTML = html;
 }
 
-// ─── Error ────────────────────────────────
 function showError(msg) {
   document.getElementById("loading").classList.add("hidden");
   document.getElementById("error-msg").textContent = msg;
