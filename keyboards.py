@@ -574,6 +574,7 @@ def user_menu_keyboard(
     if chatbot_enabled == "True":
         row3.append(KeyboardButton(text="🤖 AI Chatbot"))
     keyboard.append(row3)
+    keyboard.append([KeyboardButton(text="🔔 Bildirishnomalar")])
 
     # To'rtinchi qator: Admin bilan bog'lanish va Chiqish
     keyboard.append(
@@ -645,6 +646,41 @@ def murojaat_javob_keyboard(user_id):
                     callback_data=f"murojaat_javob:{user_id}",
                 )
             ]
+        ]
+    )
+
+
+def notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
+    def label(enabled: bool) -> str:
+        return "✅ Yoqilgan" if enabled else "❌ O'chirilgan"
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"📊 Natijalar: {label(settings.get('notify_results', True))}",
+                    callback_data="notif:toggle:notify_results",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"🧪 Mock natijalar: {label(settings.get('notify_mock_results', True))}",
+                    callback_data="notif:toggle:notify_mock_results",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"📢 Admin xabarlari: {label(settings.get('notify_admin_messages', True))}",
+                    callback_data="notif:toggle:notify_admin_messages",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"⏰ Eslatmalar: {label(settings.get('notify_reminders', True))}",
+                    callback_data="notif:toggle:notify_reminders",
+                )
+            ],
+            [InlineKeyboardButton(text="🔄 Yangilash", callback_data="notif:refresh")],
         ]
     )
 
