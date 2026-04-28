@@ -156,6 +156,16 @@ def init_db():
     _optional_exec(
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'uz'"
     )
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_notification_settings (
+            user_id BIGINT PRIMARY KEY,
+            notify_results BOOLEAN NOT NULL DEFAULT TRUE,
+            notify_mock_results BOOLEAN NOT NULL DEFAULT TRUE,
+            notify_admin_messages BOOLEAN NOT NULL DEFAULT TRUE,
+            notify_reminders BOOLEAN NOT NULL DEFAULT TRUE,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS yonalishlar (
@@ -1766,6 +1776,65 @@ def appeal_ol_id(appeal_id: int):
     cur.close()
     release_connection(conn)
     return dict(row) if row else None
+
+
+NOTIFICATION_DEFAULTS = {
+    "notify_results": True,
+    "notify_mock_results": True,
+    "notify_admin_messages": True,
+    "notify_reminders": True,
+}
+
+
+def get_notification_settings(user_id: int) -> dict:
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """
+        INSERT INTO user_notification_settings (user_id)
+        VALUES (%s)
+        ON CONFLICT (user_id) DO NOTHING
+        """,
+        (user_id,),
+    )
+    conn.commit()
+    cur.execute(
+        "SELECT * FROM user_notification_settings WHERE user_id = %s",
+        (user_id,),
+    )
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    data = dict(row) if row else {"user_id": user_id}
+    for key, default in NOTIFICATION_DEFAULTS.items():
+        data.setdefault(key, default)
+    return data
+
+
+def update_notification_setting(user_id: int, setting_key: str, enabled: bool) -> bool:
+    if setting_key not in NOTIFICATION_DEFAULTS:
+        return False
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO user_notification_settings (user_id, {0}, updated_at)
+        VALUES (%s, %s, CURRENT_TIMESTAMP)
+        ON CONFLICT (user_id) DO UPDATE
+        SET {0} = EXCLUDED.{0},
+            updated_at = CURRENT_TIMESTAMP
+        """.format(setting_key),
+        (user_id, enabled),
+    )
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+    return True
+
+
+def is_notification_enabled(user_id: int, setting_key: str) -> bool:
+    settings = get_notification_settings(user_id)
+    return bool(settings.get(setting_key, NOTIFICATION_DEFAULTS.get(setting_key, True)))
 
 
 def get_score_difference(kod: str):
