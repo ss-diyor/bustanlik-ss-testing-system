@@ -736,6 +736,16 @@ def talaba_topish(kod: str):
     return dict(row) if row else None
 
 
+def talaba_topish_user_id(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return dict(row) if row else None
+
+
 def talaba_ochir(kod: str) -> bool:
     try:
         conn = get_connection()

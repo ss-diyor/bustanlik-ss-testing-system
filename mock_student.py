@@ -8,7 +8,7 @@ from aiogram.types import (
     Message,
 )
 
-from database import check_access, talaba_topish
+from database import talaba_topish, talaba_topish_user_id
 from mock_database import (
     exam_type_ol,
     format_mock_natija_matn,
@@ -87,8 +87,8 @@ async def mock_natijalarim_start(message: Message, state: FSMContext):
     """O'quvchi 'Mock natijalarim' tugmasini bosadi."""
     user_id = message.from_user.id
 
-    # Ulangan talabani topish
-    talaba = check_access(user_id)
+    # Telegram profiliga ulangan o'quvchini topish
+    talaba = talaba_topish_user_id(user_id)
     if not talaba:
         await state.set_state(MockNatijaKor.kod_kutish)
         await message.answer(
@@ -97,7 +97,7 @@ async def mock_natijalarim_start(message: Message, state: FSMContext):
         )
         return
 
-    await _show_mock_types(message, talaba["kod"])
+    await _show_mock_types(message, talaba["kod"], show_latest_first=True)
 
 
 @router.message(MockNatijaKor.kod_kutish)
@@ -129,14 +129,16 @@ async def mock_kor_kod(message: Message, state: FSMContext):
 
     await state.clear()
     try:
-        await _show_mock_types(message, kod)
+        await _show_mock_types(message, kod, show_latest_first=True)
     except Exception:
         await message.answer(
             "❌ Mock natijalarni ko'rsatishda xatolik yuz berdi. Iltimos, keyinroq qayta urinib ko'ring."
         )
 
 
-async def _show_mock_types(message: Message, kod: str):
+async def _show_mock_types(
+    message: Message, kod: str, show_latest_first: bool = False
+):
     """O'quvchining mock natijasi turlarini ko'rsatish."""
     talaba = talaba_topish(kod)
     if not talaba:
@@ -151,6 +153,24 @@ async def _show_mock_types(message: Message, kod: str):
             parse_mode="HTML",
         )
         return
+
+    if show_latest_first:
+        latest_results = mock_natijalari_ol(kod, limit=1)
+        if latest_results:
+            latest = latest_results[0]
+            latest_exam_key = latest.get("exam_key")
+            latest_text = (
+                f"рџ‘¤ <b>{talaba['ismlar']}</b>\n"
+                f"рџ†” Kod: <code>{kod}</code>\n\n"
+                + format_mock_natija_matn(latest)
+            )
+            await message.answer(
+                latest_text,
+                parse_mode="HTML",
+                reply_markup=_mock_history_keyboard(kod, latest_exam_key)
+                if latest_exam_key
+                else None,
+            )
 
     # Har bir turning oxirgi natijasini ko'rsatish
     lines = [
