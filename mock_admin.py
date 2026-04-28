@@ -33,6 +33,8 @@ class MockNatijaQosh(StatesGroup):
     exam_key_kutish     = State()
     talaba_kod_kutish   = State()
     subject_kutish      = State()    # MILLIY_SERT uchun
+    schema_kutish       = State()    # admin section/daraja formatini kiritadi
+    levels_kutish       = State()    # admin darajalar ro'yxatini ixtiyoriy kiritadi
     section_kutish      = State()    # navbatma-navbat bo'limlar
     level_kutish        = State()    # CEFR daraja
     notes_kutish        = State()
@@ -454,7 +456,7 @@ async def mock_talaba_kod(message: Message, state: FSMContext):
         )
         return
 
-    await _ask_section(message, state, et)
+    await _ask_schema(message, state, et)
 
 
 @router.message(MockNatijaQosh.subject_kutish)
@@ -464,21 +466,123 @@ async def mock_subject(message: Message, state: FSMContext):
     await state.update_data(subject_name=message.text.strip())
     data = await state.get_data()
     et = exam_type_ol(data["exam_key"])
-    await _ask_section(message, state, et)
+    await _ask_schema(message, state, et)
 
 
-async def _ask_section(message: Message, state: FSMContext, et: dict):
-    data = await state.get_data()
-    sections_list = et.get("sections", [])
-    idx = data.get("section_idx", 0)
+async def _ask_schema(message: Message, state: FSMContext, et: dict):
+    """
+    Admin avval qanday section/daraja kiritilishini belgilaydi.
+    Format (har qator):
+      nom | max
+    max ixtiyoriy. Masalan:
+      Listening | 9
+      Reading | 9
+      Speaking | 9
+    Faqat bitta section ham bo'lishi mumkin:
+      Ball | 100
+    """
+    await state.update_data(sections={}, section_idx=0, section_defs=[])
+    await state.set_state(MockNatijaQosh.schema_kutish)
+    label = et.get("label", et.get("exam_key", "Mock"))
+    await message.answer(
+        f"🧩 <b>{label}</b> uchun <b>nimalar kiritilishini</b> yozing.\n\n"
+        "Har qator: <code>nom | max</code> (max ixtiyoriy)\n"
+        "Misol:\n"
+        "<code>Listening | 9\nReading | 9\nWriting | 9\nSpeaking | 9</code>\n\n"
+        "Bitta bo'lim bo'lsa:\n"
+        "<code>Ball | 100</code>\n\n"
+        "Davom etish uchun yuboring:",
+        parse_mode="HTML",
+    )
 
-    if idx >= len(sections_list):
-        await _after_sections(message, state, et)
+
+@router.message(MockNatijaQosh.schema_kutish)
+async def mock_schema_kiritildi(message: Message, state: FSMContext):
+    if not await _admin_ok(message, state):
+        return
+    raw_lines = [l.strip() for l in (message.text or "").splitlines() if l.strip()]
+    if not raw_lines:
+        await message.answer("❌ Kamida 1 ta bo'lim kiriting:")
         return
 
-    sec = sections_list[idx]
-    max_hint = f" (0 – {sec['max_score']})" if sec.get("max_score") else ""
-    await state.update_data(current_sec_key=sec["section_key"])
+    section_defs = []
+    errors = []
+    import re
+    for ln in raw_lines:
+        parts = [p.strip() for p in ln.split("|")]
+        name = parts[0] if parts else ""
+        if not name:
+            errors.append(f"❌ Bo'sh nom: <code>{ln}</code>")
+            continue
+        mx = None
+        if len(parts) >= 2 and parts[1]:
+            try:
+                mx = float(parts[1].replace(",", "."))
+            except ValueError:
+                errors.append(f"❌ Max ball raqam emas: <code>{parts[1]}</code>")
+                continue
+        key = re.sub(r"[^a-z0-9_]", "_", name.lower()).strip("_")[:30] or "sec"
+        # key collision bo'lmasin
+        base = key
+        n = 2
+        existing = {d["key"] for d in section_defs}
+        while key in existing:
+            key = f"{base}_{n}"
+            n += 1
+        section_defs.append({"key": key, "label": name, "max": mx})
+
+    if errors:
+        await message.answer("\n".join(errors) + "\n\nQayta kiriting:", parse_mode="HTML")
+        return
+
+    await state.update_data(section_defs=section_defs, section_idx=0, sections={})
+
+    # Darajalar ixtiyoriy (admin xohlasa kiritadi)
+    await state.set_state(MockNatijaQosh.levels_kutish)
+    await message.answer(
+        "🎯 <b>Darajalar</b> (ixtiyoriy).\n"
+        "Masalan: <code>A1,A2,B1,B2,C1,C2</code>\n"
+        "Kerak bo'lmasa <code>-</code> yozing:",
+        parse_mode="HTML",
+    )
+
+
+@router.message(MockNatijaQosh.levels_kutish)
+async def mock_levels_kiritildi(message: Message, state: FSMContext):
+    if not await _admin_ok(message, state):
+        return
+    text = (message.text or "").strip()
+    if text == "-" or not text:
+        await state.update_data(levels_list=None, level=None)
+        await _ask_section(message, state)
+        return
+
+    levels_list = [l.strip() for l in text.split(",") if l.strip()]
+    if not levels_list:
+        await message.answer("❌ Darajalar topilmadi. Qayta kiriting yoki <code>-</code>:", parse_mode="HTML")
+        return
+
+    await state.update_data(levels_list=levels_list)
+    await state.set_state(MockNatijaQosh.level_kutish)
+    await message.answer(
+        "🎯 <b>Darajani tanlang:</b>",
+        parse_mode="HTML",
+        reply_markup=_level_kb(levels_list),
+    )
+
+
+async def _ask_section(message: Message, state: FSMContext):
+    data = await state.get_data()
+    section_defs = data.get("section_defs", [])
+    idx = data.get("section_idx", 0)
+
+    if idx >= len(section_defs):
+        await _ask_notes(message, state)
+        return
+
+    sec = section_defs[idx]
+    max_hint = f" (0 – {sec['max']})" if sec.get("max") is not None else ""
+    await state.update_data(current_sec_key=sec["key"])
     await state.set_state(MockNatijaQosh.section_kutish)
     await message.answer(
         f"{sec['label']}{max_hint}:",
@@ -498,37 +602,26 @@ async def mock_section_val(message: Message, state: FSMContext):
         return
 
     data = await state.get_data()
-    et = exam_type_ol(data["exam_key"])
-    sections_list = et.get("sections", [])
+    section_defs = data.get("section_defs", [])
     idx = data.get("section_idx", 0)
+    sec = section_defs[idx] if idx < len(section_defs) else None
 
-    if idx < len(sections_list):
-        sec = sections_list[idx]
-        if sec.get("max_score") is not None:
-            if val < 0 or val > sec["max_score"]:
-                await message.answer(
-                    f"❌ Ball 0 – {sec['max_score']} oralig'ida bo'lishi kerak:"
-                )
-                return
-    else:
-        sec = {"section_key": data.get("current_sec_key", "ball")}
+    if sec and sec.get("max") is not None:
+        if val < 0 or val > sec["max"]:
+            await message.answer(f"❌ Ball 0 – {sec['max']} oralig'ida bo'lishi kerak:")
+            return
 
-    sections = {**data.get("sections", {}), sec["section_key"]: val}
+    key = (sec.get("key") if sec else data.get("current_sec_key", "ball")) if sec else data.get("current_sec_key", "ball")
+    label = sec.get("label") if sec else key
+    mx = sec.get("max") if sec else None
+
+    # sections qiymatini custom formatda saqlaymiz (label/value/max)
+    sections = {
+        **data.get("sections", {}),
+        key: {"label": label, "value": val, "max": mx},
+    }
     await state.update_data(sections=sections, section_idx=idx + 1)
-    await _ask_section(message, state, et)
-
-
-async def _after_sections(message: Message, state: FSMContext, et: dict):
-    if et.get("has_level") and et.get("levels"):
-        levels_list = [l.strip() for l in et["levels"].split(",")]
-        await state.set_state(MockNatijaQosh.level_kutish)
-        await message.answer(
-            "🎯 <b>Darajani tanlang:</b>",
-            parse_mode="HTML",
-            reply_markup=_level_kb(levels_list),
-        )
-        return
-    await _ask_notes(message, state)
+    await _ask_section(message, state)
 
 
 @router.callback_query(F.data.startswith("mock_level:"), MockNatijaQosh.level_kutish)

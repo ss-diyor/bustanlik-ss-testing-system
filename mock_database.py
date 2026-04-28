@@ -335,6 +335,17 @@ def mock_natija_qosh(
     notes: str = None,
     admin_id: int = None,
 ) -> int:
+    def _num(val):
+        # Custom section format qo'llab-quvvatlash:
+        # sections = {key: number} yoki {key: {"value": number, ...}}
+        if isinstance(val, (int, float)):
+            return float(val)
+        if isinstance(val, dict):
+            v = val.get("value")
+            if isinstance(v, (int, float)):
+                return float(v)
+        return None
+
     et = exam_type_ol(exam_key) or {}
     exam_label = et.get("label", exam_key)
 
@@ -342,20 +353,22 @@ def mock_natija_qosh(
         if exam_key == "DTM_MOCK":
             try:
                 from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
-                maj = sections.get("majburiy", 0)
-                as1 = sections.get("asosiy_1", 0)
-                as2 = sections.get("asosiy_2", 0)
+                maj = _num(sections.get("majburiy")) or 0
+                as1 = _num(sections.get("asosiy_1")) or 0
+                as2 = _num(sections.get("asosiy_2")) or 0
                 umumiy_ball = round(
                     maj * MAJBURIY_KOEFF + as1 * ASOSIY_1_KOEFF + as2 * ASOSIY_2_KOEFF, 2
                 )
             except Exception:
                 pass
         elif exam_key == "IELTS":
-            vals = [v for v in sections.values() if isinstance(v, (int, float))]
+            vals = [_num(v) for v in sections.values()]
+            vals = [v for v in vals if v is not None]
             if vals:
                 umumiy_ball = round(round(sum(vals) / len(vals) * 2) / 2, 1)
         else:
-            vals = [v for v in sections.values() if isinstance(v, (int, float))]
+            vals = [_num(v) for v in sections.values()]
+            vals = [v for v in vals if v is not None]
             if vals:
                 umumiy_ball = round(sum(vals), 1)
 
@@ -458,13 +471,23 @@ def format_mock_natija_matn(natija: dict, et: dict = None) -> str:
 
     sec_map = {s["section_key"]: s for s in et.get("sections", [])}
     for sec_key, sec_val in sections.items():
-        sec_info = sec_map.get(sec_key, {})
-        label = sec_info.get("label", f"📊 {sec_key.capitalize()}")
-        max_s = sec_info.get("max_score")
-        if max_s is not None:
-            lines.append(f"{label}: <b>{sec_val}</b> / {max_s}")
+        # sections ikki xil bo‘lishi mumkin:
+        # 1) { "listening": 8.0, ... }
+        # 2) { "listening": {"label":"🎧 Listening","value":8.0,"max":9.0}, ... }
+        if isinstance(sec_val, dict) and "value" in sec_val:
+            label = sec_val.get("label") or sec_map.get(sec_key, {}).get("label") or f"📊 {sec_key.capitalize()}"
+            max_s = sec_val.get("max")
+            val = sec_val.get("value")
         else:
-            lines.append(f"{label}: <b>{sec_val}</b>")
+            sec_info = sec_map.get(sec_key, {})
+            label = sec_info.get("label", f"📊 {sec_key.capitalize()}")
+            max_s = sec_info.get("max_score")
+            val = sec_val
+
+        if max_s is not None:
+            lines.append(f"{label}: <b>{val}</b> / {max_s}")
+        else:
+            lines.append(f"{label}: <b>{val}</b>")
 
     umumiy = natija.get("umumiy_ball")
     if umumiy is not None:

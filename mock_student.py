@@ -127,7 +127,10 @@ async def _show_mock_types(message: Message, kod: str):
                 sections = natija.get("sections", {})
                 ball_parts = []
                 for k, v in sections.items():
-                    ball_parts.append(f"{v}")
+                    if isinstance(v, dict) and "value" in v:
+                        ball_parts.append(f"{v.get('value')}")
+                    else:
+                        ball_parts.append(f"{v}")
                 ball_text = " | ".join(ball_parts)
 
             lines.append(f"• {t['exam_label']}: {ball_text} ({sana})")
