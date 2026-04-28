@@ -84,6 +84,19 @@ function renderPage({ kpi, class_stats, direction_stats, subject_stats, top_stud
   document.getElementById("stat-tests").textContent    = kpi.total_tests ?? "—";
   document.getElementById("stat-avg").textContent      = kpi.school_avg ? kpi.school_avg.toFixed(1) : "—";
 
+  // Load classes into broadcast target
+  if (class_stats) {
+    const select = document.getElementById("broadcast-target");
+    // Keep first option "Barchaga"
+    select.innerHTML = '<option value="Barchaga">Barcha o\'quvchilarga</option>';
+    class_stats.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.sinf;
+      opt.textContent = s.sinf + " sinfiga";
+      select.appendChild(opt);
+    });
+  }
+
   // Charts
   if (subject_stats) renderSubjectsChart(subject_stats);
   if (class_stats && class_stats.length > 0) renderClassesChart(class_stats);
@@ -95,6 +108,73 @@ function renderPage({ kpi, class_stats, direction_stats, subject_stats, top_stud
   // Show app
   document.getElementById("loading").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
+}
+
+// ─── Admin Actions ───────────────────────
+async function sendBroadcast() {
+  const text = document.getElementById("broadcast-text").value.trim();
+  const sinf = document.getElementById("broadcast-target").value;
+  const btn = document.getElementById("btn-broadcast");
+
+  if (!text) {
+    tg.showAlert("Xabar matnini kiriting!");
+    return;
+  }
+
+  try {
+    btn.disabled = true;
+    btn.textContent = "⌛ Yuborilmoqda...";
+
+    const headers = { "Content-Type": "application/json" };
+    if (tg?.initData) headers["X-Telegram-Init-Data"] = tg.initData;
+
+    const res = await fetch("/api/admin/broadcast", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text, sinf })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      tg.showAlert(`Xabar ${data.count} ta o'quvchiga muvaffaqiyatli yuborildi!`);
+      document.getElementById("broadcast-text").value = "";
+    } else {
+      tg.showAlert("Xatolik: " + (data.error || "Noma'lum xato"));
+    }
+  } catch (e) {
+    tg.showAlert("Serverga ulanishda xatolik!");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🚀 Xabarni yuborish";
+  }
+}
+
+async function exportExcel(type) {
+  try {
+    const initData = tg?.initData || "";
+    const url = `/api/admin/export?type=${type}&_t=${Date.now()}`;
+    
+    // WebApp headers can't be added to direct window.open or <a> download
+    // So we use a little trick: if we have initData, we fetch it first or use a signed URL
+    // For simplicity, we'll try to fetch with headers and then create a blob
+    
+    const headers = {};
+    if (tg?.initData) headers["X-Telegram-Init-Data"] = tg.initData;
+
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new Error("Yuklab olishda xatolik");
+
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.download = type === "top_students" ? "top_oquvchilar.xlsx" : "sinflar_statistikasi.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (e) {
+    tg.showAlert("Excel yuklashda xatolik yuz berdi");
+  }
 }
 
 // ─── Bar Chart: Subjects ─────────────────

@@ -410,6 +410,126 @@ async def admin_student_details_api(request: web.Request) -> web.Response:
         return web.json_response({"error": "Server error"}, status=500)
 
 
+async def admin_broadcast_api(request: web.Request) -> web.Response:
+    """O'quvchilarga xabar yuborish."""
+    from config import ADMIN_IDS
+    from database import get_connection, release_connection
+    from aiogram import Bot
+    
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, _ = validate_telegram_init_data(init_data, bot_token)
+    
+    if not user or user.get("id", 0) not in ADMIN_IDS:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+    
+    data = await request.json()
+    message_text = data.get("text", "").strip()
+    target_sinf = data.get("sinf", "Barchaga") # "Barchaga" yoki "9-A"
+    
+    if not message_text:
+        return web.json_response({"error": "Xabar matni bo'sh"}, status=400)
+        
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        if target_sinf == "Barchaga":
+            cur.execute("SELECT user_id FROM talabalar WHERE status = 'aktiv' AND user_id IS NOT NULL")
+        else:
+            cur.execute("SELECT user_id FROM talabalar WHERE status = 'aktiv' AND sinf = %s AND user_id IS NOT NULL", (target_sinf,))
+            
+        users = [r[0] for r in cur.fetchall()]
+        cur.close()
+        release_connection(conn)
+        
+        if not users:
+            return web.json_response({"error": "O'quvchilar topilmadi"}, status=404)
+            
+        # Background task as broadcast can take time
+        asyncio.create_task(run_broadcast(bot_token, users, message_text))
+        
+        return web.json_response({"success": True, "count": len(users)})
+    except Exception as e:
+        logging.error(f"Broadcast API error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+async def run_broadcast(token, user_ids, text):
+    from aiogram import Bot
+    from aiogram.exceptions import TelegramRetryAfter
+    bot = Bot(token=token)
+    count = 0
+    for uid in user_ids:
+        try:
+            await bot.send_message(uid, text)
+            count += 1
+            if count % 20 == 0: await asyncio.sleep(1) # Simple rate limit handling
+        except TelegramRetryAfter as e:
+            await asyncio.sleep(e.retry_after)
+            await bot.send_message(uid, text)
+        except Exception:
+            continue
+    await bot.session.close()
+
+async def admin_export_excel_api(request: web.Request) -> web.Response:
+    """Statistikani Excel formatida yuklash."""
+    from config import ADMIN_IDS
+    from database import get_connection, release_connection
+    import pandas as pd
+    import io
+    
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, _ = validate_telegram_init_data(init_data, bot_token)
+    
+    if not user or user.get("id", 0) not in ADMIN_IDS:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    type = request.rel_url.query.get("type", "top_students")
+    
+    try:
+        conn = get_connection()
+        
+        if type == "top_students":
+            query = """
+                SELECT t.kod, t.ismlar, t.sinf, t.yonalish, MAX(tn.umumiy_ball) as ball
+                FROM test_natijalari tn
+                JOIN talabalar t ON tn.talaba_kod = t.kod
+                GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish
+                ORDER BY ball DESC
+            """
+            filename = "top_oquvchilar.xlsx"
+        elif type == "class_stats":
+            query = """
+                SELECT t.sinf, AVG(tn.umumiy_ball) as ortacha_ball, COUNT(tn.id) as testlar_soni
+                FROM test_natijalari tn
+                JOIN talabalar t ON tn.talaba_kod = t.kod
+                GROUP BY t.sinf
+                ORDER BY t.sinf ASC
+            """
+            filename = "sinflar_statistikasi.xlsx"
+        else:
+            return web.json_response({"error": "Invalid type"}, status=400)
+            
+        df = pd.read_sql(query, conn)
+        release_connection(conn)
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Sheet1')
+        
+        output.seek(0)
+        
+        return web.Response(
+            body=output.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        logging.error(f"Export API error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+
 # ─────────────────────────────────────────
 # App factory
 # ─────────────────────────────────────────
@@ -425,6 +545,8 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/api/admin_stats", admin_stats_api)
     app.router.add_get("/api/admin/search", admin_search_api)
     app.router.add_get("/api/admin/student_details", admin_student_details_api)
+    app.router.add_post("/api/admin/broadcast", admin_broadcast_api)
+    app.router.add_get("/api/admin/export", admin_export_excel_api)
 
     # CSS / JS / assets
     app.router.add_static("/static", STATIC_DIR)

@@ -48,6 +48,25 @@
       </div>
     </section>
 
+    <!-- Admin Tools -->
+    <section class="admin-tools">
+      <button class="btn-secondary" onclick="exportExcel('top_students')">📊 Top o'quvchilar (Excel)</button>
+      <button class="btn-secondary" onclick="exportExcel('class_stats')">🏫 Sinflar hisoboti (Excel)</button>
+    </section>
+
+    <!-- Broadcast Section -->
+    <section class="chart-section broadcast-section">
+      <h2 class="section-title">📢 O'quvchilarga xabar yuborish</h2>
+      <div class="broadcast-box">
+        <select id="broadcast-target">
+          <option value="Barchaga">Barcha o'quvchilarga</option>
+          <!-- Classes will be loaded here -->
+        </select>
+        <textarea id="broadcast-text" placeholder="Xabar matnini kiriting..."></textarea>
+        <button id="btn-broadcast" onclick="sendBroadcast()">🚀 Xabarni yuborish</button>
+      </div>
+    </section>
+
     <!-- Search Section -->
     <section class="search-section">
       <div class="search-box">

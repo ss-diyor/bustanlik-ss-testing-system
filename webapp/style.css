@@ -282,6 +282,79 @@ body {
   color: #43b581;
 }
 
+/* ─── Admin Tools ─── */
+.admin-tools {
+  padding: 0 20px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.btn-secondary {
+  flex: 1;
+  padding: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: var(--accent);
+}
+
+/* ─── Broadcast Section ─── */
+.broadcast-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#broadcast-target {
+  padding: 10px;
+  background: #2c2f33;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #fff;
+  outline: none;
+}
+
+#broadcast-text {
+  padding: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #fff;
+  min-height: 100px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+#btn-broadcast {
+  padding: 12px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+#btn-broadcast:active {
+  transform: scale(0.98);
+}
+
+#btn-broadcast:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ─── Admin Search ─── */
 .search-section {
   padding: 0 20px;
