@@ -57,8 +57,11 @@ AI_BASE_URL = _env("AI_BASE_URL", "https://api.groq.com/openai/v1")
 AI_DAILY_LIMIT = _env_int("AI_DAILY_LIMIT", 50)
 
 # Telegram Mini Web App public URL (Railway'da WEBAPP_URL env variable sifatida bering)
-# Masalan: https://your-app.up.railway.app
-WEBAPP_URL = _env("WEBAPP_URL", "")
+# Masalan: https://your-app.up.railway.app  (https:// prefiksi bilan!)
+_webapp_url_raw = _env("WEBAPP_URL", "")
+if _webapp_url_raw and not _webapp_url_raw.startswith("http"):
+    _webapp_url_raw = "https://" + _webapp_url_raw
+WEBAPP_URL = _webapp_url_raw
 
 # Mavjud yo'nalishlar (asosiy fan juftliklari)
 YONALISHLAR = [
