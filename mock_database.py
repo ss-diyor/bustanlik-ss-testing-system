@@ -357,6 +357,13 @@ def mock_natija_qosh(
                 return float(v)
         return None
 
+    def _max(val):
+        if isinstance(val, dict):
+            mx = val.get("max")
+            if isinstance(mx, (int, float)):
+                return float(mx)
+        return None
+
     et = exam_type_ol(exam_key) or {}
     exam_label = et.get("label", exam_key)
 
@@ -367,9 +374,29 @@ def mock_natija_qosh(
                 maj = _num(sections.get("majburiy")) or 0
                 as1 = _num(sections.get("asosiy_1")) or 0
                 as2 = _num(sections.get("asosiy_2")) or 0
-                umumiy_ball = round(
-                    maj * MAJBURIY_KOEFF + as1 * ASOSIY_1_KOEFF + as2 * ASOSIY_2_KOEFF, 2
+                maj_max = _max(sections.get("majburiy"))
+                as1_max = _max(sections.get("asosiy_1"))
+                as2_max = _max(sections.get("asosiy_2"))
+
+                # DTM Mock uchun ikki xil kiritish uchraydi:
+                # 1) 0-30 oralig'idagi to'g'ri javoblar soni
+                # 2) allaqachon koeffitsientlangan ballar (masalan 88 / 93)
+                #
+                # Agar qiymat yoki max 30 dan katta bo'lsa, u tayyor ball deb olinadi
+                # va qayta ko'paytirilmaydi.
+                is_weighted_input = any(
+                    item is not None and item > 30
+                    for item in (maj, as1, as2, maj_max, as1_max, as2_max)
                 )
+                if is_weighted_input:
+                    umumiy_ball = round(maj + as1 + as2, 2)
+                else:
+                    umumiy_ball = round(
+                        maj * MAJBURIY_KOEFF
+                        + as1 * ASOSIY_1_KOEFF
+                        + as2 * ASOSIY_2_KOEFF,
+                        2,
+                    )
             except Exception:
                 pass
         elif exam_key == "IELTS":
