@@ -2377,3 +2377,18 @@ def chatbot_bugungi_son() -> int:
     cur.close()
     release_connection(conn)
     return count
+
+
+def get_user_ids_by_maktab(maktab_id: int):
+    """Berilgan maktab o'quvchilarining Telegram user_id larini qaytaradi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT DISTINCT t.user_id
+        FROM talabalar t
+        WHERE t.maktab_id = %s AND t.user_id IS NOT NULL
+    """, (maktab_id,))
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [r["user_id"] for r in rows]
