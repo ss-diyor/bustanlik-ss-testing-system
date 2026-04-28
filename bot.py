@@ -18,6 +18,7 @@ from database import (
     guruh_qosh,
     get_user,
     update_user_phone,
+    is_notification_enabled,
 )
 from aiogram import F
 from keyboards import (
@@ -227,6 +228,8 @@ async def reminder_scheduler():
             for r in reminders:
                 user_ids = get_all_user_ids()
                 for uid in user_ids:
+                    if not is_notification_enabled(uid, "notify_reminders"):
+                        continue
                     try:
                         await bot.send_message(
                             uid,
