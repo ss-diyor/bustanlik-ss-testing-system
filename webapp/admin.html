@@ -86,6 +86,27 @@
       </div>
     </section>
 
+    <!-- Materials Management Section -->
+    <section class="chart-section materials-section">
+      <h2 class="section-title">📚 Materiallar Boshqaruvi</h2>
+      <div class="add-schedule-box admin-only hidden" id="admin-materials-form">
+        <h4 style="margin-bottom:10px; color: #fff;">➕ Yangi material qo'shish</h4>
+        <input type="text" id="mat-name" placeholder="Material nomi">
+        <select id="mat-type">
+          <option value="pdf">📑 PDF fayl</option>
+          <option value="video">🎥 Video dars</option>
+          <option value="link">🔗 Havola (Link)</option>
+        </select>
+        <input type="text" id="mat-link" placeholder="Havola (URL)">
+        <input type="text" id="mat-subject" placeholder="Fan nomi">
+        <select id="mat-sinf">
+          <option value="Barchaga">Barcha sinflar</option>
+          <!-- Classes loaded via JS -->
+        </select>
+        <button onclick="addMaterial()">📚 Qo'shish</button>
+      </div>
+    </section>
+
     <!-- Search Section -->
     <section class="search-section">
       <div class="search-box">

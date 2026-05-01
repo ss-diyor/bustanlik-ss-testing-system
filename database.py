@@ -130,7 +130,7 @@ def init_db():
             asosiy_2 INTEGER NOT NULL,
             umumiy_ball REAL NOT NULL,
             test_sanasi TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (talaba_kod) REFERENCES talabalar (kod)
+            FOREIGN KEY (talaba_kod) REFERENCES talabalar (kod) ON DELETE CASCADE
         )
     """)
     cur.execute(
@@ -282,6 +282,30 @@ def init_db():
             vaqt TEXT,
             sinf TEXT DEFAULT 'Barchaga',
             yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS materiallar (
+            id SERIAL PRIMARY KEY,
+            nomi TEXT NOT NULL,
+            turi TEXT DEFAULT 'pdf', -- pdf, video, link
+            link TEXT NOT NULL,
+            fanni_nomi TEXT,
+            sinf TEXT DEFAULT 'Barchaga',
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS practice_questions (
+            id SERIAL PRIMARY KEY,
+            subject TEXT NOT NULL,
+            question TEXT NOT NULL,
+            options JSONB NOT NULL,
+            correct_option INTEGER NOT NULL,
+            explanation TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 

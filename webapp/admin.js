@@ -97,12 +97,17 @@ function renderPage({ role, kpi, class_stats, direction_stats, subject_stats, to
   if (class_stats) {
     const bTarget = document.getElementById("broadcast-target");
     const sTarget = document.getElementById("sched-sinf");
+    const mTarget = document.getElementById("mat-sinf");
     
     const html = '<option value="Barchaga">Barcha o\'quvchilarga</option>' + 
                  class_stats.map(s => `<option value="${s.sinf}">${s.sinf} sinfiga</option>`).join("");
     
+    const plainHtml = '<option value="Barchaga">Barcha sinflar</option>' + 
+                      class_stats.map(s => `<option value="${s.sinf}">${s.sinf}</option>`).join("");
+    
     if (bTarget) bTarget.innerHTML = html;
-    if (sTarget) sTarget.innerHTML = html.replace(/ sinfiga/g, "");
+    if (sTarget) sTarget.innerHTML = plainHtml;
+    if (mTarget) mTarget.innerHTML = plainHtml;
   }
 
   // Charts
@@ -174,6 +179,41 @@ async function addSchedule() {
       document.getElementById("sched-date").value = "";
       document.getElementById("sched-time").value = "";
       loadSchedule();
+    } else {
+      tg.showAlert("Xatolik yuz berdi");
+    }
+  } catch (e) {
+    tg.showAlert("Serverga ulanishda xatolik!");
+  }
+}
+
+async function addMaterial() {
+  const nomi = document.getElementById("mat-name").value.trim();
+  const turi = document.getElementById("mat-type").value;
+  const link = document.getElementById("mat-link").value.trim();
+  const fanni_nomi = document.getElementById("mat-subject").value.trim();
+  const sinf = document.getElementById("mat-sinf").value;
+
+  if (!nomi || !link) {
+    tg.showAlert("Material nomi va havolasini kiriting!");
+    return;
+  }
+
+  try {
+    const headers = { "Content-Type": "application/json" };
+    if (tg?.initData) headers["X-Telegram-Init-Data"] = tg.initData;
+
+    const res = await fetch("/api/admin/materials", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ nomi, turi, link, fanni_nomi, sinf })
+    });
+
+    if (res.ok) {
+      tg.showAlert("Material muvaffaqiyatli qo'shildi!");
+      document.getElementById("mat-name").value = "";
+      document.getElementById("mat-link").value = "";
+      document.getElementById("mat-subject").value = "";
     } else {
       tg.showAlert("Xatolik yuz berdi");
     }

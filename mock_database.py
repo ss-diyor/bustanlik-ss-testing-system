@@ -157,7 +157,7 @@ def create_mock_tables():
             notes        TEXT,
             test_sanasi  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             admin_id     BIGINT,
-            FOREIGN KEY (talaba_kod) REFERENCES talabalar(kod)
+            FOREIGN KEY (talaba_kod) REFERENCES talabalar(kod) ON DELETE CASCADE
         )
     """)
 

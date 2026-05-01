@@ -30,6 +30,8 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('personal')">Shaxsiy Natijalar</button>
       <button class="tab-btn" onclick="switchTab('classmates')">Sinfdoshlar</button>
+      <button class="tab-btn" onclick="switchTab('schedule')">Taqvim</button>
+      <button class="tab-btn" onclick="switchTab('materials')">Materiallar</button>
     </div>
 
     <!-- Personal Tab -->
@@ -94,6 +96,26 @@
       <section class="history-section" style="padding-top: 20px;">
         <h2 class="section-title">👥 Sinfdoshlar ro'yxati</h2>
         <div class="table-wrapper" id="classmates-list"></div>
+      </section>
+    </div>
+
+    <!-- Schedule Tab -->
+    <div id="tab-schedule" class="tab-content hidden">
+      <section class="history-section" style="padding-top: 20px;">
+        <h2 class="section-title">📅 Testlar Taqvimi</h2>
+        <div id="schedule-list" class="schedule-grid">
+          <!-- Dinamik yuklanadi -->
+        </div>
+      </section>
+    </div>
+
+    <!-- Materials Tab -->
+    <div id="tab-materials" class="tab-content hidden">
+      <section class="history-section" style="padding-top: 20px;">
+        <h2 class="section-title">📚 O'quv Materiallari</h2>
+        <div id="materials-list" class="materials-grid">
+          <!-- Dinamik yuklanadi -->
+        </div>
       </section>
     </div>
 

@@ -36,6 +36,7 @@ import language_handlers
 import parent
 import chatbot
 import group_commands
+import practice_quiz
 
 # Loglarni konsolga chiqaradi
 logging.basicConfig(
@@ -60,6 +61,7 @@ dp.include_router(mock_student.router)
 dp.include_router(language_handlers.router)
 dp.include_router(parent.router)
 dp.include_router(group_commands.router)
+dp.include_router(practice_quiz.router)
 
 
 @dp.message(CommandStart())
@@ -249,6 +251,49 @@ async def reminder_scheduler():
         await asyncio.sleep(60)
 
 
+async def test_schedule_reminder_scheduler():
+    """Ertangi yoki bugungi testlar haqida o'quvchilarga avtomatik eslatma yuborish."""
+    from database import get_connection, release_connection, get_all_user_ids
+    
+    while True:
+        try:
+            now = datetime.now()
+            # Har kuni soat 08:00 da bugungi testlar haqida eslatma yuboramiz
+            if now.hour == 8 and now.minute == 0:
+                conn = get_connection()
+                cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                
+                # Bugungi testlarni olamiz
+                cur.execute("SELECT * FROM test_taqvimi WHERE sana = CURRENT_DATE")
+                today_tests = cur.fetchall()
+                
+                if today_tests:
+                    user_ids = get_all_user_ids()
+                    for test in today_tests:
+                        text = (
+                            f"📅 <b>BUGUN TEST BOR!</b>\n\n"
+                            f"📝 Test: <b>{test['test_nomi']}</b>\n"
+                            f"⏰ Vaqt: <b>{test['vaqt'] or 'Belgilanmagan'}</b>\n"
+                            f"👥 Sinf: <b>{test['sinf'] or 'Barchaga'}</b>\n\n"
+                            f"Barcha o'quvchilarga omad tilaymiz! 💪"
+                        )
+                        
+                        for uid in user_ids:
+                            if not is_notification_enabled(uid, "notify_reminders"):
+                                continue
+                            try:
+                                await bot.send_message(uid, text, parse_mode="HTML")
+                            except Exception:
+                                pass
+                                
+                cur.close()
+                release_connection(conn)
+                await asyncio.sleep(61)
+        except Exception as e:
+            logging.error(f"Test schedule reminder error: {e}")
+        await asyncio.sleep(30)
+
+
 async def group_ranking_scheduler():
     """Guruhlarga har kuni soat 20:00 da barcha sinflar bo'yicha Top-10 reyting yuborish."""
     from database import guruhlar_ol, sinf_ol, get_all_in_class
@@ -318,6 +363,7 @@ async def main():
 
     asyncio.create_task(scheduler())
     asyncio.create_task(reminder_scheduler())
+    asyncio.create_task(test_schedule_reminder_scheduler())
     asyncio.create_task(group_ranking_scheduler())
     asyncio.create_task(start_web_server(BOT_TOKEN))
     logging.info("Web server task scheduled.")

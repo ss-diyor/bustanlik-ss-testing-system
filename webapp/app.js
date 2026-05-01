@@ -119,15 +119,79 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.remove('active');
   });
-  document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`).classList.add('active');
+  const activeBtn = document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`);
+  if (activeBtn) activeBtn.classList.add('active');
 
   // Update content
   document.querySelectorAll('.tab-content').forEach(content => {
     content.classList.remove('active-tab');
     content.classList.add('hidden');
   });
-  document.getElementById(`tab-${tabId}`).classList.remove('hidden');
-  document.getElementById(`tab-${tabId}`).classList.add('active-tab');
+  const activeTab = document.getElementById(`tab-${tabId}`);
+  if (activeTab) {
+    activeTab.classList.remove('hidden');
+    activeTab.classList.add('active-tab');
+  }
+
+  // Load tab-specific data
+  if (tabId === 'schedule') loadSchedule();
+  if (tabId === 'materials') loadMaterials();
+}
+
+// ─── Load Schedule ────────────────────────
+async function loadSchedule() {
+  const wrap = document.getElementById("schedule-list");
+  wrap.innerHTML = '<div class="spinner-small"></div>';
+  
+  try {
+    const res = await fetch("/api/schedule");
+    const data = await res.json();
+    
+    if (!data.schedule || !data.schedule.length) {
+      wrap.innerHTML = '<p class="empty-msg">Yaqin orada testlar rejalashtirilmagan.</p>';
+      return;
+    }
+    
+    wrap.innerHTML = data.schedule.map(s => `
+      <div class="card-item">
+        <div class="card-content">
+          <h3>${s.test_nomi}</h3>
+          <p>${s.sinf || 'Barchaga'} · ${s.vaqt || 'Vaqt belgilanmagan'}</p>
+        </div>
+        <div class="card-tag">${s.sana}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    wrap.innerHTML = '<p class="empty-msg">Xatolik yuz berdi.</p>';
+  }
+}
+
+// ─── Load Materials ───────────────────────
+async function loadMaterials() {
+  const wrap = document.getElementById("materials-list");
+  wrap.innerHTML = '<div class="spinner-small"></div>';
+  
+  try {
+    const res = await fetch("/api/materials");
+    const data = await res.json();
+    
+    if (!data.materials || !data.materials.length) {
+      wrap.innerHTML = '<p class="empty-msg">Materiallar hali yuklanmagan.</p>';
+      return;
+    }
+    
+    wrap.innerHTML = data.materials.map(m => `
+      <div class="card-item">
+        <div class="card-content">
+          <h3>${m.nomi}</h3>
+          <p>${m.fanni_nomi || 'Umumiy'} · ${m.turi.toUpperCase()}</p>
+        </div>
+        <a href="${m.link}" target="_blank" class="card-btn">Ochish</a>
+      </div>
+    `).join('');
+  } catch (e) {
+    wrap.innerHTML = '<p class="empty-msg">Xatolik yuz berdi.</p>';
+  }
 }
 
 // ─── Progress Line Chart ─────────────────

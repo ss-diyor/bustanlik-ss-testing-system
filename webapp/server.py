@@ -206,6 +206,40 @@ async def student_api(request: web.Request) -> web.Response:
         return web.json_response({"error": "Server error"}, status=500)
 
 
+async def get_schedule_api(request: web.Request) -> web.Response:
+    """O'quvchi uchun testlar taqvimini qaytaradi."""
+    from database import get_connection, release_connection
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        # Kelgusi 30 kunlik testlarni olamiz
+        cur.execute("SELECT * FROM test_taqvimi WHERE sana >= CURRENT_DATE ORDER BY sana ASC, vaqt ASC LIMIT 20")
+        rows = cur.fetchall()
+        for r in rows:
+            if r.get("sana"): r["sana"] = r["sana"].strftime("%d.%m.%Y")
+        cur.close()
+        release_connection(conn)
+        return web.json_response({"schedule": rows})
+    except Exception as e:
+        logging.error(f"Schedule API error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+async def get_materials_api(request: web.Request) -> web.Response:
+    """O'quvchi uchun materiallarni qaytaradi."""
+    from database import get_connection, release_connection
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM materiallar ORDER BY yaratilgan_sana DESC LIMIT 50")
+        rows = cur.fetchall()
+        cur.close()
+        release_connection(conn)
+        return web.json_response({"materials": rows})
+    except Exception as e:
+        logging.error(f"Materials API error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+
 async def admin_handler(request: web.Request) -> web.Response:
     """Admin sahifasini qaytaradi."""
     html_path = os.path.join(STATIC_DIR, "admin.html")
@@ -378,6 +412,34 @@ async def admin_add_schedule_api(request: web.Request) -> web.Response:
         return web.json_response({"success": True})
     except Exception as e:
         logging.error(f"Schedule ADD error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+async def admin_add_material_api(request: web.Request) -> web.Response:
+    """Yangi o'quv materiali qo'shish (Faqat Admin)."""
+    from config import ADMIN_IDS
+    from database import get_connection, release_connection
+    
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, _ = validate_telegram_init_data(init_data, bot_token)
+    
+    if not user or user.get("id", 0) not in ADMIN_IDS:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    data = await request.json()
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO materiallar (nomi, turi, link, fanni_nomi, sinf) VALUES (%s, %s, %s, %s, %s)",
+            (data["nomi"], data["turi"], data["link"], data.get("fanni_nomi"), data.get("sinf", "Barchaga"))
+        )
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+        return web.json_response({"success": True})
+    except Exception as e:
+        logging.error(f"Material ADD error: {e}")
         return web.json_response({"error": "Server error"}, status=500)
 
 async def admin_search_api(request: web.Request) -> web.Response:
@@ -603,6 +665,11 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/api/admin/student_details", admin_student_details_api)
     app.router.add_post("/api/admin/broadcast", admin_broadcast_api)
     app.router.add_get("/api/admin/export", admin_export_excel_api)
+    app.router.add_post("/api/admin/materials", admin_add_material_api)
+
+    # Yangi funksiyalar (Taqvim va Materiallar)
+    app.router.add_get("/api/schedule", get_schedule_api)
+    app.router.add_get("/api/materials", get_materials_api)
 
     # CSS / JS / assets
     app.router.add_static("/static", STATIC_DIR)

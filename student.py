@@ -230,11 +230,11 @@ async def send_full_results(message: Message, kod: str):
 @router.message(F.text == "✍️ Admin bilan bog'lanish")
 async def murojaat_boshlash(message: Message, state: FSMContext):
     from parent import parent_ekanligini_tekshir, ota_ona_murojaat_start
-    from database import talaba_topish_user_id
+    from database import talaba_topish_user_id, oqituvchi_ol
+    from admin import is_admin_id
 
-    # Avval o'quvchi ekanligini tekshiramiz. 
-    # Agar o'quvchi bo'lsa, ota-ona bo'lsa ham o'quvchi murojaatidan foydalanadi.
-    if talaba_topish_user_id(message.from_user.id):
+    # O'quvchi, O'qituvchi yoki Admin ekanligini tekshiramiz
+    if talaba_topish_user_id(message.from_user.id) or is_admin_id(message.from_user.id) or oqituvchi_ol(message.from_user.id):
         await state.set_state(MurojaatState.xabar_kutish)
         await message.answer(
             "📝 <b>Murojaatingizni yozib yuboring.</b>\n\n"
@@ -244,12 +244,12 @@ async def murojaat_boshlash(message: Message, state: FSMContext):
         )
         return
 
-    # Agar o'quvchi bo'lmasa, ota-ona ekanligini tekshiramiz
+    # Agar yuqoridagilar bo'lmasa, ota-ona ekanligini tekshiramiz
     if parent_ekanligini_tekshir(message.from_user.id):
         await ota_ona_murojaat_start(message, state)
         return
 
-    # Ro'yxatdan o'tmaganlar uchun ham standart o'quvchi murojaati
+    # Ro'yxatdan o'tmaganlar uchun ham standart murojaat
     await state.set_state(MurojaatState.xabar_kutish)
     await message.answer(
         "📝 <b>Murojaatingizni yozib yuboring.</b>\n\n"
@@ -262,9 +262,20 @@ async def murojaat_boshlash(message: Message, state: FSMContext):
 @router.message(MurojaatState.xabar_kutish)
 async def murojaat_yuborish(message: Message, state: FSMContext):
     if message.text == "❌ Bekor qilish":
+        from admin import is_admin_id
+        from database import oqituvchi_ol
+        from keyboards import oqituvchi_menu_keyboard, admin_menu_keyboard
+        
+        if is_admin_id(message.from_user.id):
+            kb = admin_menu_keyboard()
+        elif oqituvchi_ol(message.from_user.id):
+            kb = oqituvchi_menu_keyboard()
+        else:
+            kb = user_menu_keyboard()
+
         await state.clear()
         await message.answer(
-            "❌ Murojaat bekor qilindi.", reply_markup=user_menu_keyboard()
+            "❌ Murojaat bekor qilindi.", reply_markup=kb
         )
         return
 
@@ -290,10 +301,21 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
             continue
 
     if sent_to_admin:
+        from admin import is_admin_id
+        from database import oqituvchi_ol
+        from keyboards import oqituvchi_menu_keyboard, admin_menu_keyboard
+        
+        if is_admin_id(message.from_user.id):
+            kb = admin_menu_keyboard()
+        elif oqituvchi_ol(message.from_user.id):
+            kb = oqituvchi_menu_keyboard()
+        else:
+            kb = user_menu_keyboard()
+
         await message.answer(
             "✅ <b>Murojaatingiz adminga yuborildi!</b>\n\nTez orada javob olasiz.",
             parse_mode="HTML",
-            reply_markup=user_menu_keyboard(),
+            reply_markup=kb,
         )
     else:
         await message.answer(

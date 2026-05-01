@@ -588,7 +588,10 @@ def user_menu_keyboard(
     if chatbot_enabled == "True":
         row3.append(KeyboardButton(text="🤖 AI Chatbot"))
     keyboard.append(row3)
-    keyboard.append([KeyboardButton(text="🔔 Bildirishnomalar")])
+    keyboard.append([
+        KeyboardButton(text="📝 Mashq qilish (Quiz)"),
+        KeyboardButton(text="🔔 Bildirishnomalar")
+    ])
 
     # To'rtinchi qator: Admin bilan bog'lanish va Chiqish
     keyboard.append(
