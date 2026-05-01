@@ -98,12 +98,42 @@
           <option value="link">🔗 Havola (Link)</option>
         </select>
         <input type="text" id="mat-link" placeholder="Havola (URL)">
-        <input type="text" id="mat-subject" placeholder="Fan nomi">
+        <input type="text" id="mat-subject" placeholder="Fan nomi (masalan: Matematika)">
         <select id="mat-sinf">
           <option value="Barchaga">Barcha sinflar</option>
           <!-- Classes loaded via JS -->
         </select>
         <button onclick="addMaterial()">📚 Qo'shish</button>
+      </div>
+      <div id="admin-materials-list" class="admin-list-container">
+        <!-- List of materials with delete buttons -->
+      </div>
+    </section>
+
+    <!-- Quiz Management Section -->
+    <section class="chart-section quiz-mgmt-section admin-only hidden" id="quiz-mgmt-section">
+      <h2 class="section-title">📝 Mashq Quiz Boshqaruvi</h2>
+      <div class="add-schedule-box">
+        <h4 style="margin-bottom:10px; color: #fff;">➕ Yangi savol qo'shish</h4>
+        <input type="text" id="quiz-subject" placeholder="Fan nomi">
+        <textarea id="quiz-question" placeholder="Savol matni"></textarea>
+        <div class="quiz-options-grid">
+          <input type="text" id="quiz-opt-0" placeholder="Variant A">
+          <input type="text" id="quiz-opt-1" placeholder="Variant B">
+          <input type="text" id="quiz-opt-2" placeholder="Variant C">
+          <input type="text" id="quiz-opt-3" placeholder="Variant D">
+        </div>
+        <select id="quiz-correct">
+          <option value="0">To'g'ri javob: A</option>
+          <option value="1">To'g'ri javob: B</option>
+          <option value="2">To'g'ri javob: C</option>
+          <option value="3">To'g'ri javob: D</option>
+        </select>
+        <textarea id="quiz-explanation" placeholder="Tushuntirish (ixtiyoriy)"></textarea>
+        <button onclick="addQuizQuestion()">📝 Savolni qo'shish</button>
+      </div>
+      <div id="admin-quiz-list" class="admin-list-container">
+        <!-- List of quiz questions -->
       </div>
     </section>
 

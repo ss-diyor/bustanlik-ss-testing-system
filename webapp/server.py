@@ -442,6 +442,106 @@ async def admin_add_material_api(request: web.Request) -> web.Response:
         logging.error(f"Material ADD error: {e}")
         return web.json_response({"error": "Server error"}, status=500)
 
+async def admin_get_materials_api(request: web.Request) -> web.Response:
+    """Barcha materiallarni olish."""
+    from database import get_connection, release_connection
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM materiallar ORDER BY yaratilgan_sana DESC")
+        rows = cur.fetchall()
+        cur.close()
+        release_connection(conn)
+        return web.json_response({"materials": rows})
+    except Exception as e:
+        logging.error(f"Admin Materials GET error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+async def admin_delete_material_api(request: web.Request) -> web.Response:
+    """Materialni o'chirish."""
+    from config import ADMIN_IDS
+    from database import material_ochir
+    
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, _ = validate_telegram_init_data(init_data, bot_token)
+    
+    if not user or user.get("id", 0) not in ADMIN_IDS:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    mat_id = int(request.match_info['id'])
+    try:
+        material_ochir(mat_id)
+        return web.json_response({"success": True})
+    except Exception as e:
+        logging.error(f"Material DELETE error: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
+# Quiz API
+async def admin_quiz_api(request: web.Request) -> web.Response:
+    """Quiz savollarini boshqarish API."""
+    from config import ADMIN_IDS
+    from database import quiz_savollarini_ol, quiz_savol_qosh, quiz_savol_tahrirla, quiz_savol_ochir
+    
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, _ = validate_telegram_init_data(init_data, bot_token)
+    
+    if not user or user.get("id", 0) not in ADMIN_IDS:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    method = request.method
+    
+    try:
+        if method == "GET":
+            questions = quiz_savollarini_ol()
+            return web.json_response({"questions": questions})
+            
+        elif method == "POST":
+            data = await request.json()
+            quiz_savol_qosh(
+                data["subject"], data["question"], data["options"], 
+                data["correct_option"], data.get("explanation")
+            )
+            return web.json_response({"success": True})
+            
+        elif method == "PUT":
+            qid = int(request.match_info['id'])
+            data = await request.json()
+            
+            # Fetch existing to support partial updates
+            conn = get_connection()
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute("SELECT * FROM practice_questions WHERE id=%s", (qid,))
+            existing = cur.fetchone()
+            cur.close()
+            release_connection(conn)
+            
+            if not existing:
+                return web.json_response({"error": "Not found"}, status=404)
+            
+            subject = data.get("subject", existing["subject"])
+            question = data.get("question", existing["question"])
+            options = data.get("options", existing["options"])
+            correct_option = data.get("correct_option", existing["correct_option"])
+            explanation = data.get("explanation", existing["explanation"])
+            is_active = data.get("is_active", existing["is_active"])
+
+            quiz_savol_tahrirla(
+                qid, subject, question, options,
+                correct_option, explanation, is_active
+            )
+            return web.json_response({"success": True})
+            
+        elif method == "DELETE":
+            qid = int(request.match_info['id'])
+            quiz_savol_ochir(qid)
+            return web.json_response({"success": True})
+            
+    except Exception as e:
+        logging.error(f"Quiz Admin API error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
 async def admin_search_api(request: web.Request) -> web.Response:
     """O'quvchilarni ismi yoki kodi bo'yicha qidirish."""
     from config import ADMIN_IDS
@@ -665,7 +765,15 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/api/admin/student_details", admin_student_details_api)
     app.router.add_post("/api/admin/broadcast", admin_broadcast_api)
     app.router.add_get("/api/admin/export", admin_export_excel_api)
+    app.router.add_get("/api/admin/materials", admin_get_materials_api)
     app.router.add_post("/api/admin/materials", admin_add_material_api)
+    app.router.add_delete("/api/admin/materials/{id}", admin_delete_material_api)
+    
+    # Quiz Admin API
+    app.router.add_get("/api/admin/quiz", admin_quiz_api)
+    app.router.add_post("/api/admin/quiz", admin_quiz_api)
+    app.router.add_put("/api/admin/quiz/{id}", admin_quiz_api)
+    app.router.add_delete("/api/admin/quiz/{id}", admin_quiz_api)
 
     # Yangi funksiyalar (Taqvim va Materiallar)
     app.router.add_get("/api/schedule", get_schedule_api)

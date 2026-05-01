@@ -2576,3 +2576,87 @@ def talaba_qidirish(query: str, limit: int = 10) -> list:
     cur.close()
     release_connection(conn)
     return [dict(r) for r in rows]
+
+
+# ─────────────────────────────────────────
+# Quiz Management
+# ─────────────────────────────────────────
+
+def quiz_savollarini_ol(subject: str = None, active_only: bool = False):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    sql = "SELECT * FROM practice_questions WHERE 1=1"
+    params = []
+    if subject:
+        sql += " AND subject = %s"
+        params.append(subject)
+    if active_only:
+        sql += " AND is_active = TRUE"
+    sql += " ORDER BY subject, id"
+    cur.execute(sql, params)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return rows
+
+def quiz_savol_qosh(subject, question, options, correct_option, explanation=None):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO practice_questions (subject, question, options, correct_option, explanation) VALUES (%s, %s, %s, %s, %s)",
+        (subject, question, json.dumps(options), correct_option, explanation)
+    )
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def quiz_savol_tahrirla(qid, subject, question, options, correct_option, explanation, is_active):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """UPDATE practice_questions 
+           SET subject=%s, question=%s, options=%s, correct_option=%s, explanation=%s, is_active=%s 
+           WHERE id=%s""",
+        (subject, question, json.dumps(options), correct_option, explanation, is_active, qid)
+    )
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def quiz_savol_ochir(qid):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM practice_questions WHERE id=%s", (qid,))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+# ─────────────────────────────────────────
+# Materials Management
+# ─────────────────────────────────────────
+
+def material_ochir(mid):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM materiallar WHERE id=%s", (mid,))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def materiallar_ol_by_subject(active_only=True):
+    """Materiallarni fanlar bo'yicha guruhlab beradi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM materiallar ORDER BY fanni_nomi, yaratilgan_sana DESC")
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    
+    # Group by subject
+    grouped = {}
+    for r in rows:
+        subject = r["fanni_nomi"] or "Umumiy"
+        if subject not in grouped:
+            grouped[subject] = []
+        grouped[subject].append(r)
+    return grouped

@@ -167,8 +167,11 @@ async function loadSchedule() {
 }
 
 // ─── Load Materials ───────────────────────
+let allMaterials = [];
+
 async function loadMaterials() {
   const wrap = document.getElementById("materials-list");
+  const filterWrap = document.getElementById("materials-filter");
   wrap.innerHTML = '<div class="spinner-small"></div>';
   
   try {
@@ -177,21 +180,55 @@ async function loadMaterials() {
     
     if (!data.materials || !data.materials.length) {
       wrap.innerHTML = '<p class="empty-msg">Materiallar hali yuklanmagan.</p>';
+      filterWrap.innerHTML = '';
       return;
     }
+
+    allMaterials = data.materials;
     
-    wrap.innerHTML = data.materials.map(m => `
-      <div class="card-item">
-        <div class="card-content">
-          <h3>${m.nomi}</h3>
-          <p>${m.fanni_nomi || 'Umumiy'} · ${m.turi.toUpperCase()}</p>
-        </div>
-        <a href="${m.link}" target="_blank" class="card-btn">Ochish</a>
-      </div>
-    `).join('');
+    // Create filters
+    const subjects = [...new Set(allMaterials.map(m => m.fanni_nomi || 'Umumiy'))];
+    let filterHtml = '<button class="filter-btn active" onclick="filterMaterials(\'all\')">Barchasi</button>';
+    subjects.forEach(s => {
+      filterHtml += `<button class="filter-btn" onclick="filterMaterials('${s}')">${s}</button>`;
+    });
+    filterWrap.innerHTML = filterHtml;
+
+    renderMaterials(allMaterials);
   } catch (e) {
     wrap.innerHTML = '<p class="empty-msg">Xatolik yuz berdi.</p>';
   }
+}
+
+function filterMaterials(subject) {
+  // Update active button
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === subject || (subject === 'all' && btn.textContent === 'Barchasi'));
+  });
+
+  const filtered = subject === 'all' 
+    ? allMaterials 
+    : allMaterials.filter(m => (m.fanni_nomi || 'Umumiy') === subject);
+  
+  renderMaterials(filtered);
+}
+
+function renderMaterials(list) {
+  const wrap = document.getElementById("materials-list");
+  if (!list.length) {
+    wrap.innerHTML = '<p class="empty-msg">Ushbu fan bo\'yicha materiallar yo\'q.</p>';
+    return;
+  }
+
+  wrap.innerHTML = list.map(m => `
+    <div class="card-item">
+      <div class="card-content">
+        <h3>${m.nomi}</h3>
+        <p>${m.fanni_nomi || 'Umumiy'} · ${m.turi.toUpperCase()}</p>
+      </div>
+      <a href="${m.link}" target="_blank" class="card-btn">Ochish</a>
+    </div>
+  `).join('');
 }
 
 // ─── Progress Line Chart ─────────────────
