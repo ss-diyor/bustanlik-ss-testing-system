@@ -1117,6 +1117,9 @@ def delete_all_data():
     cur.execute("DELETE FROM access_requests")
     cur.execute("DELETE FROM test_natijalari")
     cur.execute("DELETE FROM appeals")
+    cur.execute("DELETE FROM mock_natijalari")
+    cur.execute("DELETE FROM ota_ona_bog")
+    cur.execute("DELETE FROM chatbot_logs")
     cur.execute("DELETE FROM talabalar")
     cur.execute("DELETE FROM test_kalitlari")
     # Ixtiyoriy: Yo'nalishlar va sinflarni ham tozalash mumkin,

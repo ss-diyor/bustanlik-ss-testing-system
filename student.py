@@ -230,11 +230,26 @@ async def send_full_results(message: Message, kod: str):
 @router.message(F.text == "✍️ Admin bilan bog'lanish")
 async def murojaat_boshlash(message: Message, state: FSMContext):
     from parent import parent_ekanligini_tekshir, ota_ona_murojaat_start
+    from database import talaba_topish_user_id
 
+    # Avval o'quvchi ekanligini tekshiramiz. 
+    # Agar o'quvchi bo'lsa, ota-ona bo'lsa ham o'quvchi murojaatidan foydalanadi.
+    if talaba_topish_user_id(message.from_user.id):
+        await state.set_state(MurojaatState.xabar_kutish)
+        await message.answer(
+            "📝 <b>Murojaatingizni yozib yuboring.</b>\n\n"
+            "Adminlarimiz tez orada sizga javob berishadi.",
+            parse_mode="HTML",
+            reply_markup=murojaat_bekor_qilish_keyboard(),
+        )
+        return
+
+    # Agar o'quvchi bo'lmasa, ota-ona ekanligini tekshiramiz
     if parent_ekanligini_tekshir(message.from_user.id):
         await ota_ona_murojaat_start(message, state)
         return
 
+    # Ro'yxatdan o'tmaganlar uchun ham standart o'quvchi murojaati
     await state.set_state(MurojaatState.xabar_kutish)
     await message.answer(
         "📝 <b>Murojaatingizni yozib yuboring.</b>\n\n"
