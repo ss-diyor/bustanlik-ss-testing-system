@@ -749,27 +749,31 @@ def natija_qosh(
 
 def talaba_topish(kod: str):
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM talabalar WHERE kod = %s", (kod.upper(),))
-    row = cur.fetchone()
-    cur.close()
-    release_connection(conn)
-    return dict(row) if row else None
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM talabalar WHERE kod = %s", (kod.upper(),))
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    finally:
+        release_connection(conn)
 
 
 def talaba_topish_user_id(user_id: int):
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (user_id,))
-    row = cur.fetchone()
-    cur.close()
-    release_connection(conn)
-    return dict(row) if row else None
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (user_id,))
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    finally:
+        release_connection(conn)
 
 
 def talaba_ochir(kod: str) -> bool:
+    conn = get_connection()
     try:
-        conn = get_connection()
         cur = conn.cursor()
         # Avval bog'liq ma'lumotlarni o'chiramiz
         cur.execute(
@@ -785,40 +789,45 @@ def talaba_ochir(kod: str) -> bool:
         cur.execute("DELETE FROM talabalar WHERE kod = %s", (kod.upper(),))
         conn.commit()
         cur.close()
-        release_connection(conn)
         return True
     except Exception:
         return False
+    finally:
+        release_connection(conn)
 
 
 def talaba_natijalari(kod: str, limit: int = None):
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    query = "SELECT * FROM test_natijalari WHERE talaba_kod = %s ORDER BY test_sanasi DESC"
-    if limit:
-        query += f" LIMIT {limit}"
-    cur.execute(query, (kod.upper(),))
-    rows = cur.fetchall()
-    cur.close()
-    release_connection(conn)
-    return [dict(r) for r in rows]
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        query = "SELECT * FROM test_natijalari WHERE talaba_kod = %s ORDER BY test_sanasi DESC"
+        if limit:
+            query += f" LIMIT {limit}"
+        cur.execute(query, (kod.upper(),))
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    finally:
+        release_connection(conn)
 
 
 def talaba_songi_natija(kod: str):
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        """
-        SELECT * FROM test_natijalari
-        WHERE talaba_kod = %s
-        ORDER BY test_sanasi DESC LIMIT 1
-    """,
-        (kod.upper(),),
-    )
-    row = cur.fetchone()
-    cur.close()
-    release_connection(conn)
-    return dict(row) if row else None
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """
+            SELECT * FROM test_natijalari
+            WHERE talaba_kod = %s
+            ORDER BY test_sanasi DESC LIMIT 1
+        """,
+            (kod.upper(),),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    finally:
+        release_connection(conn)
 
 
 def oqituvchi_qosh(user_id: int, ismlar: str, sinf: str) -> bool:

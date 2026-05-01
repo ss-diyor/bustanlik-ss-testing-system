@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl
 from aiohttp import web
 import psycopg2
 import psycopg2.extras
+from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
 
 # ─────────────────────────────────────────
 # Telegram initData validation
@@ -123,7 +124,7 @@ async def student_api(request: web.Request) -> web.Response:
                 FROM test_natijalari tn
                 JOIN talabalar t ON tn.talaba_kod = t.kod
                 WHERE t.sinf = %s AND t.status = 'aktiv'
-                  AND t.user_id != %s
+                  AND t.kod != %s
                 ORDER BY tn.talaba_kod, tn.test_sanasi DESC
             ) sub
             WHERE sub.umumiy_ball > COALESCE(
@@ -131,7 +132,7 @@ async def student_api(request: web.Request) -> web.Response:
                  WHERE talaba_kod = %s ORDER BY test_sanasi DESC LIMIT 1), 0
             )
             """,
-            (talaba["sinf"], user_id, talaba["kod"]),
+            (talaba["sinf"], talaba["kod"], talaba["kod"]),
         )
         rank_row = cur.fetchone()
         sinf_rank = rank_row["sinf_rank"] if rank_row else "—"
@@ -191,6 +192,11 @@ async def student_api(request: web.Request) -> web.Response:
                     }
                     for c in classmates
                 ],
+                "config": {
+                    "MAJBURIY_KOEFF": MAJBURIY_KOEFF,
+                    "ASOSIY_1_KOEFF": ASOSIY_1_KOEFF,
+                    "ASOSIY_2_KOEFF": ASOSIY_2_KOEFF,
+                }
             },
             headers={"Access-Control-Allow-Origin": "*"},
         )

@@ -55,7 +55,9 @@ async function loadStudentData() {
 }
 
 // ─── Render ──────────────────────────────
-function renderPage({ student, stats, results, classmates }) {
+function renderPage(data) {
+  const { student, stats, results, classmates, config } = data;
+  
   // Student info
   const initials = (student.ismlar || "?")
     .split(" ")
@@ -96,7 +98,7 @@ function renderPage({ student, stats, results, classmates }) {
 
   // Charts
   renderProgressChart(results);
-  if (results.length > 0) renderSubjectChart(results[results.length - 1]);
+  if (results.length > 0) renderSubjectChart(results[results.length - 1], config);
 
   // History table
   renderHistoryTable(results);
@@ -195,10 +197,10 @@ function renderProgressChart(results) {
 }
 
 // ─── Subject Doughnut / Bar Chart ────────
-function renderSubjectChart(last) {
-  const MAJBURIY_KOEFF  = 1.1;
-  const ASOSIY_1_KOEFF  = 3.1;
-  const ASOSIY_2_KOEFF  = 2.1;
+function renderSubjectChart(last, config) {
+  const MAJBURIY_KOEFF  = config?.MAJBURIY_KOEFF  || 1.1;
+  const ASOSIY_1_KOEFF  = config?.ASOSIY_1_KOEFF  || 3.1;
+  const ASOSIY_2_KOEFF  = config?.ASOSIY_2_KOEFF  || 2.1;
 
   const mBall  = (last.majburiy  * MAJBURIY_KOEFF).toFixed(1);
   const a1Ball = (last.asosiy_1  * ASOSIY_1_KOEFF).toFixed(1);

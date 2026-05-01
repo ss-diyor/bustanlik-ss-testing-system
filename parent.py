@@ -472,10 +472,10 @@ async def ota_ona_murojaat_yuborish(message: Message, state: FSMContext):
     from config import ADMIN_IDS
     farzandlar = parent_farzandlar(message.from_user.id)
 
-    if message.text == "вќЊ Bekor qilish":
+    if message.text == "❌ Bekor qilish":
         await state.clear()
         await message.answer(
-            "вќЊ Xabar yuborish bekor qilindi.",
+            "❌ Xabar yuborish bekor qilindi.",
             reply_markup=ota_ona_menu_keyboard(),
         )
         return
