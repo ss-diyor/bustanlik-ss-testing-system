@@ -2021,7 +2021,13 @@ async def excel_import_process(message: Message, state: FSMContext):
                 )
 
                 count += 1
-            except Exception:
+                
+                # Event loopni bloklamaslik uchun har 10 ta qatorda to'xtab o'tamiz
+                if count % 10 == 0:
+                    await asyncio.sleep(0.01)
+                    
+            except Exception as e:
+                logging.error(f"Import row error: {e}")
                 skipped += 1
                 continue
 

@@ -43,8 +43,12 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-# Bot va Dispatcher
-bot = Bot(token=BOT_TOKEN)
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiohttp import ClientTimeout
+
+# Bot va Dispatcher (Timeoutni 5 minutga oshiramiz - importlar uchun)
+session = AiohttpSession(timeout=300)
+bot = Bot(token=BOT_TOKEN, session=session)
 dp = Dispatcher(storage=MemoryStorage())
 
 # Routerlarni ulash
