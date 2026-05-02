@@ -26,9 +26,8 @@ async def start_practice(message: Message, state: FSMContext):
         await message.answer("😔 Hozircha mashq qilish uchun savollar yuklanmagan.")
         return
         
-    keyboard = []
     for s in subjects:
-        keyboard.append([InlineKeyboardButton(text=s, callback_query_id=f"quiz_start:{s}")]) # Fixed: use callback_data
+        keyboard.append([InlineKeyboardButton(text=s, callback_data=f"quiz_start:{s}")])
     
     # Corrected keyboard construction
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -51,8 +50,6 @@ async def send_next_question(message: Message, state: FSMContext):
     answered_ids = data['answered_ids']
     
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=import_psycopg2_extras_RealDictCursor()) # Helper needed
-    # Actually simpler:
     import psycopg2.extras
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     

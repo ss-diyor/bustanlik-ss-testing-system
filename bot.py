@@ -37,6 +37,7 @@ import parent
 import chatbot
 import group_commands
 import practice_quiz
+import mini_test_handler
 
 # Loglarni konsolga chiqaradi
 logging.basicConfig(
@@ -62,6 +63,7 @@ dp.include_router(language_handlers.router)
 dp.include_router(parent.router)
 dp.include_router(group_commands.router)
 dp.include_router(practice_quiz.router)
+dp.include_router(mini_test_handler.router)
 
 
 @dp.message(CommandStart())

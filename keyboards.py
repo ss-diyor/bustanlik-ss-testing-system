@@ -66,6 +66,9 @@ def admin_menu_keyboard():
             [KeyboardButton(text="🧹 Bazani tozalash")],
             [KeyboardButton(text="📢 Xabar yuborish")],
             [KeyboardButton(text="✉️ Shaxsiy xabar yuborish")],
+            [KeyboardButton(text="🌐 Web Admin Panel")],
+            [KeyboardButton(text="📦 Mini-test yuborish")],
+            [KeyboardButton(text="📝 Mashq Quiz (Web)")],
             [KeyboardButton(text="🔍 Kod bo'yicha qidirish")],
             [KeyboardButton(text="🚪 Chiqish")],
         ],
@@ -597,6 +600,7 @@ def user_menu_keyboard(
     keyboard.append(
         [
             KeyboardButton(text="✍️ Admin bilan bog'lanish"),
+            KeyboardButton(text="📦 Mini-testlar"),
             KeyboardButton(text="🚪 Chiqish"),
         ]
     )

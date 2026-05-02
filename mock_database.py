@@ -160,6 +160,23 @@ def create_mock_tables():
             FOREIGN KEY (talaba_kod) REFERENCES talabalar(kod) ON DELETE CASCADE
         )
     """)
+    # Migration: Ensure ON DELETE CASCADE is present for mock_natijalari
+    cur.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.table_constraints 
+                WHERE constraint_name = 'mock_natijalari_talaba_kod_fkey' 
+                AND table_name = 'mock_natijalari'
+            ) THEN
+                ALTER TABLE mock_natijalari DROP CONSTRAINT mock_natijalari_talaba_kod_fkey;
+            END IF;
+            ALTER TABLE mock_natijalari ADD CONSTRAINT mock_natijalari_talaba_kod_fkey 
+                FOREIGN KEY (talaba_kod) REFERENCES talabalar(kod) ON DELETE CASCADE;
+        EXCEPTION
+            WHEN OTHERS THEN NULL;
+        END $$;
+    """)
 
     # --- Legacy migration: exam_type -> exam_key (mock_natijalari) ---
     cur.execute(

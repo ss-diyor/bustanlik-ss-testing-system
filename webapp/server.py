@@ -264,35 +264,50 @@ async def get_user_role(user_id, conn):
         return "teacher", row["sinf"]
         
     return None, None
-
-async def admin_stats_api(request: web.Request) -> web.Response:
-    """Admin uchun statistik ma'lumotlarni JSON formatida qaytaradi (Role-based)."""
-    from config import ADMIN_IDS
+    
+async def check_admin_role(request: web.Request):
+    """Helper: Auth tekshirish va rolni qaytarish."""
     from database import get_connection, release_connection
-
     bot_token = request.app["bot_token"]
     init_data = request.headers.get("X-Telegram-Init-Data", "")
     user, err_msg = validate_telegram_init_data(init_data, bot_token)
-
+    
     if not user:
         debug = os.getenv("WEBAPP_DEBUG", "")
         if debug:
             try:
                 user_id = int(request.rel_url.query.get("user_id", 0))
             except ValueError:
-                return web.json_response({"error": "Invalid user_id"}, status=400)
+                return None, None, web.json_response({"error": "Invalid user_id"}, status=400)
         else:
-            return web.json_response({"error": f"Unauthorized: {err_msg}"}, status=401)
+            return None, None, web.json_response({"error": f"Unauthorized: {err_msg}"}, status=401)
     else:
         user_id = user.get("id", 0)
 
-    try:
-        conn = get_connection()
-        role, teacher_sinf = await get_user_role(user_id, conn)
+    conn = get_connection()
+    role, teacher_sinf = await get_user_role(user_id, conn)
+    release_connection(conn)
+    
+    if not role:
+        return None, None, web.json_response({"error": "Sizda admin yoki o'qituvchi huquqi yo'q!"}, status=403)
         
-        if not role:
-            release_connection(conn)
-            return web.json_response({"error": "Sizda admin yoki o'qituvchi huquqi yo'q!"}, status=403)
+    return role, teacher_sinf, None
+
+async def admin_stats_api(request: web.Request) -> web.Response:
+    """Admin uchun statistik ma'lumotlarni JSON formatida qaytaradi (Role-based)."""
+    role, teacher_sinf, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    
+    # user_id ni check_admin_role dan olish uchun kichik trick yoki qayta hisoblash
+    # validate_telegram_init_data natijasini keshlasak bo'ladi, lekin hozircha user_id ni qayta olamiz
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, _ = validate_telegram_init_data(init_data, bot_token)
+    user_id = user.get("id", 0) if user else int(request.rel_url.query.get("user_id", 0))
+
+    try:
+        from database import get_connection, release_connection
+        conn = get_connection()
 
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -371,6 +386,9 @@ async def admin_stats_api(request: web.Request) -> web.Response:
 
 async def admin_get_schedule_api(request: web.Request) -> web.Response:
     """Testlar taqvimi."""
+    role, _, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    
     from database import get_connection, release_connection
     try:
         conn = get_connection()
@@ -388,15 +406,12 @@ async def admin_get_schedule_api(request: web.Request) -> web.Response:
 
 async def admin_add_schedule_api(request: web.Request) -> web.Response:
     """Yangi test qo'shish (Faqat Admin)."""
-    from config import ADMIN_IDS
+    role, _, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    if role != "admin":
+        return web.json_response({"error": "Faqat adminlar test qo'sha oladi"}, status=403)
+        
     from database import get_connection, release_connection
-    
-    bot_token = request.app["bot_token"]
-    init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user, _ = validate_telegram_init_data(init_data, bot_token)
-    
-    if not user or user.get("id", 0) not in ADMIN_IDS:
-        return web.json_response({"error": "Unauthorized"}, status=401)
         
     data = await request.json()
     try:
@@ -416,16 +431,12 @@ async def admin_add_schedule_api(request: web.Request) -> web.Response:
 
 async def admin_add_material_api(request: web.Request) -> web.Response:
     """Yangi o'quv materiali qo'shish (Faqat Admin)."""
-    from config import ADMIN_IDS
-    from database import get_connection, release_connection
-    
-    bot_token = request.app["bot_token"]
-    init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user, _ = validate_telegram_init_data(init_data, bot_token)
-    
-    if not user or user.get("id", 0) not in ADMIN_IDS:
-        return web.json_response({"error": "Unauthorized"}, status=401)
+    role, _, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    if role != "admin":
+        return web.json_response({"error": "Faqat adminlar material qo'sha oladi"}, status=403)
         
+    from database import get_connection, release_connection
     data = await request.json()
     try:
         conn = get_connection()
@@ -444,6 +455,9 @@ async def admin_add_material_api(request: web.Request) -> web.Response:
 
 async def admin_get_materials_api(request: web.Request) -> web.Response:
     """Barcha materiallarni olish."""
+    role, _, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    
     from database import get_connection, release_connection
     try:
         conn = get_connection()
@@ -459,15 +473,12 @@ async def admin_get_materials_api(request: web.Request) -> web.Response:
 
 async def admin_delete_material_api(request: web.Request) -> web.Response:
     """Materialni o'chirish."""
-    from config import ADMIN_IDS
+    role, _, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    if role != "admin":
+        return web.json_response({"error": "Faqat adminlar material o'chira oladi"}, status=403)
+        
     from database import material_ochir
-    
-    bot_token = request.app["bot_token"]
-    init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user, _ = validate_telegram_init_data(init_data, bot_token)
-    
-    if not user or user.get("id", 0) not in ADMIN_IDS:
-        return web.json_response({"error": "Unauthorized"}, status=401)
         
     mat_id = int(request.match_info['id'])
     try:
@@ -480,15 +491,13 @@ async def admin_delete_material_api(request: web.Request) -> web.Response:
 # Quiz API
 async def admin_quiz_api(request: web.Request) -> web.Response:
     """Quiz savollarini boshqarish API."""
-    from config import ADMIN_IDS
+    role, _, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    if role != "admin":
+        return web.json_response({"error": "Faqat adminlar quiz boshqara oladi"}, status=403)
+        
     from database import quiz_savollarini_ol, quiz_savol_qosh, quiz_savol_tahrirla, quiz_savol_ochir
-    
-    bot_token = request.app["bot_token"]
-    init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user, _ = validate_telegram_init_data(init_data, bot_token)
-    
-    if not user or user.get("id", 0) not in ADMIN_IDS:
-        return web.json_response({"error": "Unauthorized"}, status=401)
+    from database import get_connection, release_connection
         
     method = request.method
     
@@ -544,15 +553,10 @@ async def admin_quiz_api(request: web.Request) -> web.Response:
 
 async def admin_search_api(request: web.Request) -> web.Response:
     """O'quvchilarni ismi yoki kodi bo'yicha qidirish."""
-    from config import ADMIN_IDS
+    role, _, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    
     from database import get_connection, release_connection
-    
-    bot_token = request.app["bot_token"]
-    init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user, _ = validate_telegram_init_data(init_data, bot_token)
-    
-    if not user or user.get("id", 0) not in ADMIN_IDS:
-        return web.json_response({"error": "Unauthorized"}, status=401)
     
     query = request.rel_url.query.get("q", "").strip()
     if not query:
@@ -576,15 +580,10 @@ async def admin_search_api(request: web.Request) -> web.Response:
 
 async def admin_student_details_api(request: web.Request) -> web.Response:
     """Ma'lum bir o'quvchining barcha test tarixini qaytarish."""
-    from config import ADMIN_IDS
+    role, _, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    
     from database import get_connection, release_connection
-    
-    bot_token = request.app["bot_token"]
-    init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user, _ = validate_telegram_init_data(init_data, bot_token)
-    
-    if not user or user.get("id", 0) not in ADMIN_IDS:
-        return web.json_response({"error": "Unauthorized"}, status=401)
     
     student_kod = request.rel_url.query.get("kod", "")
     if not student_kod:
@@ -622,16 +621,12 @@ async def admin_student_details_api(request: web.Request) -> web.Response:
 
 async def admin_broadcast_api(request: web.Request) -> web.Response:
     """O'quvchilarga xabar yuborish."""
-    from config import ADMIN_IDS
+    role, _, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    if role != "admin":
+        return web.json_response({"error": "Faqat adminlar xabar yubora oladi"}, status=403)
+        
     from database import get_connection, release_connection
-    from aiogram import Bot
-    
-    bot_token = request.app["bot_token"]
-    init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user, _ = validate_telegram_init_data(init_data, bot_token)
-    
-    if not user or user.get("id", 0) not in ADMIN_IDS:
-        return web.json_response({"error": "Unauthorized"}, status=401)
     
     data = await request.json()
     message_text = data.get("text", "").strip()
@@ -683,17 +678,12 @@ async def run_broadcast(token, user_ids, text):
 
 async def admin_export_excel_api(request: web.Request) -> web.Response:
     """Statistikani Excel formatida yuklash."""
-    from config import ADMIN_IDS
+    role, _, error_resp = await check_admin_role(request)
+    if error_resp: return error_resp
+    
     from database import get_connection, release_connection
     import pandas as pd
     import io
-    
-    bot_token = request.app["bot_token"]
-    init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user, _ = validate_telegram_init_data(init_data, bot_token)
-    
-    if not user or user.get("id", 0) not in ADMIN_IDS:
-        return web.json_response({"error": "Unauthorized"}, status=401)
         
     type = request.rel_url.query.get("type", "top_students")
     

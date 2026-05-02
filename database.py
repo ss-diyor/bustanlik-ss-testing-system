@@ -27,6 +27,37 @@ def create_admin_sessions_table():
     cur.close()
     release_connection(conn)
 
+def create_mini_test_tables():
+    """Mini-testlar uchun jadvallarni yaratish"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS mini_testlar (
+            id SERIAL PRIMARY KEY,
+            nomi VARCHAR(255) NOT NULL,
+            fan VARCHAR(100) NOT NULL,
+            pdf_file_id VARCHAR(255),
+            keys JSONB NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT TRUE,
+            admin_id BIGINT
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS mini_test_natijalari (
+            id SERIAL PRIMARY KEY,
+            test_id INTEGER REFERENCES mini_testlar(id) ON DELETE CASCADE,
+            user_id BIGINT NOT NULL,
+            talaba_kod VARCHAR(50),
+            ball FLOAT,
+            jami_savol INTEGER,
+            sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
 
 # Connection pool — lazy yaratiladi (birinchi so'rovda)
 # Bu Railway cold start muammosini hal qiladi
@@ -248,6 +279,9 @@ def init_db():
     cur.execute(
         "INSERT INTO settings (key, value) VALUES ('chatbot_enabled', 'True') ON CONFLICT DO NOTHING"
     )
+    
+    # Mini-testlar
+    create_mini_test_tables()
     cur.execute(
         "INSERT INTO settings (key, value) VALUES ('mock_enabled', 'True') ON CONFLICT DO NOTHING"
     )
@@ -2660,3 +2694,44 @@ def materiallar_ol_by_subject(active_only=True):
             grouped[subject] = []
         grouped[subject].append(r)
     return grouped
+def mini_test_qosh(nomi, fan, pdf_file_id, keys, admin_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO mini_testlar (nomi, fan, pdf_file_id, keys, admin_id) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+        (nomi, fan, pdf_file_id, psycopg2.extras.Json(keys), admin_id)
+    )
+    test_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+    return test_id
+
+def mini_test_ol(test_id):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM mini_testlar WHERE id = %s", (test_id,))
+    res = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return res
+
+def mini_test_natija_saqlash(test_id, user_id, talaba_kod, ball, jami_savol):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO mini_test_natijalari (test_id, user_id, talaba_kod, ball, jami_savol) VALUES (%s, %s, %s, %s, %s)",
+        (test_id, user_id, talaba_kod, ball, jami_savol)
+    )
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
+def mini_test_hammasi():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM mini_testlar WHERE is_active = TRUE ORDER BY created_at DESC")
+    res = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return res

@@ -234,20 +234,32 @@ async def murojaat_boshlash(message: Message, state: FSMContext):
     from admin import is_admin_id
 
     # O'quvchi, O'qituvchi yoki Admin ekanligini tekshiramiz
-    if talaba_topish_user_id(message.from_user.id) or is_admin_id(message.from_user.id) or oqituvchi_ol(message.from_user.id):
-        await state.set_state(MurojaatState.xabar_kutish)
-        await message.answer(
-            "📝 <b>Murojaatingizni yozib yuboring.</b>\n\n"
-            "Adminlarimiz tez orada sizga javob berishadi.",
-            parse_mode="HTML",
-            reply_markup=murojaat_bekor_qilish_keyboard(),
-        )
-        return
+    # Murojaat yuborilgandan keyin to'g'ri panelga qaytish
+    kb = None
+    from database import talaba_topish_user_id, oqituvchi_ol
+    from admin import is_admin_id
+    from keyboards import oqituvchi_menu_keyboard, admin_menu_keyboard, user_menu_keyboard
+    from database import get_setting
 
-    # Agar yuqoridagilar bo'lmasa, ota-ona ekanligini tekshiramiz
-    if parent_ekanligini_tekshir(message.from_user.id):
-        await ota_ona_murojaat_start(message, state)
-        return
+    # Rolni qayta tekshiramiz
+    if is_admin_id(message.from_user.id):
+        kb = admin_menu_keyboard()
+    elif oqituvchi_ol(message.from_user.id):
+        kb = oqituvchi_menu_keyboard()
+    else:
+        # Student panelini sozlamalar bilan birga ko'rsatamiz
+        ranking_enabled = get_setting("ranking_enabled", "True")
+        stats_enabled = get_setting("stats_enabled", "True")
+        chatbot_enabled = get_setting("chatbot_enabled", "True")
+        mock_enabled = get_setting("mock_enabled", "True")
+        kb = user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled)
+
+    await message.answer(
+        "✅ <b>Xabaringiz adminlarga yuborildi!</b>\n\nTez orada javob olasiz.",
+        parse_mode="HTML",
+        reply_markup=kb,
+    )
+    await state.clear()
 
     # Ro'yxatdan o'tmaganlar uchun ham standart murojaat
     await state.set_state(MurojaatState.xabar_kutish)

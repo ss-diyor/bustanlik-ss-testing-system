@@ -405,6 +405,13 @@ class AppealReply(StatesGroup):
     appeal_id = State()
     javob_kutish = State()
 
+class MiniTestState(StatesGroup):
+    pdf_kutish = State()
+    keys_kutish = State()
+    nomi_kutish = State()
+    fan_kutish = State()
+    tasdiq_kutish = State()
+
 
 # ─────────────────────────────────────────
 # Yordamchi funksiyalar
@@ -730,6 +737,139 @@ async def chiqish(message: Message, state: FSMContext):
 
     await state.clear()
     await message.answer("Admin rejimidan chiqdingiz.", reply_markup=None)
+
+@router.message(F.text == "🌐 Web Admin Panel")
+async def web_admin_panel_msg(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    await message.answer("📊 Admin Web Panel:", reply_markup=admin_inline_menu())
+
+@router.message(F.text == "📝 Mashq Quiz (Web)")
+async def web_quiz_panel_msg(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    from config import WEBAPP_URL
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📝 Quizlarni boshqarish", web_app=WebAppInfo(url=f"{WEBAPP_URL}/admin#quiz"))]
+    ])
+    await message.answer("📝 Mashq quizlarini boshqarish (Web):", reply_markup=kb)
+
+# ── Mini-test yuborish ──────────────────────────────────────
+
+@router.message(F.text == "📦 Mini-test yuborish")
+async def mini_test_start(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id): return
+    await state.set_state(MiniTestState.pdf_kutish)
+    await message.answer(
+        "📦 <b>Yangi mini-test yaratish</b>\n\n"
+        "1️⃣ Test savollari yozilgan <b>PDF faylni</b> yuboring.\n"
+        "(Agar PDF kerak bo'lmasa <code>-</code> deb yozing)",
+        parse_mode="HTML"
+    )
+
+@router.message(MiniTestState.pdf_kutish)
+async def mini_test_pdf(message: Message, state: FSMContext):
+    if message.document and message.document.mime_type == "application/pdf":
+        await state.update_data(pdf_file_id=message.document.file_id)
+    elif message.text == "-":
+        await state.update_data(pdf_file_id=None)
+    else:
+        await message.answer("❌ Iltimos, PDF fayl yuboring yoki <code>-</code> deb yozing.")
+        return
+        
+    await state.set_state(MiniTestState.keys_kutish)
+    await message.answer(
+        "2️⃣ <b>Javoblar kalitini yuboring.</b>\n\n"
+        "Format: <code>1a,2b,3c...</code> yoki Excel fayl yuboring."
+    )
+
+@router.message(MiniTestState.keys_kutish)
+async def mini_test_keys(message: Message, state: FSMContext):
+    keys = {}
+    if message.text:
+        # 1a,2b,3c formatini parse qilish
+        try:
+            parts = message.text.replace(" ", "").split(",")
+            for p in parts:
+                num = "".join(filter(str.isdigit, p))
+                ans = "".join(filter(str.isalpha, p)).lower()
+                if num and ans:
+                    keys[int(num)] = ans
+        except Exception:
+            await message.answer("❌ Kalitlar formati noto'g'ri. Misol: 1a,2b,3c")
+            return
+    elif message.document:
+        # Excel'dan o'qish (ixtiyoriy, hozircha matnli format ustuvor)
+        await message.answer("⚠️ Excel formati hozircha qo'llab-quvvatlanmaydi. Iltimos matn ko'rinishida yuboring.")
+        return
+    
+    if not keys:
+        await message.answer("❌ Kalitlar topilmadi.")
+        return
+        
+    await state.update_data(keys=keys)
+    await state.set_state(MiniTestState.nomi_kutish)
+    await message.answer("3️⃣ <b>Test nomini kiriting:</b>\nMasalan: <i>Matematika 1-blok</i>")
+
+@router.message(MiniTestState.nomi_kutish)
+async def mini_test_nomi(message: Message, state: FSMContext):
+    await state.update_data(nomi=message.text.strip())
+    await state.set_state(MiniTestState.fan_kutish)
+    await message.answer("4️⃣ <b>Fan nomini kiriting:</b>")
+
+@router.message(MiniTestState.fan_kutish)
+async def mini_test_fan(message: Message, state: FSMContext):
+    await state.update_data(fan=message.text.strip())
+    data = await state.get_data()
+    
+    text = (
+        f"✅ <b>Mini-test tayyor!</b>\n\n"
+        f"📝 Nomi: <b>{data['nomi']}</b>\n"
+        f"📚 Fan: <b>{data['fan']}</b>\n"
+        f"📄 PDF: {'Biriktirildi' if data['pdf_file_id'] else 'Yo\'q'}\n"
+        f"🔑 Kalitlar soni: <b>{len(data['keys'])}</b>\n\n"
+        f"Tasdiqlaysizmi?"
+    )
+    await state.set_state(MiniTestState.tasdiq_kutish)
+    await message.answer(text, parse_mode="HTML", reply_markup=tasdiqlash_keyboard())
+
+@router.callback_query(F.data.startswith("tasdiq:"), MiniTestState.tasdiq_kutish)
+async def mini_test_save(callback: CallbackQuery, state: FSMContext):
+    if callback.data == "tasdiq:ha":
+        data = await state.get_data()
+        from database import mini_test_qosh, get_all_user_ids
+        
+        test_id = mini_test_qosh(
+            data['nomi'], data['fan'], data['pdf_file_id'], data['keys'], callback.from_user.id
+        )
+        
+        await callback.message.edit_text(f"✅ Mini-test saqlandi! (ID: {test_id})\nBroadcast boshlanmoqda...")
+        
+        # Broadcast logic
+        user_ids = get_all_user_ids()
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🚀 Testni boshlash", callback_data=f"minitest_start:{test_id}")]
+        ])
+        
+        text = (
+            f"🔔 <b>YANGI MINI-TEST!</b>\n\n"
+            f"📝 Nomi: <b>{data['nomi']}</b>\n"
+            f"📚 Fan: <b>{data['fan']}</b>\n\n"
+            f"Testni boshlash uchun quyidagi tugmani bosing."
+        )
+        
+        asyncio.create_task(run_broadcast_simple(callback.bot, user_ids, text, kb))
+        
+    else:
+        await callback.message.edit_text("❌ Bekor qilindi.")
+    
+    await state.clear()
+
+async def run_broadcast_simple(bot, user_ids, text, kb=None):
+    for uid in user_ids:
+        try:
+            await bot.send_message(uid, text, parse_mode="HTML", reply_markup=kb)
+            await asyncio.sleep(0.05)
+        except Exception:
+            continue
 
 
 # ─────────────────────────────────────────
@@ -1958,8 +2098,30 @@ async def excel_import_process(message: Message, state: FSMContext):
             await state.set_state(None)
             return
 
+        await message.answer(
+            "⏳ <b>Import boshlandi...</b>\n\nKatta hajmdagi ma'lumotlar qayta ishlanmoqda. Tugagach sizga xabar beriladi.",
+            parse_mode="HTML"
+        )
+        
+        asyncio.create_task(run_excel_import_task(message, df, header_mode, resolved_cols, download_path, state))
+        return
+
+    except Exception as e:
+        await message.answer(f"❌ Xatolik: {e}")
+        if os.path.exists(download_path):
+            os.remove(download_path)
+        await state.set_state(None)
+
+async def run_excel_import_task(message: Message, df, header_mode, resolved_cols, download_path, state):
+    from database import talaba_qosh, natija_qosh, maktablar_ol, ball_hisobla
+    from student import bildirishnoma_yuborish
+    from parent import _ota_onalarga_bildirish
+    
+    try:
+        maktablar = maktablar_ol()
         count = 0
         skipped = 0
+        
         for _, row in df.iterrows():
             try:
                 if header_mode:
@@ -1972,7 +2134,6 @@ async def excel_import_process(message: Message, state: FSMContext):
                     asosiy1 = int(row[resolved_cols["asosiy1"]])
                     asosiy2 = int(row[resolved_cols["asosiy2"]])
                 else:
-                    # Header bo'lmasa ham 8-ustunda maktab bo'lishi shart
                     kod = str(row.iloc[0]).strip().upper()
                     ismlar = str(row.iloc[1]).strip()
                     sinf = str(row.iloc[2]).strip()
@@ -1998,7 +2159,6 @@ async def excel_import_process(message: Message, state: FSMContext):
                 talaba_qosh(kod, yonalish, sinf, ismlar, maktab["id"])
                 natija_qosh(kod, majburiy, asosiy1, asosiy2)
 
-                # Bildirishnomalarni fonda yuboramiz
                 talaba = {
                     "kod": kod,
                     "ismlar": ismlar,
@@ -2012,18 +2172,12 @@ async def excel_import_process(message: Message, state: FSMContext):
                     "asosiy_2": asosiy2,
                     "umumiy_ball": ball,
                 }
-                asyncio.create_task(
-                    bildirishnoma_yuborish(message.bot, kod, natija, talaba)
-                )
-                # Ota-onalarga avtomatik xabarnoma
-                asyncio.create_task(
-                    _ota_onalarga_bildirish(message.bot, kod, ball)
-                )
+                
+                asyncio.create_task(bildirishnoma_yuborish(message.bot, kod, natija, talaba))
+                asyncio.create_task(_ota_onalarga_bildirish(message.bot, kod, ball))
 
                 count += 1
-                
-                # Event loopni bloklamaslik uchun har 10 ta qatorda to'xtab o'tamiz
-                if count % 10 == 0:
+                if count % 20 == 0:
                     await asyncio.sleep(0.01)
                     
             except Exception as e:
@@ -2032,17 +2186,18 @@ async def excel_import_process(message: Message, state: FSMContext):
                 continue
 
         await message.answer(
-            f"✅ <b>{count}</b> ta o'quvchi muvaffaqiyatli import qilindi.\n"
-            f"⚠️ <b>{skipped}</b> ta qator xato yoki maktab mos kelmagani sabab o'tkazib yuborildi.",
+            f"✅ <b>Import yakunlandi!</b>\n\n"
+            f"👤 Import qilinganlar: <b>{count}</b>\n"
+            f"⚠️ O'tkazib yuborilganlar: <b>{skipped}</b>",
             parse_mode="HTML",
             reply_markup=admin_menu_keyboard(),
         )
     except Exception as e:
-        await message.answer(f"❌ Xatolik: {e}")
-
-    if os.path.exists(download_path):
-        os.remove(download_path)
-    await state.set_state(None)
+        await message.answer(f"❌ Import jarayonida xatolik: {e}")
+    finally:
+        if os.path.exists(download_path):
+            os.remove(download_path)
+        await state.clear()
 
 
 # ─────────────────────────────────────────
