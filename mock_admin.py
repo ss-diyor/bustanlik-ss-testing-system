@@ -19,6 +19,8 @@ from mock_database import (
     exam_type_qosh, exam_type_ochir, exam_type_holat,
     mock_natija_qosh, mock_natijalari_ol,
     mock_natija_ochir, mock_natija_turlari,
+    mock_exam_statistika, mock_hammasi_by_exam,
+    mock_exam_natijalar_ochir, mock_barchani_ochir,
     format_mock_natija_matn,
 )
 
@@ -46,8 +48,16 @@ class MockNatijaKor(StatesGroup):
     kod_kutish = State()
 
 
+class MockFanKor(StatesGroup):
+    fan_kutish = State()
+
+
 class MockNatijaOchir(StatesGroup):
     id_kutish = State()
+
+
+class MockBulkOchir(StatesGroup):
+    tasdiq_kutish = State()   # "TASDIQLASH" matni kutiladi
 
 
 # ── Exam type qo'shish ──────────────────────────────────────
@@ -767,15 +777,41 @@ async def _xabar_talabaga(bot, talaba_kod: str):
 
 
 # ════════════════════════════════════════════════════════════
-# MOCK NATIJALARINI KO'RISH (ADMIN)
+# MOCK NATIJALARINI KO'RISH — 2 ta yo'l
 # ════════════════════════════════════════════════════════════
 
 @router.message(F.text == "📊 Mock natijalarini ko'rish")
 async def mock_kor_start(message: Message, state: FSMContext):
     if not await _admin_ok(message, state):
         return
+    await state.clear()
+    await message.answer(
+        "📊 <b>Mock natijalarini ko'rish</b>\n\n"
+        "Qidirish usulini tanlang:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text="🔍 O'quvchi kodi bo'yicha",
+                callback_data="mock_view_by_kod"
+            )],
+            [InlineKeyboardButton(
+                text="📚 Fan bo'yicha",
+                callback_data="mock_view_by_fan"
+            )],
+            [InlineKeyboardButton(
+                text="🗑️ Natijalarni o'chirish",
+                callback_data="mock_ochir_menu"
+            )],
+        ]),
+    )
+
+
+# ── 1. O'quvchi kodi bo'yicha ────────────────────────────────
+
+@router.callback_query(F.data == "mock_view_by_kod")
+async def mock_view_kod_start(cb: CallbackQuery, state: FSMContext):
     await state.set_state(MockNatijaKor.kod_kutish)
-    await message.answer("🔍 O'quvchi <b>kodini</b> kiriting:", parse_mode="HTML")
+    await cb.message.edit_text("🔍 O'quvchi <b>kodini</b> kiriting:", parse_mode="HTML")
 
 
 @router.message(MockNatijaKor.kod_kutish)
@@ -785,13 +821,15 @@ async def mock_kor_kod(message: Message, state: FSMContext):
     kod = message.text.strip().upper()
     talaba = talaba_topish(kod)
     if not talaba:
-        await message.answer("❌ Topilmadi.")
-        await state.clear()
+        await message.answer("❌ Topilmadi. Qayta kiriting:")
         return
 
     turlari = mock_natija_turlari(kod)
     if not turlari:
-        await message.answer(f"👤 <b>{talaba['ismlar']}</b> uchun mock natijalari yo'q.", parse_mode="HTML")
+        await message.answer(
+            f"👤 <b>{talaba['ismlar']}</b> uchun mock natijalari yo'q.",
+            parse_mode="HTML"
+        )
         await state.clear()
         return
 
@@ -809,7 +847,7 @@ async def mock_kor_kod(message: Message, state: FSMContext):
             callback_data=f"mock_admin_all:{kod}:{t['exam_key']}"
         )])
     buttons.append([InlineKeyboardButton(
-        text="🗑️ Natija o'chirish",
+        text="🗑️ Bu o'quvchi natijasini o'chir",
         callback_data=f"mock_admin_del_ask:{kod}"
     )])
 
@@ -867,6 +905,176 @@ async def mock_del_id(message: Message, state: FSMContext):
         await message.answer(f"✅ Natija (ID: {natija_id}) o'chirildi.")
     else:
         await message.answer(f"❌ ID {natija_id} topilmadi.")
+    await state.clear()
+
+
+# ── 2. Fan bo'yicha ──────────────────────────────────────────
+
+@router.callback_query(F.data == "mock_view_by_fan")
+async def mock_view_by_fan(cb: CallbackQuery, state: FSMContext):
+    stats = mock_exam_statistika()
+    if not stats:
+        await cb.message.edit_text("📭 Hech qanday mock natijasi yo'q.")
+        return
+
+    lines = ["📚 <b>Fanlar bo'yicha mock natijalari:</b>\n"]
+    buttons = []
+    for s in stats:
+        label = s.get("exam_label") or s.get("exam_key", "?")
+        sana  = str(s.get("oxirgi_sana", ""))[:10]
+        lines.append(
+            f"📌 <b>{label}</b>\n"
+            f"   📊 {s['soni']} ta natija  |  👤 {s['oquvchilar']} ta o'quvchi  |  🗓 {sana}"
+        )
+        buttons.append([InlineKeyboardButton(
+            text=f"📋 {label} ({s['soni']} ta)",
+            callback_data=f"mock_fan_kor:{s['exam_key']}"
+        )])
+
+    buttons.append([InlineKeyboardButton(text="❌ Yopish", callback_data="mock_cancel")])
+
+    await cb.message.edit_text(
+        "\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+    )
+
+
+@router.callback_query(F.data.startswith("mock_fan_kor:"))
+async def mock_fan_natijalari(cb: CallbackQuery, state: FSMContext):
+    exam_key = cb.data.split(":", 1)[1]
+    et = exam_type_ol(exam_key) or {}
+    label = et.get("label", exam_key)
+
+    natijalari = mock_hammasi_by_exam(exam_key, limit=20)
+    if not natijalari:
+        await cb.answer("Natijalar topilmadi", show_alert=True)
+        return
+
+    lines = [f"📚 <b>{label} — barcha natijalar</b>\n"]
+    for i, n in enumerate(natijalari, 1):
+        ism  = n.get("ismlar") or n.get("talaba_kod", "?")
+        sinf = n.get("sinf", "")
+        sinf_str = f" | {sinf.split(' - ')[0]}" if sinf else ""
+        lines.append(
+            f"<b>{i}.</b> {ism}{sinf_str}\n"
+            + format_mock_natija_matn(n, et)
+            + f"\n🆔 ID: {n['id']}\n────────────────"
+        )
+
+    text = "\n".join(lines)
+    if len(text) > 4000:
+        text = text[:3900] + "\n<i>...qolganlar qisqartirildi (faqat 20 ta ko'rsatildi)</i>"
+
+    soni = len(natijalari)
+    await cb.message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text=f"🗑️ {label} — barchasini o'chir",
+                callback_data=f"mock_fan_ochir_ask:{exam_key}"
+            )],
+        ]),
+    )
+    await cb.answer()
+
+
+# ════════════════════════════════════════════════════════════
+# O'CHIRISH MENYUSI
+# ════════════════════════════════════════════════════════════
+
+@router.callback_query(F.data == "mock_ochir_menu")
+async def mock_ochir_menu(cb: CallbackQuery, state: FSMContext):
+    stats = mock_exam_statistika()
+    total = sum(s["soni"] for s in stats)
+
+    buttons = []
+    for s in stats:
+        label = s.get("exam_label") or s.get("exam_key", "?")
+        buttons.append([InlineKeyboardButton(
+            text=f"🗑️ {label} ({s['soni']} ta)",
+            callback_data=f"mock_fan_ochir_ask:{s['exam_key']}"
+        )])
+
+    buttons.append([InlineKeyboardButton(
+        text=f"⚠️ BARCHA natijalarni o'chir ({total} ta)",
+        callback_data="mock_barchani_ochir_ask"
+    )])
+    buttons.append([InlineKeyboardButton(text="❌ Bekor", callback_data="mock_cancel")])
+
+    await cb.message.edit_text(
+        "🗑️ <b>Qaysi natijalarni o'chirmoqchisiz?</b>\n\n"
+        "<i>O'chirilgan natijalar tiklanmaydi!</i>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+    )
+
+
+# ── Fan bo'yicha o'chirish ───────────────────────────────────
+
+@router.callback_query(F.data.startswith("mock_fan_ochir_ask:"))
+async def mock_fan_ochir_ask(cb: CallbackQuery, state: FSMContext):
+    exam_key = cb.data.split(":", 1)[1]
+    et = exam_type_ol(exam_key) or {}
+    label = et.get("label", exam_key)
+
+    await cb.message.edit_text(
+        f"⚠️ <b>{label}</b> fanidagi <b>barcha</b> natijalarni o'chirishni tasdiqlaysizmi?\n\n"
+        f"Bu amalni qaytarib bo'lmaydi!",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text="🗑️ Ha, barchasini o'chir",
+                callback_data=f"mock_fan_ochir_ok:{exam_key}"
+            )],
+            [InlineKeyboardButton(text="❌ Yo'q, bekor", callback_data="mock_cancel")],
+        ]),
+    )
+
+
+@router.callback_query(F.data.startswith("mock_fan_ochir_ok:"))
+async def mock_fan_ochir_ok(cb: CallbackQuery, state: FSMContext):
+    exam_key = cb.data.split(":", 1)[1]
+    et = exam_type_ol(exam_key) or {}
+    label = et.get("label", exam_key)
+    deleted = mock_exam_natijalar_ochir(exam_key)
+    await cb.message.edit_text(
+        f"✅ <b>{label}</b> fanidan <b>{deleted} ta</b> natija o'chirildi.",
+        parse_mode="HTML",
+    )
+
+
+# ── Barcha natijalarni o'chirish (double-confirm) ────────────
+
+@router.callback_query(F.data == "mock_barchani_ochir_ask")
+async def mock_barchani_ochir_ask(cb: CallbackQuery, state: FSMContext):
+    await state.set_state(MockBulkOchir.tasdiq_kutish)
+    await cb.message.edit_text(
+        "⚠️ <b>DIQQAT!</b> Bu amal <b>barcha</b> mock natijalarini o'chiradi.\n\n"
+        "Tasdiqlash uchun quyidagi so'zni yozing:\n"
+        "<code>TASDIQLASH</code>",
+        parse_mode="HTML",
+    )
+
+
+@router.message(MockBulkOchir.tasdiq_kutish)
+async def mock_barchani_ochir_tasdiq(message: Message, state: FSMContext):
+    if not await _admin_ok(message, state):
+        return
+    if message.text.strip().upper() != "TASDIQLASH":
+        await message.answer(
+            "❌ Noto'g'ri so'z. Bekor qilindi.\n"
+            "<code>TASDIQLASH</code> deb yozing yoki boshqa amalni bajaring.",
+            parse_mode="HTML",
+        )
+        await state.clear()
+        return
+    deleted = mock_barchani_ochir()
+    await message.answer(
+        f"✅ Jami <b>{deleted} ta</b> mock natijasi o'chirildi.",
+        parse_mode="HTML",
+    )
     await state.clear()
 
 
