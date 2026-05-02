@@ -112,6 +112,8 @@ async def start_handler(message: Message):
     stats_enabled = get_setting("stats_enabled", "True")
     chatbot_enabled = get_setting("chatbot_enabled", "True")
     mock_enabled = get_setting("mock_enabled", "True")
+    quiz_enabled = get_setting("quiz_enabled", "True")
+    mini_test_enabled = get_setting("mini_test_enabled", "True")
 
     await message.answer(
         "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
@@ -124,7 +126,7 @@ async def start_handler(message: Message):
         "🔗 <b>Profilni ulash:</b>\n"
         "Avtomatik xabarnoma uchun <code>ULASH_KODINGIZ</code> deb yozing.",
         parse_mode="HTML",
-        reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled),
+        reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled),
     )
 
 
