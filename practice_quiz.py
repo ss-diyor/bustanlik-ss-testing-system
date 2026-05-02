@@ -25,11 +25,7 @@ async def start_practice(message: Message, state: FSMContext):
     if not subjects:
         await message.answer("😔 Hozircha mashq qilish uchun savollar yuklanmagan.")
         return
-        
-    for s in subjects:
-        keyboard.append([InlineKeyboardButton(text=s, callback_data=f"quiz_start:{s}")])
     
-    # Corrected keyboard construction
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=s, callback_data=f"quiz_start:{s}")] for s in subjects
     ])
