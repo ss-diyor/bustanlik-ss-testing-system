@@ -410,6 +410,13 @@ async def scheduler():
 
 async def main():
     """Botni ishga tushiradi."""
+    # ─── 1. Web server BIRINCHI bind bo'lishi kerak ───────────────────────────
+    # Railway health check PORT ga ulanishga harakat qiladi. Agar web server
+    # DB init tugaguncha ishga tushmasa, deploy muvaffaqiyatsiz bo'ladi.
+    web_runner = await start_web_server(BOT_TOKEN)
+    logging.info("Web server tayyor. DB init boshlandi...")
+
+    # ─── 2. Ma'lumotlar bazasini sozlash ──────────────────────────────────────
     init_db()
     logging.info("Ma'lumotlar bazasi tayyor va indekslar tekshirildi.")
 
@@ -432,26 +439,34 @@ async def main():
     except Exception as e:
         logging.error(f"Chatbot jadvali yaratishda xato: {e}")
 
+    # ─── 3. Background tasklar ────────────────────────────────────────────────
     asyncio.create_task(scheduler())
     asyncio.create_task(reminder_scheduler())
     asyncio.create_task(test_schedule_reminder_scheduler())
     asyncio.create_task(group_ranking_scheduler())
-    asyncio.create_task(start_web_server(BOT_TOKEN))
-    logging.info("Web server task scheduled.")
 
+    # ─── 4. Polling ───────────────────────────────────────────────────────────
     await bot.delete_webhook(drop_pending_updates=True)
     logging.info("Bot ishga tushdi!")
 
-    await dp.start_polling(
-        bot,
-        handle_signals=False,
-        allowed_updates=[
-            "message",
-            "callback_query",
-            "edited_message",
-            "inline_query",
-        ],
-    )
+    try:
+        await dp.start_polling(
+            bot,
+            handle_signals=True,  # SIGTERM ni to'g'ri qayta ishlash (Railway)
+            allowed_updates=[
+                "message",
+                "callback_query",
+                "edited_message",
+                "inline_query",
+            ],
+        )
+    finally:
+        # Graceful shutdown: web server va bot sessionni yoqamiz
+        logging.info("Bot to'xtatilmoqda...")
+        await bot.session.close()
+        if web_runner:
+            await web_runner.cleanup()
+        logging.info("Tozalash tugadi.")
 
 
 if __name__ == "__main__":
