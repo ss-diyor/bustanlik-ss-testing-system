@@ -11,8 +11,24 @@ from aiogram.types import (
 )
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.exceptions import TelegramBadRequest
 
 from config import ADMIN_PASSWORD, MAX_SAVOL, ADMIN_IDS
+
+
+async def safe_edit(callback: CallbackQuery, text: str, **kwargs):
+    """edit_text ni xavfsiz chaqiradi.
+
+    Telegram 'message is not modified' xatosini jim o'tkazib yuboradi —
+    foydalanuvchi bir tugmani ikki marta bosganida sodir bo'ladi.
+    """
+    try:
+        await callback.message.edit_text(text, **kwargs)
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            pass
+        else:
+            raise
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
@@ -2821,7 +2837,8 @@ async def filter_type_process(callback: CallbackQuery, state: FSMContext):
         text, page, total_pages = _build_students_page(
             talabalar, title, 1
         )
-        await callback.message.edit_text(
+        await safe_edit(
+            callback,
             text,
             parse_mode="HTML",
             reply_markup=filter_actions_keyboard(
@@ -2829,31 +2846,23 @@ async def filter_type_process(callback: CallbackQuery, state: FSMContext):
             ),
         )
     elif ftype == "sinf":
-        new_text = "🏫 Sinfni tanlang:"
-        new_markup = sinf_tanlash_keyboard()
-        if (
-            callback.message.text != new_text
-            or callback.message.reply_markup != new_markup
-        ):
-            await callback.message.edit_text(new_text, reply_markup=new_markup)
+        await safe_edit(
+            callback,
+            "🏫 Sinfni tanlang:",
+            reply_markup=sinf_tanlash_keyboard(),
+        )
     elif ftype == "yonalish":
-        new_text = "🎯 Yo'nalishni tanlang:"
-        new_markup = yonalish_tanlash_keyboard()
-        if (
-            callback.message.text != new_text
-            or callback.message.reply_markup != new_markup
-        ):
-            await callback.message.edit_text(new_text, reply_markup=new_markup)
+        await safe_edit(
+            callback,
+            "🎯 Yo'nalishni tanlang:",
+            reply_markup=yonalish_tanlash_keyboard(),
+        )
     elif ftype in ("back", "orqaga"):
-        new_text = "📋 O'quvchilar ro'yxatini ko'rish usulini tanlang:"
-        new_markup = oquvchilar_filtrlash_keyboard()
-
-        # Faqat agar xabar matni yoki reply_markup o'zgargan bo'lsa tahrirlash
-        if (
-            callback.message.text != new_text
-            or callback.message.reply_markup != new_markup
-        ):
-            await callback.message.edit_text(new_text, reply_markup=new_markup)
+        await safe_edit(
+            callback,
+            "📋 O'quvchilar ro'yxatini ko'rish usulini tanlang:",
+            reply_markup=oquvchilar_filtrlash_keyboard(),
+        )
     await callback.answer()
 
 
