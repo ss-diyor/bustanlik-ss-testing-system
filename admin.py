@@ -208,6 +208,8 @@ from database import (
     maktab_statistikasi,
     bitta_natija_ochir,
     sinf_transferi,
+    sinf_transferi_by_id,
+    sinf_nomi_ol_by_id,
     bitiruvchilarni_arxivlash,
     bitiruvchilarni_arxivdan_chiqarish,
     dublikatlarni_topish,
@@ -5049,10 +5051,11 @@ async def sinf_transfer_eski_callback(
     if not await admin_tekshir(state, callback.from_user.id):
         return
 
-    eski_sinf = callback.data.split(":")[1]
+    eski_sinf_id = int(callback.data.split(":")[1])
+    eski_sinf_nomi = sinf_nomi_ol_by_id(eski_sinf_id) or str(eski_sinf_id)
     await callback.message.edit_text(
-        f"Yangi sinfni tanlang ({eski_sinf} -> ?):",
-        reply_markup=yangi_sinf_tanlash_keyboard(eski_sinf),
+        f"Yangi sinfni tanlang ({eski_sinf_nomi} -> ?):",
+        reply_markup=yangi_sinf_tanlash_keyboard(eski_sinf_id),
     )
     await callback.answer()
 
@@ -5065,13 +5068,16 @@ async def sinf_transfer_yangi_callback(
         return
 
     parts = callback.data.split(":")
-    eski_sinf = parts[1]
-    yangi_sinf = parts[2]
+    eski_sinf_id = int(parts[1])
+    yangi_sinf_id = int(parts[2])
 
-    count = sinf_transferi(eski_sinf, yangi_sinf)
+    count = sinf_transferi_by_id(eski_sinf_id, yangi_sinf_id)
+
+    eski_nomi = sinf_nomi_ol_by_id(eski_sinf_id) or str(eski_sinf_id)
+    yangi_nomi = sinf_nomi_ol_by_id(yangi_sinf_id) or str(yangi_sinf_id)
 
     await callback.message.edit_text(
-        f"{eski_sinf} sinfidan {yangi_sinf} sinfiga {count} ta o'quvchi ko'chirildi."
+        f"✅ {eski_nomi} sinfidan {yangi_nomi} sinfiga {count} ta o'quvchi ko'chirildi."
     )
     await callback.answer()
 
@@ -5552,4 +5558,3 @@ async def chatbot_foydalanuvchilar_handler(message: Message, state: FSMContext):
         )
 
     await message.answer(text, parse_mode="HTML")
-    
