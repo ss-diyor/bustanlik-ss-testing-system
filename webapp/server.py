@@ -9,7 +9,22 @@ from urllib.parse import parse_qsl
 from aiohttp import web
 import psycopg2
 import psycopg2.extras
+from datetime import datetime
 from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
+
+def json_serializer(obj):
+    """JSON uchun datetime va boshqa obyektlarni serializatsiya qiladi."""
+    if isinstance(obj, (datetime)):
+        return obj.isoformat()
+    return str(obj)
+
+def safe_json_response(data, status=200):
+    """Datetime obyektlarini qo'llab-quvvatlaydigan json_response."""
+    return web.json_response(
+        data, 
+        status=status, 
+        dumps=lambda x: json.dumps(x, default=json_serializer)
+    )
 
 # ─────────────────────────────────────────
 # Telegram initData validation
@@ -219,7 +234,7 @@ async def get_schedule_api(request: web.Request) -> web.Response:
             if r.get("sana"): r["sana"] = r["sana"].strftime("%d.%m.%Y")
         cur.close()
         release_connection(conn)
-        return web.json_response({"schedule": rows})
+        return safe_json_response({"schedule": rows})
     except Exception as e:
         logging.error(f"Schedule API error: {e}")
         return web.json_response({"error": "Server error"}, status=500)
@@ -234,7 +249,7 @@ async def get_materials_api(request: web.Request) -> web.Response:
         rows = cur.fetchall()
         cur.close()
         release_connection(conn)
-        return web.json_response({"materials": rows})
+        return safe_json_response({"materials": rows})
     except Exception as e:
         logging.error(f"Materials API error: {e}")
         return web.json_response({"error": "Server error"}, status=500)
@@ -466,7 +481,7 @@ async def admin_get_materials_api(request: web.Request) -> web.Response:
         rows = cur.fetchall()
         cur.close()
         release_connection(conn)
-        return web.json_response({"materials": rows})
+        return safe_json_response({"materials": rows})
     except Exception as e:
         logging.error(f"Admin Materials GET error: {e}")
         return web.json_response({"error": "Server error"}, status=500)

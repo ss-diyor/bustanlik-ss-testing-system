@@ -34,7 +34,7 @@ def create_mini_test_tables():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS mini_testlar (
             id SERIAL PRIMARY KEY,
-            nomi VARCHAR(255) NOT NULL,
+            nomi VARCHAR(255) NOT NULL DEFAULT 'Mini-test',
             fan VARCHAR(100) NOT NULL,
             pdf_file_id VARCHAR(255),
             keys JSONB NOT NULL,
@@ -42,6 +42,18 @@ def create_mini_test_tables():
             is_active BOOLEAN DEFAULT TRUE,
             admin_id BIGINT
         )
+    """)
+    # Migration: Ensure nomi column exists
+    cur.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'mini_testlar' AND column_name = 'nomi'
+            ) THEN
+                ALTER TABLE mini_testlar ADD COLUMN nomi VARCHAR(255) NOT NULL DEFAULT 'Mini-test';
+            END IF;
+        END $$;
     """)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS mini_test_natijalari (
