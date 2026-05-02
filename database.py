@@ -43,15 +43,21 @@ def create_mini_test_tables():
             admin_id BIGINT
         )
     """)
-    # Migration: Ensure nomi column exists
+    # Migration: Ensure required columns exist in mini_testlar
     cur.execute("""
         DO $$
         BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns 
-                WHERE table_name = 'mini_testlar' AND column_name = 'nomi'
-            ) THEN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mini_testlar' AND column_name = 'nomi') THEN
                 ALTER TABLE mini_testlar ADD COLUMN nomi VARCHAR(255) NOT NULL DEFAULT 'Mini-test';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mini_testlar' AND column_name = 'fan') THEN
+                ALTER TABLE mini_testlar ADD COLUMN fan VARCHAR(100) NOT NULL DEFAULT 'Umumiy';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mini_testlar' AND column_name = 'pdf_file_id') THEN
+                ALTER TABLE mini_testlar ADD COLUMN pdf_file_id VARCHAR(255);
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mini_testlar' AND column_name = 'keys') THEN
+                ALTER TABLE mini_testlar ADD COLUMN keys JSONB NOT NULL DEFAULT '{}';
             END IF;
         END $$;
     """)
