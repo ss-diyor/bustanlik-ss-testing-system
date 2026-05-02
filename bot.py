@@ -32,6 +32,7 @@ from keyboards import (
 import admin
 import student
 import mock_admin
+import mock_excel_import
 import mock_student
 import language_handlers
 import parent
@@ -57,6 +58,7 @@ dp = Dispatcher(storage=MemoryStorage())
 # Routerlarni ulash
 dp.include_router(admin.router)
 dp.include_router(mock_admin.router)
+dp.include_router(mock_excel_import.router)
 dp.include_router(chatbot.router)
 dp.include_router(student.router)
 dp.include_router(mock_student.router)
@@ -195,14 +197,19 @@ async def bind_user_to_kod(message: Message):
     kod = message.text.replace("ULASH_", "").strip().upper()
     talaba = talaba_topish(kod)
     if talaba:
+        # Oldin ulangan-ulanmaganligini tekshirish
+        avval_ulangan = talaba.get("user_id") is not None
+
         talaba_user_id_yangila(kod, message.from_user.id)
         await message.answer(
             f"✅ Tabriklaymiz! Sizning profilingiz <b>{kod}</b> kodiga muvaffaqiyatli ulandi. Endi yangi natijalar haqida avtomatik xabar olasiz.",
             parse_mode="HTML",
         )
-        asyncio.create_task(
-            _guruh_royxat_bildirish(message.bot, tg_user=message.from_user, talaba=talaba)
-        )
+        # Faqat birinchi marta ulanayotganda guruhga xabar yuborish
+        if not avval_ulangan:
+            asyncio.create_task(
+                _guruh_royxat_bildirish(message.bot, tg_user=message.from_user, talaba=talaba)
+            )
     else:
         await message.answer("❌ Bunday kod topilmadi.")
 
