@@ -959,16 +959,18 @@ def sinf_transferi_keyboard():
 
 
 def sinf_tanlash_transfer_keyboard():
-    """Transfer uchun sinf tanlash."""
-    from database import sinf_ol
+    """Transfer uchun sinf tanlash — callback_data da ID ishlatiladi (64 bayt limit)."""
+    from database import sinf_ol_batafsil
 
-    sinflar = sinf_ol()
+    sinflar = sinf_ol_batafsil()
     buttons = []
     for sinf in sinflar:
+        label = f"{sinf['nomi']} - {sinf['maktab_nomi']}"
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=sinf, callback_data=f"sinf_transfer_eski:{sinf}"
+                    text=label,
+                    callback_data=f"sinf_transfer_eski:{sinf['id']}",
                 )
             ]
         )
@@ -982,19 +984,20 @@ def sinf_tanlash_transfer_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def yangi_sinf_tanlash_keyboard(eski_sinf):
-    """Yangi sinfni tanlash."""
-    from database import sinf_ol
+def yangi_sinf_tanlash_keyboard(eski_sinf_id):
+    """Yangi sinfni tanlash — callback_data da ID ishlatiladi (64 bayt limit)."""
+    from database import sinf_ol_batafsil
 
-    sinflar = sinf_ol()
+    sinflar = sinf_ol_batafsil()
     buttons = []
     for sinf in sinflar:
-        if sinf != eski_sinf:
+        if str(sinf["id"]) != str(eski_sinf_id):
+            label = f"{sinf['nomi']} - {sinf['maktab_nomi']}"
             buttons.append(
                 [
                     InlineKeyboardButton(
-                        text=sinf,
-                        callback_data=f"sinf_transfer_yangi:{eski_sinf}:{sinf}",
+                        text=label,
+                        callback_data=f"sinf_transfer_yangi:{eski_sinf_id}:{sinf['id']}",
                     )
                 ]
             )
