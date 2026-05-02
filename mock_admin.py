@@ -572,7 +572,7 @@ async def mock_schema_kiritildi(message: Message, state: FSMContext):
     await state.set_state(MockNatijaQosh.levels_kutish)
     await message.answer(
         "🎯 <b>Darajalar</b> (ixtiyoriy).\n"
-        "Masalan: <code>A1,A2,B1,B2,C1,C2</code>\n"
+        "Masalan: <code>C,C+,B,B+,A,A+</code>\n"
         "Kerak bo'lmasa <code>-</code> yozing:",
         parse_mode="HTML",
     )
