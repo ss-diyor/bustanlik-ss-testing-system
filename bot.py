@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import psycopg2.extras
 from datetime import datetime
 
 from aiogram import Bot, Dispatcher
