@@ -219,6 +219,7 @@ from database import (
     chatbot_bugungi_son,
     is_notification_enabled,
 )
+from id_generator import keyod_yarat, keyod_settings_ol, keyod_settings_saqla, keyod_preview_list
 from keyboards import (
     admin_menu_keyboard,
     admin_inline_menu,
@@ -307,6 +308,12 @@ class TalabaQosh(StatesGroup):
     asosiy1_kutish = State()
     asosiy2_kutish = State()
     tasdiq_kutish = State()
+
+
+class IdGenSozlama(StatesGroup):
+    prefix_kutish   = State()
+    digits_kutish   = State()
+    separator_kutish = State()
 
 
 class ExcelImport(StatesGroup):
@@ -1635,9 +1642,51 @@ async def kalit_yonalish_save(message: Message, state: FSMContext):
 async def talaba_qosh_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
-    await state.set_state(TalabaQosh.kod_kutish)
+    cfg = keyod_settings_ol()
+    namuna = keyod_preview_list(cfg["prefix"], cfg["separator"], cfg["digits"], count=1)
     await message.answer(
-        "📝 O'quvchining shaxsiy <b>kodini</b> kiriting:", parse_mode="HTML"
+        "📝 <b>O'quvchi qo'shish</b>\n\n"
+        "Shaxsiy kod qanday kiritilsin?",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text=f"🔢 Avtogenerasiya  ({namuna[0]}...)",
+                callback_data="idgen_avto"
+            )],
+            [InlineKeyboardButton(
+                text="✍️ Qo'lda kiritish",
+                callback_data="idgen_qolda"
+            )],
+            [InlineKeyboardButton(
+                text="⚙️ Generator sozlamalari",
+                callback_data="idgen_sozlama"
+            )],
+        ]),
+    )
+
+
+@router.callback_query(F.data == "idgen_avto")
+async def talaba_avto_kod(cb: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, cb.from_user.id):
+        return
+    kod = keyod_yarat()
+    await state.update_data(kod=kod)
+    await state.set_state(TalabaQosh.yonalish_kutish)
+    await cb.message.edit_text(
+        f"✅ Avtomatik kod: <b>{kod}</b>\n\n"
+        "Yo'nalishni tanlang:",
+        parse_mode="HTML",
+        reply_markup=yonalish_keyboard(),
+    )
+
+
+@router.callback_query(F.data == "idgen_qolda")
+async def talaba_qolda_kod_start(cb: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, cb.from_user.id):
+        return
+    await state.set_state(TalabaQosh.kod_kutish)
+    await cb.message.edit_text(
+        "✍️ O'quvchining shaxsiy <b>kodini</b> kiriting:", parse_mode="HTML"
     )
 
 
@@ -1653,6 +1702,132 @@ async def talaba_kod(message: Message, state: FSMContext):
         reply_markup=yonalish_keyboard(),
         parse_mode="HTML",
     )
+
+
+# ── Generator sozlamalari ─────────────────────────────────────────────────────
+
+@router.callback_query(F.data == "idgen_sozlama")
+async def idgen_sozlama_menu(cb: CallbackQuery, state: FSMContext):
+    cfg = keyod_settings_ol()
+    namunalar = keyod_preview_list(cfg["prefix"], cfg["separator"], cfg["digits"])
+    await cb.message.edit_text(
+        "⚙️ <b>Kod generatori sozlamalari</b>\n\n"
+        f"🔤 Prefiks:    <code>{cfg['prefix']}</code>\n"
+        f"🔢 Raqam uzunligi: <code>{cfg['digits']}</code>\n"
+        f"➖ Ajratuvchi: <code>{'(yoq)' if not cfg['separator'] else cfg['separator']}</code>\n\n"
+        f"📋 Namuna: <b>{' | '.join(namunalar)}</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔤 Prefiksni o'zgartirish", callback_data="idgen_set_prefix")],
+            [InlineKeyboardButton(text="🔢 Raqam uzunligini o'zgartirish", callback_data="idgen_set_digits")],
+            [InlineKeyboardButton(text="➖ Ajratuvchini o'zgartirish", callback_data="idgen_set_separator")],
+            [InlineKeyboardButton(text="❌ Yopish", callback_data="idgen_close")],
+        ]),
+    )
+
+
+@router.callback_query(F.data == "idgen_set_prefix")
+async def idgen_set_prefix(cb: CallbackQuery, state: FSMContext):
+    await state.set_state(IdGenSozlama.prefix_kutish)
+    cfg = keyod_settings_ol()
+    await cb.message.edit_text(
+        f"🔤 Yangi <b>prefiks</b> kiriting.\n"
+        f"Hozirgi: <code>{cfg['prefix']}</code>\n\n"
+        f"Masalan: <code>SS</code>, <code>BS</code>, <code>A</code>",
+        parse_mode="HTML",
+    )
+
+
+@router.message(IdGenSozlama.prefix_kutish)
+async def idgen_prefix_saqlash(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    prefix = message.text.strip().upper()
+    if not prefix.isalpha() or len(prefix) > 5:
+        await message.answer("❌ Prefiks faqat harflardan iborat bo'lsin (1–5 ta). Qayta kiriting:")
+        return
+    keyod_settings_saqla(prefix=prefix)
+    await state.clear()
+    cfg = keyod_settings_ol()
+    namunalar = keyod_preview_list(cfg["prefix"], cfg["separator"], cfg["digits"])
+    await message.answer(
+        f"✅ Prefiks <b>{prefix}</b> ga o'zgartirildi.\n"
+        f"📋 Namuna: <b>{' | '.join(namunalar)}</b>",
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "idgen_set_digits")
+async def idgen_set_digits(cb: CallbackQuery, state: FSMContext):
+    await state.set_state(IdGenSozlama.digits_kutish)
+    cfg = keyod_settings_ol()
+    await cb.message.edit_text(
+        f"🔢 Raqam <b>uzunligini</b> kiriting (1–6).\n"
+        f"Hozirgi: <code>{cfg['digits']}</code>\n\n"
+        f"3 → <code>001</code>   4 → <code>0001</code>",
+        parse_mode="HTML",
+    )
+
+
+@router.message(IdGenSozlama.digits_kutish)
+async def idgen_digits_saqlash(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    try:
+        digits = int(message.text.strip())
+        if not (1 <= digits <= 6):
+            raise ValueError
+    except ValueError:
+        await message.answer("❌ 1 dan 6 gacha raqam kiriting:")
+        return
+    keyod_settings_saqla(digits=digits)
+    await state.clear()
+    cfg = keyod_settings_ol()
+    namunalar = keyod_preview_list(cfg["prefix"], cfg["separator"], cfg["digits"])
+    await message.answer(
+        f"✅ Raqam uzunligi <b>{digits}</b> ga o'zgartirildi.\n"
+        f"📋 Namuna: <b>{' | '.join(namunalar)}</b>",
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "idgen_set_separator")
+async def idgen_set_separator(cb: CallbackQuery, state: FSMContext):
+    await state.set_state(IdGenSozlama.separator_kutish)
+    cfg = keyod_settings_ol()
+    cur_sep = cfg["separator"] or "(yo'q)"
+    await cb.message.edit_text(
+        f"➖ <b>Ajratuvchi belgi</b> kiriting.\n"
+        f"Hozirgi: <code>{cur_sep}</code>\n\n"
+        f"<code>-</code> → SS-001\n"
+        f"<code>_</code> → SS_001\n"
+        f"Yo'q bo'lsin desangiz <code>.</code> yozing → SS001",
+        parse_mode="HTML",
+    )
+
+
+@router.message(IdGenSozlama.separator_kutish)
+async def idgen_separator_saqlash(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    text = message.text.strip()
+    separator = "" if text == "." else text[:2]
+    keyod_settings_saqla(separator=separator)
+    await state.clear()
+    cfg = keyod_settings_ol()
+    namunalar = keyod_preview_list(cfg["prefix"], cfg["separator"], cfg["digits"])
+    sep_display = separator or "(yo'q)"
+    await message.answer(
+        f"✅ Ajratuvchi <b>{sep_display}</b> ga o'zgartirildi.\n"
+        f"📋 Namuna: <b>{' | '.join(namunalar)}</b>",
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "idgen_close")
+async def idgen_close(cb: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await cb.message.edit_text("✅ Sozlamalar yopildi.")
 
 
 @router.callback_query(
@@ -5377,3 +5552,4 @@ async def chatbot_foydalanuvchilar_handler(message: Message, state: FSMContext):
         )
 
     await message.answer(text, parse_mode="HTML")
+    
