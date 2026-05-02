@@ -252,7 +252,9 @@ async def murojaat_boshlash(message: Message, state: FSMContext):
         stats_enabled = get_setting("stats_enabled", "True")
         chatbot_enabled = get_setting("chatbot_enabled", "True")
         mock_enabled = get_setting("mock_enabled", "True")
-        kb = user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled)
+        quiz_enabled = get_setting("quiz_enabled", "True")
+        mini_test_enabled = get_setting("mini_test_enabled", "True")
+        kb = user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled)
 
     await message.answer(
         "✅ <b>Xabaringiz adminlarga yuborildi!</b>\n\nTez orada javob olasiz.",
@@ -283,7 +285,15 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
         elif oqituvchi_ol(message.from_user.id):
             kb = oqituvchi_menu_keyboard()
         else:
-            kb = user_menu_keyboard()
+            from database import get_setting
+            kb = user_menu_keyboard(
+                get_setting("ranking_enabled", "True"),
+                get_setting("stats_enabled", "True"),
+                get_setting("chatbot_enabled", "True"),
+                get_setting("mock_enabled", "True"),
+                get_setting("quiz_enabled", "True"),
+                get_setting("mini_test_enabled", "True"),
+            )
 
         await state.clear()
         await message.answer(
@@ -322,7 +332,15 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
         elif oqituvchi_ol(message.from_user.id):
             kb = oqituvchi_menu_keyboard()
         else:
-            kb = user_menu_keyboard()
+            from database import get_setting
+            kb = user_menu_keyboard(
+                get_setting("ranking_enabled", "True"),
+                get_setting("stats_enabled", "True"),
+                get_setting("chatbot_enabled", "True"),
+                get_setting("mock_enabled", "True"),
+                get_setting("quiz_enabled", "True"),
+                get_setting("mini_test_enabled", "True"),
+            )
 
         await message.answer(
             "✅ <b>Murojaatingiz adminga yuborildi!</b>\n\nTez orada javob olasiz.",
@@ -333,7 +351,14 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
         await message.answer(
             "⚠️ <b>Xatolik yuz berdi!</b>\n\nHozirda adminlar bilan bog'lanish imkoni yo'q.",
             parse_mode="HTML",
-            reply_markup=user_menu_keyboard(),
+            reply_markup=user_menu_keyboard(
+                get_setting("ranking_enabled", "True"),
+                get_setting("stats_enabled", "True"),
+                get_setting("chatbot_enabled", "True"),
+                get_setting("mock_enabled", "True"),
+                get_setting("quiz_enabled", "True"),
+                get_setting("mini_test_enabled", "True"),
+            ),
         )
 
     await state.clear()
@@ -458,7 +483,14 @@ async def process_answers(message: Message, state: FSMContext):
         result_text += "🎉 <b>Ajoyib! Hech qanday xato qilmadingiz!</b>"
 
     await message.answer(
-        result_text, parse_mode="HTML", reply_markup=user_menu_keyboard()
+        result_text, parse_mode="HTML", reply_markup=user_menu_keyboard(
+            get_setting("ranking_enabled", "True"),
+            get_setting("stats_enabled", "True"),
+            get_setting("chatbot_enabled", "True"),
+            get_setting("mock_enabled", "True"),
+            get_setting("quiz_enabled", "True"),
+            get_setting("mini_test_enabled", "True"),
+        )
     )
     await state.clear()
 
@@ -485,7 +517,12 @@ async def ranking_menu(event):
         chatbot_enabled = get_setting("chatbot_enabled", "True")
         await message.answer(
             "⚠️ Reyting tizimi vaqtincha o'chirib qo'yilgan.",
-            reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled),
+            reply_markup=user_menu_keyboard(
+                ranking_enabled, stats_enabled, chatbot_enabled,
+                get_setting("mock_enabled", "True"),
+                get_setting("quiz_enabled", "True"),
+                get_setting("mini_test_enabled", "True"),
+            ),
         )
         return
 
@@ -771,7 +808,14 @@ async def appeal_message_save(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
         "✅ Apellyatsiyangiz qabul qilindi. Tez orada ko'rib chiqiladi.",
-        reply_markup=user_menu_keyboard(),
+        reply_markup=user_menu_keyboard(
+            get_setting("ranking_enabled", "True"),
+            get_setting("stats_enabled", "True"),
+            get_setting("chatbot_enabled", "True"),
+            get_setting("mock_enabled", "True"),
+            get_setting("quiz_enabled", "True"),
+            get_setting("mini_test_enabled", "True"),
+        ),
     )
 
 
@@ -783,7 +827,12 @@ async def student_stats(message: Message):
         chatbot_enabled = get_setting("chatbot_enabled", "True")
         await message.answer(
             "⚠️ Statistika bo'limi vaqtincha o'chirib qo'yilgan.",
-            reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled, chatbot_enabled),
+            reply_markup=user_menu_keyboard(
+                ranking_enabled, stats_enabled, chatbot_enabled,
+                get_setting("mock_enabled", "True"),
+                get_setting("quiz_enabled", "True"),
+                get_setting("mini_test_enabled", "True"),
+            ),
         )
         return
     await message.answer(
@@ -1348,7 +1397,14 @@ async def cancel_handler(message: Message, state: FSMContext):
     await message.answer(
         "✅ <b>Barcha amallar bekor qilindi!</b>\n\n" "🏠 Asosiy menyu:",
         parse_mode="HTML",
-        reply_markup=user_menu_keyboard(),
+        reply_markup=user_menu_keyboard(
+            get_setting("ranking_enabled", "True"),
+            get_setting("stats_enabled", "True"),
+            get_setting("chatbot_enabled", "True"),
+            get_setting("mock_enabled", "True"),
+            get_setting("quiz_enabled", "True"),
+            get_setting("mini_test_enabled", "True"),
+        ),
     )
 
 
@@ -1370,7 +1426,14 @@ async def cancel_callback_handler(callback: CallbackQuery, state: FSMContext):
             reply_markup=None,
         )
         await callback.message.answer(
-            "Asosiy menyu:", reply_markup=user_menu_keyboard()
+            "Asosiy menyu:", reply_markup=user_menu_keyboard(
+                get_setting("ranking_enabled", "True"),
+                get_setting("stats_enabled", "True"),
+                get_setting("chatbot_enabled", "True"),
+                get_setting("mock_enabled", "True"),
+                get_setting("quiz_enabled", "True"),
+                get_setting("mini_test_enabled", "True"),
+            )
         )
     else:
         await callback.message.edit_text("✅ Amal bekor qilindi.")
