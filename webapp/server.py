@@ -780,6 +780,10 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_put("/api/admin/quiz/{id}", admin_quiz_api)
     app.router.add_delete("/api/admin/quiz/{id}", admin_quiz_api)
 
+    # Admin Schedule API
+    app.router.add_get("/api/admin/schedule", admin_get_schedule_api)
+    app.router.add_post("/api/admin/schedule", admin_add_schedule_api)
+
     # Yangi funksiyalar (Taqvim va Materiallar)
     app.router.add_get("/api/schedule", get_schedule_api)
     app.router.add_get("/api/materials", get_materials_api)
