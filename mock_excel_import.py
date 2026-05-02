@@ -102,6 +102,32 @@ SHEET_CONFIGS = {
     },
 }
 
+# ── Kod bo'yicha qidiruv yordamchi funksiyasi ────────────────────────────────
+
+def _talaba_topish_raqam(raqam: str):
+    """
+    Bazada faqat raqamli qism orqali talaba qidiradi.
+    Masalan, bazada 'SS1001' bor, Excel'da '1001' kelgan bo'lsa topib beradi.
+    """
+    try:
+        from database import get_connection, release_connection
+        import psycopg2.extras
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        # Kodning raqamli oxiri berilgan raqam bilan tugaydiganini qidiramiz
+        cur.execute(
+            "SELECT * FROM talabalar WHERE kod ~ %s LIMIT 2",
+            (f"(^|[^0-9]){raqam}$",),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        release_connection(conn)
+        # Faqat bitta natija bo'lsa — mos deb hisoblaymiz (aniqlik uchun)
+        return dict(rows[0]) if len(rows) == 1 else None
+    except Exception:
+        return None
+
+
 # Ustun sarlavhalarini normalize qilish uchun (qisman moslik)
 def _find_col(headers: list, keyword: str) -> int | None:
     """Sarlavhalar ichida kalit so'z bo'yicha ustun indeksini topadi."""
@@ -161,7 +187,27 @@ def _parse_sheet(sheet, sheet_name: str) -> tuple[list[dict], list[str]]:
             continue
 
         kod = str(kod_raw).strip().upper()
+        # Excel'dan kelgan kod float bo'lishi mumkin (masalan 1001.0) — butun songa aylantirish
+        if kod.endswith(".0") and kod[:-2].isdigit():
+            kod = kod[:-2]
+
         talaba = talaba_topish(kod)
+
+        # Fallback 1: Excel'da harfli kod (SS1001), bazada faqat raqam (1001)
+        if not talaba:
+            import re as _re
+            numeric_only = _re.sub(r"[^0-9]", "", kod)
+            if numeric_only and numeric_only != kod:
+                talaba = talaba_topish(numeric_only)
+                if talaba:
+                    kod = talaba["kod"]  # bazadagi haqiqiy kod bilan davom etish
+
+        # Fallback 2: bazada harfli kod, Excel'da faqat raqam
+        if not talaba and kod.isdigit():
+            talaba = _talaba_topish_raqam(kod)
+            if talaba:
+                kod = talaba["kod"]
+
         if not talaba:
             errors.append(f"[{sheet_name}] Qator {row_num}: '{kod}' kodi topilmadi")
             continue
