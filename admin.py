@@ -834,34 +834,38 @@ async def mini_test_fan(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("tasdiq:"), MiniTestState.tasdiq_kutish)
 async def mini_test_save(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
     if callback.data == "tasdiq:ha":
         data = await state.get_data()
-        from database import mini_test_qosh, get_all_user_ids
-        
-        test_id = mini_test_qosh(
-            data['nomi'], data['fan'], data['pdf_file_id'], data['keys'], callback.from_user.id
-        )
-        
-        await callback.message.edit_text(f"✅ Mini-test saqlandi! (ID: {test_id})\nBroadcast boshlanmoqda...")
-        
-        # Broadcast logic
-        user_ids = get_all_user_ids()
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🚀 Testni boshlash", callback_data=f"minitest_start:{test_id}")]
-        ])
-        
-        text = (
-            f"🔔 <b>YANGI MINI-TEST!</b>\n\n"
-            f"📝 Nomi: <b>{data['nomi']}</b>\n"
-            f"📚 Fan: <b>{data['fan']}</b>\n\n"
-            f"Testni boshlash uchun quyidagi tugmani bosing."
-        )
-        
-        asyncio.create_task(run_broadcast_simple(callback.bot, user_ids, text, kb))
-        
+        try:
+            from database import mini_test_qosh, get_all_user_ids
+
+            test_id = mini_test_qosh(
+                data['nomi'], data['fan'], data['pdf_file_id'], data['keys'], callback.from_user.id
+            )
+
+            await callback.message.edit_text(f"✅ Mini-test saqlandi! (ID: {test_id})\nBroadcast boshlanmoqda...")
+
+            # Broadcast logic
+            user_ids = get_all_user_ids()
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🚀 Testni boshlash", callback_data=f"minitest_start:{test_id}")]
+            ])
+
+            text = (
+                f"🔔 <b>YANGI MINI-TEST!</b>\n\n"
+                f"📝 Nomi: <b>{data['nomi']}</b>\n"
+                f"📚 Fan: <b>{data['fan']}</b>\n\n"
+                f"Testni boshlash uchun quyidagi tugmani bosing."
+            )
+
+            asyncio.create_task(run_broadcast_simple(callback.bot, user_ids, text, kb))
+        except Exception as e:
+            logging.error(f"Mini-test saqlashda xato: {e}")
+            await callback.message.edit_text(f"❌ Xatolik yuz berdi: {e}\n\nIltimos qayta urinib ko'ring.")
     else:
         await callback.message.edit_text("❌ Bekor qilindi.")
-    
+
     await state.clear()
 
 async def run_broadcast_simple(bot, user_ids, text, kb=None):
@@ -2422,19 +2426,23 @@ async def settings_start(message: Message, state: FSMContext):
     stats_enabled = get_setting("stats_enabled", "True")
     chatbot_enabled = get_setting("chatbot_enabled", "True")
     mock_enabled = get_setting("mock_enabled", "True")
+    quiz_enabled = get_setting("quiz_enabled", "True")
+    mini_test_enabled = get_setting("mini_test_enabled", "True")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
         f"🏆 Reyting (Top-50): <b>{'✅ Yoqilgan' if ranking_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📈 Statistika: <b>{'✅ Yoqilgan' if stats_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
-        f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"📝 Mashq qilish (Quiz): <b>{'✅ Yoqilgan' if quiz_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await message.answer(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled),
     )
 
 
@@ -2451,19 +2459,23 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
     stats_enabled = get_setting("stats_enabled", "True")
     chatbot_enabled = get_setting("chatbot_enabled", "True")
     mock_enabled = get_setting("mock_enabled", "True")
+    quiz_enabled = get_setting("quiz_enabled", "True")
+    mini_test_enabled = get_setting("mini_test_enabled", "True")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
         f"🏆 Reyting (Top-50): <b>{'✅ Yoqilgan' if ranking_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📈 Statistika: <b>{'✅ Yoqilgan' if stats_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
-        f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"📝 Mashq qilish (Quiz): <b>{'✅ Yoqilgan' if quiz_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled),
     )
     await callback.answer("✅ Sozlama yangilandi")
 
