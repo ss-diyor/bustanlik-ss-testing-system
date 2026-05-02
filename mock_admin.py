@@ -966,18 +966,50 @@ async def mock_fan_natijalari(cb: CallbackQuery, state: FSMContext):
     if len(text) > 4000:
         text = text[:3900] + "\n<i>...qolganlar qisqartirildi (faqat 20 ta ko'rsatildi)</i>"
 
-    soni = len(natijalari)
+    # Har bir natijaga alohida o'chirish tugmasi
+    buttons = []
+    for i, n in enumerate(natijalari, 1):
+        ism = (n.get("ismlar") or n.get("talaba_kod", "?"))[:20]
+        buttons.append([InlineKeyboardButton(
+            text=f"🗑️ {i}. {ism} (ID:{n['id']})",
+            callback_data=f"mock_del_one:{n['id']}:{exam_key}"
+        )])
+    buttons.append([InlineKeyboardButton(
+        text=f"🗑️ {label} — BARCHASINI o'chir",
+        callback_data=f"mock_fan_ochir_ask:{exam_key}"
+    )])
+
     await cb.message.answer(
         text,
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(
-                text=f"🗑️ {label} — barchasini o'chir",
-                callback_data=f"mock_fan_ochir_ask:{exam_key}"
-            )],
-        ]),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
     )
     await cb.answer()
+
+
+@router.callback_query(F.data.startswith("mock_del_one:"))
+async def mock_del_one(cb: CallbackQuery, state: FSMContext):
+    parts = cb.data.split(":")
+    natija_id = int(parts[1])
+    exam_key  = parts[2] if len(parts) > 2 else ""
+    ok = mock_natija_ochir(natija_id)
+    if ok:
+        await cb.answer(f"✅ ID {natija_id} o'chirildi", show_alert=True)
+        # Tugmalar ro'yxatidan o'chirilgan natijani olib tashlaymiz
+        try:
+            kb = cb.message.reply_markup
+            if kb:
+                new_rows = [
+                    row for row in kb.inline_keyboard
+                    if not any(f"mock_del_one:{natija_id}:" in (btn.callback_data or "") for btn in row)
+                ]
+                await cb.message.edit_reply_markup(
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=new_rows)
+                )
+        except Exception:
+            pass
+    else:
+        await cb.answer(f"❌ ID {natija_id} topilmadi", show_alert=True)
 
 
 # ════════════════════════════════════════════════════════════
