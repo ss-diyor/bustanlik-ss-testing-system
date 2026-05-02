@@ -73,6 +73,11 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> tuple[dict | 
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
+async def health_handler(request: web.Request) -> web.Response:
+    """Railway/Render health check uchun."""
+    return web.json_response({"status": "ok"})
+
+
 async def index_handler(request: web.Request) -> web.Response:
     """Asosiy HTML sahifasini qaytaradi."""
     html_path = os.path.join(STATIC_DIR, "index.html")
@@ -762,6 +767,7 @@ def create_app(bot_token: str) -> web.Application:
     app["bot_token"] = bot_token
 
     app.router.add_get("/", index_handler)
+    app.router.add_get("/health", health_handler)
     app.router.add_get("/api/student", student_api)
     
     app.router.add_get("/admin", admin_handler)
@@ -795,7 +801,11 @@ def create_app(bot_token: str) -> web.Application:
 
 
 async def start_web_server(bot_token: str) -> None:
-    """aiohttp web serverni ishga tushiradi (bot bilan parallel)."""
+    """aiohttp web serverni ishga tushiradi (bot bilan parallel).
+    
+    Railway deploy uchun: web server DB init'dan OLDIN bind qilishi kerak,
+    aks holda health check muvaffaqiyatsiz bo'ladi.
+    """
     port = int(os.getenv("PORT", "8080"))
     app = create_app(bot_token)
     runner = web.AppRunner(app)
@@ -803,3 +813,5 @@ async def start_web_server(bot_token: str) -> None:
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     logging.info(f"Web server started on 0.0.0.0:{port}")
+    # Runner ni global saqlaymiz, graceful shutdown uchun
+    return runner
