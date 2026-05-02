@@ -2,6 +2,7 @@ import psycopg2
 import psycopg2.extras
 from psycopg2 import pool
 import os
+import json
 import logging
 from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
 
@@ -58,6 +59,12 @@ def create_mini_test_tables():
             END IF;
             IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mini_testlar' AND column_name = 'keys') THEN
                 ALTER TABLE mini_testlar ADD COLUMN keys JSONB NOT NULL DEFAULT '{}';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mini_testlar' AND column_name = 'is_active') THEN
+                ALTER TABLE mini_testlar ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mini_testlar' AND column_name = 'admin_id') THEN
+                ALTER TABLE mini_testlar ADD COLUMN admin_id BIGINT;
             END IF;
         END $$;
     """)
