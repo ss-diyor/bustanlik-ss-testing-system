@@ -515,6 +515,86 @@ def mock_natija_ochir(natija_id: int) -> bool:
     return ok
 
 
+def mock_exam_statistika() -> list:
+    """
+    Barcha fanlar bo'yicha natijalar soni va oxirgi sana.
+    Qaytaradi: [{exam_key, exam_label, soni, oquvchilar, oxirgi_sana}, ...]
+    """
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT exam_key, exam_label,
+               COUNT(*)                    AS soni,
+               COUNT(DISTINCT talaba_kod)  AS oquvchilar,
+               MAX(test_sanasi)            AS oxirgi_sana
+        FROM mock_natijalari
+        GROUP BY exam_key, exam_label
+        ORDER BY soni DESC
+    """)
+    rows = cur.fetchall()
+    cur.close(); release_connection(conn)
+    return [dict(r) for r in rows]
+
+
+def mock_hammasi_by_exam(exam_key: str, limit: int = 50, offset: int = 0) -> list:
+    """
+    Berilgan fan (exam_key) bo'yicha BARCHA o'quvchilarning natijalari.
+    """
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """
+        SELECT mn.*, t.ismlar, t.sinf
+        FROM mock_natijalari mn
+        LEFT JOIN talabalar t ON t.kod = mn.talaba_kod
+        ORDER BY mn.test_sanasi DESC
+        LIMIT %s OFFSET %s
+        """,
+        (limit, offset),
+    ) if not exam_key else cur.execute(
+        """
+        SELECT mn.*, t.ismlar, t.sinf
+        FROM mock_natijalari mn
+        LEFT JOIN talabalar t ON t.kod = mn.talaba_kod
+        WHERE mn.exam_key = %s
+        ORDER BY mn.test_sanasi DESC
+        LIMIT %s OFFSET %s
+        """,
+        (exam_key, limit, offset),
+    )
+    rows = cur.fetchall()
+    cur.close(); release_connection(conn)
+    result = []
+    for r in rows:
+        d = dict(r)
+        if isinstance(d.get("sections"), str):
+            d["sections"] = json.loads(d["sections"])
+        result.append(d)
+    return result
+
+
+def mock_exam_natijalar_ochir(exam_key: str) -> int:
+    """Berilgan fan bo'yicha barcha natijalarni o'chiradi. O'chirilgan sonini qaytaradi."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM mock_natijalari WHERE exam_key=%s", (exam_key,))
+    deleted = cur.rowcount
+    conn.commit()
+    cur.close(); release_connection(conn)
+    return deleted
+
+
+def mock_barchani_ochir() -> int:
+    """Barcha mock natijalarini o'chiradi. O'chirilgan sonini qaytaradi."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM mock_natijalari")
+    deleted = cur.rowcount
+    conn.commit()
+    cur.close(); release_connection(conn)
+    return deleted
+
+
 # ─── FORMATLASH ───────────────────────────────────────────────
 
 def format_mock_natija_matn(natija: dict, et: dict = None) -> str:
