@@ -558,6 +558,8 @@ def user_menu_keyboard(
     stats_enabled="True",
     chatbot_enabled="True",
     mock_enabled="True",
+    quiz_enabled="True",
+    mini_test_enabled="True",
 ):
     """Foydalanuvchi asosiy menyusi (Dinamik)."""
     keyboard = []
@@ -591,19 +593,23 @@ def user_menu_keyboard(
     if chatbot_enabled == "True":
         row3.append(KeyboardButton(text="🤖 AI Chatbot"))
     keyboard.append(row3)
-    keyboard.append([
-        KeyboardButton(text="📝 Mashq qilish (Quiz)"),
-        KeyboardButton(text="🔔 Bildirishnomalar")
-    ])
 
-    # To'rtinchi qator: Admin bilan bog'lanish va Chiqish
-    keyboard.append(
-        [
-            KeyboardButton(text="✍️ Admin bilan bog'lanish"),
-            KeyboardButton(text="📦 Mini-testlar"),
-            KeyboardButton(text="🚪 Chiqish"),
-        ]
-    )
+    # To'rtinchi qator: Mashq qilish va Bildirishnomalar (quiz_enabled bo'lsa)
+    row4 = []
+    if quiz_enabled == "True":
+        row4.append(KeyboardButton(text="📝 Mashq qilish (Quiz)"))
+    row4.append(KeyboardButton(text="🔔 Bildirishnomalar"))
+    keyboard.append(row4)
+
+    # Mini-testlar (mini_test_enabled bo'lsa, alohida qatorda)
+    if mini_test_enabled == "True":
+        keyboard.append([KeyboardButton(text="📦 Mini-testlar")])
+
+    # Admin bilan bog'lanish — alohida, to'liq qatorda
+    keyboard.append([KeyboardButton(text="✍️ Admin bilan bog'lanish")])
+
+    # Oxirgi qator: Chiqish
+    keyboard.append([KeyboardButton(text="🚪 Chiqish")])
 
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -1452,6 +1458,8 @@ def settings_keyboard(
     stats_enabled,
     chatbot_enabled="True",
     mock_enabled="True",
+    quiz_enabled="True",
+    mini_test_enabled="True",
 ):
     """Bot sozlamalari klaviaturasi."""
     ranking_text = (
@@ -1473,6 +1481,16 @@ def settings_keyboard(
         "✅ Mock natijalar (User): Yoqilgan"
         if mock_enabled == "True"
         else "❌ Mock natijalar (User): O'chirilgan"
+    )
+    quiz_text = (
+        "✅ Mashq qilish (Quiz): Yoqilgan"
+        if quiz_enabled == "True"
+        else "❌ Mashq qilish (Quiz): O'chirilgan"
+    )
+    mini_test_text = (
+        "✅ Mini-testlar: Yoqilgan"
+        if mini_test_enabled == "True"
+        else "❌ Mini-testlar: O'chirilgan"
     )
 
     return InlineKeyboardMarkup(
@@ -1499,6 +1517,18 @@ def settings_keyboard(
                 InlineKeyboardButton(
                     text=mock_text,
                     callback_data="toggle_setting:mock_enabled",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=quiz_text,
+                    callback_data="toggle_setting:quiz_enabled",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=mini_test_text,
+                    callback_data="toggle_setting:mini_test_enabled",
                 )
             ],
         ]
