@@ -142,6 +142,14 @@ async def contact_handler(message: Message):
         "✅ Telefon raqamingiz muvaffaqiyatli saqlandi!",
         reply_markup=ReplyKeyboardRemove(),
     )
+    # Guruhlarga yangi foydalanuvchi haqida xabar yuborish
+    asyncio.create_task(
+        _guruh_royxat_bildirish(
+            message.bot,
+            tg_user=message.from_user,
+            phone_number=phone_number,
+        )
+    )
     await start_handler(message)
 
 
@@ -192,8 +200,59 @@ async def bind_user_to_kod(message: Message):
             f"✅ Tabriklaymiz! Sizning profilingiz <b>{kod}</b> kodiga muvaffaqiyatli ulandi. Endi yangi natijalar haqida avtomatik xabar olasiz.",
             parse_mode="HTML",
         )
+        asyncio.create_task(
+            _guruh_royxat_bildirish(message.bot, tg_user=message.from_user, talaba=talaba)
+        )
     else:
         await message.answer("❌ Bunday kod topilmadi.")
+
+
+async def _guruh_royxat_bildirish(
+    bot: Bot,
+    tg_user,
+    talaba: dict = None,
+    phone_number: str = None,
+):
+    """Guruhlarga yangi foydalanuvchi haqida xabar yuboradi.
+
+    - phone_number berilsa: telefon orqali ro'yxatdan o'tish
+    - talaba berilsa: ULASH_KOD orqali akkaunt ulash
+    """
+    from database import guruhlar_ol
+
+    guruhlar = guruhlar_ol()
+    if not guruhlar:
+        return
+
+    username = f"@{tg_user.username}" if tg_user.username else "—"
+    full_name = tg_user.full_name or "—"
+
+    if phone_number and talaba is None:
+        # Faqat telefon raqam ulashgan — hali kod bilan ulanmagan
+        text = (
+            f"📱 <b>Yangi foydalanuvchi ro'yxatdan o'tdi!</b>\n\n"
+            f"👤 Ism: <b>{full_name}</b>\n"
+            f"📞 Telefon: <b>{phone_number}</b>\n"
+            f"🔗 Telegram: {username}\n\n"
+            f"<i>Hali talaba kodi bilan ulanmagan</i>"
+        )
+    else:
+        # ULASH_KOD orqali talaba profili ulandi
+        text = (
+            f"🎉 <b>Yangi o'quvchi ro'yxatdan o'tdi!</b>\n\n"
+            f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
+            f"🆔 Kod: <b>{talaba['kod']}</b>\n"
+            f"🏫 Sinf: <b>{talaba.get('sinf', '—')}</b>\n"
+            f"🎯 Yo'nalish: <b>{talaba.get('yonalish', '—')}</b>\n"
+            f"📞 Telefon: <b>{phone_number or '—'}</b>\n"
+            f"🔗 Telegram: {username}"
+        )
+
+    for g in guruhlar:
+        try:
+            await bot.send_message(g["chat_id"], text, parse_mode="HTML")
+        except Exception:
+            pass
 
 
 async def send_backup():
