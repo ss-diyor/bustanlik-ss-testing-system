@@ -26,6 +26,10 @@ def admin_menu_keyboard():
                 KeyboardButton(text="📝 Mock natija qo'shish"),
                 KeyboardButton(text="📊 Mock natijalarini ko'rish"),
             ],
+            [
+                KeyboardButton(text="📥 Excel import"),
+                KeyboardButton(text="📄 Shablon yuklab olish"),
+            ],
             [KeyboardButton(text="⚙️ Mock fanlar boshqaruvi")],
             [KeyboardButton(text="✏️ O'quvchi ma'lumotlarini tahrirlash")],
             [KeyboardButton(text="🗑️ Bitta natijani o'chirish")],
