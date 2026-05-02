@@ -98,8 +98,13 @@ def _get_pool():
 
         for attempt in range(5):
             try:
+                # sslmode faqat DATABASE_URL da ko'rsatilmagan bo'lsa qo'shamiz
+                # Railway DATABASE_URL allaqachon sslmode=require o'z ichiga olgan bo'lishi mumkin
+                extra_kwargs = {}
+                if "sslmode" not in DATABASE_URL:
+                    extra_kwargs["sslmode"] = "require"
                 connection_pool = pool.SimpleConnectionPool(
-                    1, 10, DATABASE_URL, sslmode="require", connect_timeout=10
+                    1, 10, DATABASE_URL, connect_timeout=10, **extra_kwargs
                 )
                 logging.info("Connection pool created successfully")
                 break
