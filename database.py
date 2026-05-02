@@ -2228,6 +2228,26 @@ def sinf_transferi(eski_sinf: str, yangi_sinf: str):
     return affected_rows
 
 
+def sinf_nomi_ol_by_id(sinf_id: int) -> str | None:
+    """Sinf ID si bo'yicha sinf nomini qaytaradi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT nomi FROM sinflar WHERE id = %s", (sinf_id,))
+    row = cur.fetchone()
+    cur.close()
+    release_connection(conn)
+    return row["nomi"] if row else None
+
+
+def sinf_transferi_by_id(eski_sinf_id: int, yangi_sinf_id: int) -> int:
+    """Sinf ID lari bo'yicha o'quvchilarni ko'chiradi."""
+    eski_nomi = sinf_nomi_ol_by_id(eski_sinf_id)
+    yangi_nomi = sinf_nomi_ol_by_id(yangi_sinf_id)
+    if not eski_nomi or not yangi_nomi:
+        return 0
+    return sinf_transferi(eski_nomi, yangi_nomi)
+
+
 # 5. Bitiruvchilarni arxivlash
 def bitiruvchilarni_arxivlash(sinf: str = None):
     conn = get_connection()
