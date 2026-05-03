@@ -51,6 +51,7 @@ def admin_menu_keyboard():
                 KeyboardButton(text="🏆 Reyting"),
                 KeyboardButton(text="📄 PDF Hisobot"),
             ],
+            [KeyboardButton(text="📊 Excel Hisobot")],
             [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
             [KeyboardButton(text="📱 Ro'yxatdan o'tganlar")],
             [
@@ -1956,6 +1957,91 @@ def sinf_tanlash_pdf_maktab_keyboard(maktab_id: int):
     )
     buttons.append(
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="pdf:sinf_reyting")]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+# ─── Excel Hisobot keyboardlari ──────────────────────────────────────────────
+
+def excel_export_keyboard():
+    """Excel export menyusi — PDF menyusiga parallel."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="👤 O'quvchi hisoboti", callback_data="excel:student"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏫 Maktab statistikasi",
+                    callback_data="excel:maktab_stat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏆 Sinf reytingi", callback_data="excel:sinf_reyting"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="cancel:admin_menu"
+                )
+            ],
+        ]
+    )
+
+
+def sinf_tanlash_excel_keyboard():
+    """Excel uchun sinf tanlash."""
+    from database import sinf_ol
+
+    sinflar = sinf_ol()
+    buttons = []
+    for sinf in sinflar:
+        buttons.append(
+            [InlineKeyboardButton(text=sinf, callback_data=f"excel_sinf:{sinf}")]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="🏫 Maktab bo'yicha (barcha sinflar)",
+                callback_data="excel_sinf_by_maktab",
+            )
+        ]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="📋 Barcha sinflar", callback_data="excel_sinf:all")]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="excel:menu")]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def sinf_tanlash_excel_maktab_keyboard(maktab_id: int):
+    """Tanlangan maktabdagi sinflarni Excel uchun ko'rsatish."""
+    from database import sinf_ol_batafsil
+
+    batafsil = sinf_ol_batafsil()
+    maktab_sinflar = [s for s in batafsil if s["maktab_id"] == maktab_id]
+
+    buttons = []
+    for s in maktab_sinflar:
+        full_name = f"{s['nomi']} - {s['maktab_nomi']}"
+        buttons.append(
+            [InlineKeyboardButton(text=full_name, callback_data=f"excel_sinf:{full_name}")]
+        )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="📋 Barcha sinflar (shu maktab)",
+                callback_data=f"excel_sinf_maktab:{maktab_id}",
+            )
+        ]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="excel:sinf_reyting")]
     )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
