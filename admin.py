@@ -6124,7 +6124,7 @@ def _taqq_sinf_matn(s: dict) -> str:
         f"📉 Eng past: <b>{s['eng_past']} ball</b>\n"
         f"\n📊 Ball tarqalishi:\n"
         f"  ≥160: {s['yuqori_soni']} ta  |  130–159: {s['orta_soni']} ta\n"
-        f"  100–129: {s['past_soni']} ta  |  <100: {s['juda_past_soni']} ta\n"
+        f"  100–129: {s['past_soni']} ta  |  &lt;100: {s['juda_past_soni']} ta\n"
         f"\n🏆 Top-3:\n{top3_text}"
     )
 
