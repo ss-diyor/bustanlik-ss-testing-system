@@ -485,7 +485,7 @@ async def cert_preview(cb: CallbackQuery, state: FSMContext, bot: Bot):
         path = await loop.run_in_executor(
             None,
             gen.generate,
-            "Ahmadov Jasur Behruz o'g'li",
+            "Sultanov Diyorbek Alibek o'g'li",
             189.6,
             "2025-06-01",
             "PREVIEW",
