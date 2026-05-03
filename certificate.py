@@ -73,6 +73,8 @@ class CertificateGenerator:
         score: int | float | str,
         date: str,
         kod: str,
+        sinf: str = "",
+        maktab: str = "",
     ) -> str:
         s = self._s
         r = _to_int(s["cert_rang_r"], 0)
@@ -120,19 +122,31 @@ class CertificateGenerator:
 
         # ── O'quvchi ismi ─────────────────────────────────────────────────────
         self._set_font(pdf, "B", 34)
-        pdf.cell(0, 22, name_to_print, ln=True, align="C")
+        pdf.cell(0, 20, name_to_print, ln=True, align="C")
 
-        # ── Maktab nomi ───────────────────────────────────────────────────────
-        self._set_font(pdf, "", 15)
+        # ── Sinf va Maktab (agar mavjud bo'lsa) ──────────────────────────────
+        if sinf or maktab:
+            self._set_font(pdf, "", 13)
+            pdf.set_text_color(80, 80, 80)   # kulrang
+            parts = []
+            if maktab:
+                parts.append(self._safe(maktab))
+            if sinf:
+                parts.append(f"{self._safe(sinf)}-sinf")
+            pdf.cell(0, 7, "  •  ".join(parts), ln=True, align="C")
+            pdf.set_text_color(0, 0, 0)
+
+        # ── Maktab nomi (shablondan) ──────────────────────────────────────────
+        self._set_font(pdf, "", 14)
         pdf.cell(0, 8, self._safe(s["cert_maktab_nomi"]), ln=True, align="C")
 
         # ── Qo'shimcha matn ───────────────────────────────────────────────────
-        pdf.cell(0, 8, self._safe(s["cert_matn"]), ln=True, align="C")
+        pdf.cell(0, 7, self._safe(s["cert_matn"]), ln=True, align="C")
 
         # ── Ball ─────────────────────────────────────────────────────────────
         self._set_font(pdf, "B", 28)
         pdf.set_text_color(r, g, b)
-        pdf.cell(0, 16, f"{score} BALL", ln=True, align="C")
+        pdf.cell(0, 15, f"{score} BALL", ln=True, align="C")
         pdf.set_text_color(0, 0, 0)
 
         # ── Footer ────────────────────────────────────────────────────────────
