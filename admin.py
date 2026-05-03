@@ -295,6 +295,7 @@ from keyboards import (
     # PDF export klaviaturalar
     pdf_export_keyboard,
     sinf_tanlash_pdf_keyboard,
+    sinf_tanlash_pdf_maktab_keyboard,
     maktab_tanlash_keyboard,
     broadcast_cancel_keyboard,
     broadcast_confirm_keyboard,
@@ -5716,6 +5717,68 @@ async def pdf_sinf_callback(callback: CallbackQuery, state: FSMContext):
             await callback.answer(
                 "❌ PDF yaratishda xatolik!", show_alert=True
             )
+
+    except Exception as e:
+        await wait_msg.delete()
+        await callback.answer(f"❌ Xatolik: {str(e)}", show_alert=True)
+
+
+@router.callback_query(F.data == "pdf_sinf_by_maktab")
+async def pdf_sinf_by_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    """Maktab tanlash — keyin shu maktabdagi sinflar ko'rsatiladi."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    from database import maktablar_ol
+
+    maktablar = maktablar_ol()
+    await callback.message.edit_text(
+        "🏫 Maktabni tanlang:",
+        reply_markup=maktab_tanlash_keyboard(maktablar, prefix="pdf_reyting_maktab"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pdf_reyting_maktab:"))
+async def pdf_reyting_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    """Tanlangan maktabdagi sinflar ro'yxatini ko'rsatish."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    maktab_id = int(callback.data.split(":")[1])
+    await callback.message.edit_text(
+        "📋 Sinfni tanlang yoki barcha sinflarni bir PDF da oling:",
+        reply_markup=sinf_tanlash_pdf_maktab_keyboard(maktab_id),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pdf_sinf_maktab:"))
+async def pdf_sinf_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    """Tanlangan maktabdagi BARCHA sinflar reytingini PDF ga chiqarish."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    maktab_id = int(callback.data.split(":")[1])
+    wait_msg = await callback.message.answer("⏳ PDF yaratilmoqda...")
+
+    try:
+        from pdf_export import PDFExporter
+
+        exporter = PDFExporter()
+        pdf_path = exporter.create_sinf_reyting_pdf(maktab_id=maktab_id)
+
+        if pdf_path and os.path.exists(pdf_path):
+            await callback.bot.send_document(
+                callback.from_user.id,
+                FSInputFile(pdf_path),
+                caption="📄 Maktab sinflar reytingi PDF hisoboti",
+            )
+            await wait_msg.delete()
+            await callback.answer("✅ PDF muvaffaqiyatli yaratildi!", show_alert=True)
+        else:
+            await wait_msg.delete()
+            await callback.answer("❌ PDF yaratishda xatolik!", show_alert=True)
 
     except Exception as e:
         await wait_msg.delete()
