@@ -236,6 +236,8 @@ from database import (
     chatbot_oxirgi_foydalanuvchilar,
     chatbot_bugungi_son,
     is_notification_enabled,
+    get_sinf_detail_stats,
+    get_two_sinf_comparison,
 )
 from id_generator import (
     keyod_yarat, keyod_settings_ol, keyod_settings_saqla,
@@ -306,6 +308,9 @@ from keyboards import (
     broadcast_target_keyboard,
     broadcast_maktab_tanlash_keyboard,
     shaxsiy_xabar_confirm_keyboard,
+    sinf_taqqoslash_birinchi_keyboard,
+    sinf_taqqoslash_ikkinchi_keyboard,
+    sinf_taqqoslash_natija_keyboard,
 )
 
 router = Router()
@@ -6091,3 +6096,351 @@ async def excel_sinf_maktab_callback(callback: CallbackQuery, state: FSMContext)
     except Exception as e:
         await wait_msg.delete()
         await callback.answer(f"❌ Xatolik: {str(e)}", show_alert=True)
+
+
+# =====================================================================
+# SINF TAQQOSLASH — to'liq handler bloki
+# =====================================================================
+
+class SinfTaqqoslash(StatesGroup):
+    sinf_a_kutish = State()
+    sinf_b_kutish = State()
+
+
+def _taqq_sinf_matn(s: dict) -> str:
+    """Bir sinf statistikasini chiroyli matn sifatida qaytaradi."""
+    top3_text = ""
+    for i, t in enumerate(s.get("top3", []), 1):
+        medal = ["🥇", "🥈", "🥉"][i - 1]
+        top3_text += f"  {medal} {t['ismlar']} — {t['umumiy_ball']} ball\n"
+
+    return (
+        f"👥 O'quvchilar: <b>{s['oquvchilar_soni']} ta</b>\n"
+        f"📊 O'rtacha: <b>{s['avg_umumiy']} ball</b>\n"
+        f"   • Majburiy: {s['avg_majburiy']}\n"
+        f"   • Asosiy 1: {s['avg_asosiy1']}\n"
+        f"   • Asosiy 2: {s['avg_asosiy2']}\n"
+        f"🏅 Eng yuqori: <b>{s['eng_yuqori']} ball</b>\n"
+        f"📉 Eng past: <b>{s['eng_past']} ball</b>\n"
+        f"\n📊 Ball tarqalishi:\n"
+        f"  ≥160: {s['yuqori_soni']} ta  |  130–159: {s['orta_soni']} ta\n"
+        f"  100–129: {s['past_soni']} ta  |  <100: {s['juda_past_soni']} ta\n"
+        f"\n🏆 Top-3:\n{top3_text}"
+    )
+
+
+def _taqq_farq_emoji(a_val, b_val) -> str:
+    """Ikkita son farqini emoji bilan qaytaradi."""
+    if a_val is None or b_val is None:
+        return "—"
+    diff = float(a_val) - float(b_val)
+    if diff > 5:
+        return f"▲ +{diff:.1f}"
+    elif diff < -5:
+        return f"▼ {diff:.1f}"
+    else:
+        return f"≈ {diff:+.1f}"
+
+
+def _create_comparison_chart(a: dict, b: dict) -> str | None:
+    """Ikkita sinf uchun yonma-yon bar chart yaratadi."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        categories = ["Majburiy", "Asosiy 1", "Asosiy 2", "Umumiy"]
+        vals_a = [
+            float(a["avg_majburiy"] or 0),
+            float(a["avg_asosiy1"] or 0),
+            float(a["avg_asosiy2"] or 0),
+            float(a["avg_umumiy"] or 0),
+        ]
+        vals_b = [
+            float(b["avg_majburiy"] or 0),
+            float(b["avg_asosiy1"] or 0),
+            float(b["avg_asosiy2"] or 0),
+            float(b["avg_umumiy"] or 0),
+        ]
+
+        x = np.arange(len(categories))
+        width = 0.35
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        bars_a = ax.bar(x - width / 2, vals_a, width, label=a["sinf"],
+                        color="#4A90D9", alpha=0.85)
+        bars_b = ax.bar(x + width / 2, vals_b, width, label=b["sinf"],
+                        color="#F5A623", alpha=0.85)
+
+        ax.set_title(
+            f"Sinf taqqoslash: {a['sinf']} vs {b['sinf']}",
+            fontsize=15, fontweight="bold", pad=16
+        )
+        ax.set_xticks(x)
+        ax.set_xticklabels(categories, fontsize=11)
+        ax.set_ylabel("O'rtacha ball", fontsize=11)
+        ax.legend(fontsize=11)
+        ax.grid(axis="y", alpha=0.3)
+
+        max_val = max(max(vals_a), max(vals_b))
+        ax.set_ylim(0, max_val * 1.15)
+
+        for bar in bars_a:
+            h = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2, h + 1,
+                    f"{h:.1f}", ha="center", va="bottom",
+                    fontsize=9, fontweight="bold", color="#2C5F8A")
+
+        for bar in bars_b:
+            h = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2, h + 1,
+                    f"{h:.1f}", ha="center", va="bottom",
+                    fontsize=9, fontweight="bold", color="#8B5E00")
+
+        plt.tight_layout()
+        filename = f"taqq_{a['sinf']}_{b['sinf']}.png".replace(" ", "_")
+        plt.savefig(filename, dpi=110, bbox_inches="tight")
+        plt.close()
+        return filename
+    except Exception:
+        return None
+
+
+@router.message(F.text == "⚖️ Sinf taqqoslash")
+async def sinf_taqq_start(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    await state.set_state(SinfTaqqoslash.sinf_a_kutish)
+    await message.answer(
+        "⚖️ <b>Sinf taqqoslash</b>\n\n"
+        "1-sinfni tanlang:",
+        parse_mode="HTML",
+        reply_markup=sinf_taqqoslash_birinchi_keyboard(),
+    )
+
+
+@router.callback_query(F.data == "taqq_bekor")
+async def taqq_bekor(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("❌ Taqqoslash bekor qilindi.")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "taqq_qayta")
+async def taqq_qayta(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(SinfTaqqoslash.sinf_a_kutish)
+    await callback.message.edit_text(
+        "⚖️ <b>Sinf taqqoslash</b>\n\n1-sinfni tanlang:",
+        parse_mode="HTML",
+        reply_markup=sinf_taqqoslash_birinchi_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(SinfTaqqoslash.sinf_a_kutish, F.data.startswith("taqq_a:"))
+async def taqq_sinf_a_tanlandi(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    sinf_a = callback.data.split(":", 1)[1]
+    await state.update_data(sinf_a=sinf_a)
+    await state.set_state(SinfTaqqoslash.sinf_b_kutish)
+    await callback.message.edit_text(
+        f"✅ 1-sinf: <b>{sinf_a}</b>\n\n"
+        "2-sinfni tanlang:",
+        parse_mode="HTML",
+        reply_markup=sinf_taqqoslash_ikkinchi_keyboard(sinf_a),
+    )
+    await callback.answer()
+
+
+@router.callback_query(SinfTaqqoslash.sinf_b_kutish, F.data.startswith("taqq_b:"))
+async def taqq_sinf_b_tanlandi(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    sinf_b = callback.data.split(":", 1)[1]
+    data = await state.get_data()
+    sinf_a = data.get("sinf_a")
+    await state.clear()
+
+    wait_msg = await callback.message.edit_text("⏳ Taqqoslanmoqda...")
+
+    result = get_two_sinf_comparison(sinf_a, sinf_b)
+    if not result:
+        await wait_msg.edit_text(
+            f"❌ <b>{sinf_a}</b> yoki <b>{sinf_b}</b> sinfi uchun ma'lumot topilmadi.\n"
+            "O'quvchilar test topshirgan bo'lishi kerak.",
+            parse_mode="HTML",
+        )
+        await callback.answer()
+        return
+
+    a = result["a"]
+    b = result["b"]
+
+    # Asosiy taqqoslash xabari
+    farq_umumiy  = _taqq_farq_emoji(a["avg_umumiy"],   b["avg_umumiy"])
+    farq_majb    = _taqq_farq_emoji(a["avg_majburiy"],  b["avg_majburiy"])
+    farq_asosiy1 = _taqq_farq_emoji(a["avg_asosiy1"],   b["avg_asosiy1"])
+    farq_asosiy2 = _taqq_farq_emoji(a["avg_asosiy2"],   b["avg_asosiy2"])
+
+    text = (
+        f"⚖️ <b>Sinf taqqoslash natijasi</b>\n\n"
+        f"{'─' * 28}\n"
+        f"📚 <b>{a['sinf']}</b>\n"
+        f"{_taqq_sinf_matn(a)}\n"
+        f"{'─' * 28}\n"
+        f"📚 <b>{b['sinf']}</b>\n"
+        f"{_taqq_sinf_matn(b)}\n"
+        f"{'─' * 28}\n"
+        f"📊 <b>Farq ({a['sinf']} → {b['sinf']})</b>\n"
+        f"  Umumiy:   {farq_umumiy}\n"
+        f"  Majburiy: {farq_majb}\n"
+        f"  Asosiy 1: {farq_asosiy1}\n"
+        f"  Asosiy 2: {farq_asosiy2}\n"
+    )
+
+    # Grafik yaratish
+    chart_path = await asyncio.get_event_loop().run_in_executor(
+        None, _create_comparison_chart, a, b
+    )
+
+    if chart_path and os.path.exists(chart_path):
+        await callback.bot.send_photo(
+            callback.from_user.id,
+            photo=FSInputFile(chart_path),
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=sinf_taqqoslash_natija_keyboard(sinf_a, sinf_b),
+        )
+        await wait_msg.delete()
+        try:
+            os.remove(chart_path)
+        except Exception:
+            pass
+    else:
+        await wait_msg.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=sinf_taqqoslash_natija_keyboard(sinf_a, sinf_b),
+        )
+
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("taqq_excel:"))
+async def taqq_excel_eksport(callback: CallbackQuery, state: FSMContext):
+    """Taqqoslash natijasini Excel faylga eksport qilish."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    parts = callback.data.split(":", 1)[1]
+    sinf_a, sinf_b = parts.split("|")
+
+    wait = await callback.message.answer("⏳ Excel yaratilmoqda...")
+
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        import os as _os
+
+        result = get_two_sinf_comparison(sinf_a, sinf_b)
+        if not result:
+            await wait.delete()
+            await callback.answer("❌ Ma'lumot topilmadi", show_alert=True)
+            return
+
+        a = result["a"]
+        b = result["b"]
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Taqqoslash"
+
+        # Sarlavha
+        ws.merge_cells("A1:C1")
+        tc = ws["A1"]
+        tc.value = f"Sinf taqqoslash: {a['sinf']} vs {b['sinf']}"
+        tc.font = Font(name="Arial", bold=True, size=14, color="1F4E79")
+        tc.alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[1].height = 28
+
+        thin = Side(style="thin")
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+        hfill = PatternFill("solid", start_color="1F4E79")
+        hfont = Font(name="Arial", bold=True, color="FFFFFF", size=11)
+        center = Alignment(horizontal="center", vertical="center")
+
+        headers = ["Ko'rsatkich", a["sinf"], b["sinf"]]
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=2, column=col, value=h)
+            cell.font = hfont; cell.fill = hfill
+            cell.alignment = center; cell.border = border
+        ws.row_dimensions[2].height = 22
+
+        rows_data = [
+            ("O'quvchilar soni",      a["oquvchilar_soni"],  b["oquvchilar_soni"]),
+            ("O'rtacha ball",         a["avg_umumiy"],       b["avg_umumiy"]),
+            ("O'rtacha (Majburiy)",   a["avg_majburiy"],     b["avg_majburiy"]),
+            ("O'rtacha (Asosiy 1)",   a["avg_asosiy1"],      b["avg_asosiy1"]),
+            ("O'rtacha (Asosiy 2)",   a["avg_asosiy2"],      b["avg_asosiy2"]),
+            ("Eng yuqori ball",       a["eng_yuqori"],       b["eng_yuqori"]),
+            ("Eng past ball",         a["eng_past"],         b["eng_past"]),
+            ("≥160 ball (yuqori)",    a["yuqori_soni"],      b["yuqori_soni"]),
+            ("130–159 ball (o'rta)",  a["orta_soni"],        b["orta_soni"]),
+            ("100–129 ball (past)",   a["past_soni"],        b["past_soni"]),
+            ("<100 ball",             a["juda_past_soni"],   b["juda_past_soni"]),
+        ]
+
+        alt_fill = PatternFill("solid", start_color="D6E4F0")
+        normal_font = Font(name="Arial", size=10)
+        for i, (label, val_a, val_b) in enumerate(rows_data, 3):
+            is_alt = (i % 2 == 0)
+            fill = alt_fill if is_alt else PatternFill()
+            for col, val in enumerate([label, val_a, val_b], 1):
+                cell = ws.cell(row=i, column=col, value=val)
+                cell.font = normal_font; cell.fill = fill
+                cell.alignment = center; cell.border = border
+
+        # Top-3 har bir sinf uchun
+        top_row = len(rows_data) + 4
+        for sinf_key, stat in [(a["sinf"], a), (b["sinf"], b)]:
+            ws.merge_cells(
+                start_row=top_row, start_column=1,
+                end_row=top_row,   end_column=3
+            )
+            th = ws.cell(row=top_row, column=1,
+                         value=f"🏆 {sinf_key} — Top-3")
+            th.font = Font(name="Arial", bold=True, size=11, color="1F4E79")
+            th.alignment = Alignment(horizontal="left", vertical="center")
+            top_row += 1
+            for rank, t in enumerate(stat.get("top3", []), 1):
+                ws.cell(row=top_row, column=1,
+                        value=f"{rank}. {t['ismlar']}").font = normal_font
+                ws.cell(row=top_row, column=2,
+                        value=t["umumiy_ball"]).font = normal_font
+                top_row += 1
+            top_row += 1
+
+        ws.column_dimensions["A"].width = 28
+        ws.column_dimensions["B"].width = 18
+        ws.column_dimensions["C"].width = 18
+
+        fname = f"taqq_{sinf_a}_{sinf_b}.xlsx".replace(" ", "_")
+        wb.save(fname)
+
+        await callback.bot.send_document(
+            callback.from_user.id,
+            FSInputFile(fname),
+            caption=f"📊 {sinf_a} vs {sinf_b} — taqqoslash Excel hisoboti",
+        )
+        await wait.delete()
+        if _os.path.exists(fname):
+            _os.remove(fname)
+        await callback.answer("✅ Excel yuborildi!", show_alert=True)
+
+    except Exception as e:
+        await wait.delete()
+        await callback.answer(f"❌ Xatolik: {e}", show_alert=True)
