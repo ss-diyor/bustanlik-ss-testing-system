@@ -1543,6 +1543,12 @@ def settings_keyboard(
                     callback_data="toggle_setting:mini_test_enabled",
                 )
             ],
+            [
+                InlineKeyboardButton(
+                    text="📜 Sertifikat sozlamalari",
+                    callback_data="open_cert_sozlama",
+                )
+            ],
         ]
     )
 
