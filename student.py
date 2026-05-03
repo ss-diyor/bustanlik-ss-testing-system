@@ -131,9 +131,9 @@ def _generate_chart(natijalar, ismlar, kod):
     return chart_path
 
 
-def _generate_certificate_file(cert_gen, ismlar, ball, sana, kod):
+def _generate_certificate_file(cert_gen, ismlar, ball, sana, kod, sinf="", maktab=""):
     """Sertifikatni generatsiya qilish."""
-    return cert_gen.generate(ismlar, ball, sana, kod)
+    return cert_gen.generate(ismlar, ball, sana, kod, sinf=sinf, maktab=maktab)
 
 
 async def send_full_results(message: Message, kod: str):
@@ -158,8 +158,8 @@ async def send_full_results(message: Message, kod: str):
         None, _generate_chart, all_results, talaba["ismlar"], kod
     )
 
-    # Sertifikat yaratish
-    cert_gen = CertificateGenerator()
+    # Sertifikat yaratish — database sozlamalar bilan (logo, ranglar va h.k.)
+    cert_gen = CertificateGenerator.from_db()
     sana = str(natija.get("test_sanasi", "Noaniq"))[:10]
     cert_path = await asyncio.get_event_loop().run_in_executor(
         None,
@@ -169,6 +169,8 @@ async def send_full_results(message: Message, kod: str):
         natija["umumiy_ball"],
         sana,
         kod,
+        talaba.get("sinf", ""),
+        talaba.get("maktab", ""),
     )
 
     # Xabar matni
