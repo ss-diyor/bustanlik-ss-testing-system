@@ -2785,3 +2785,82 @@ def mini_test_hammasi():
     cur.close()
     release_connection(conn)
     return res
+
+
+# ─── Sinf Taqqoslash (To'liq statistika) ────────────────────────────────────
+
+def get_sinf_detail_stats(sinf: str) -> dict | None:
+    """
+    Bitta sinf uchun to'liq taqqoslash statistikasini qaytaradi:
+    - o'rtacha ball (majburiy, asosiy1, asosiy2, umumiy)
+    - eng yuqori / eng past ball
+    - o'quvchilar soni
+    - Top-3 o'quvchi
+    - ball tarqalishi (0-100, 101-130, 131-160, 161-189)
+    """
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cur.execute("""
+        SELECT
+            COUNT(*)                              AS oquvchilar_soni,
+            ROUND(AVG(n.umumiy_ball)::numeric, 1) AS avg_umumiy,
+            ROUND(AVG(n.majburiy)::numeric, 1)    AS avg_majburiy,
+            ROUND(AVG(n.asosiy_1)::numeric, 1)    AS avg_asosiy1,
+            ROUND(AVG(n.asosiy_2)::numeric, 1)    AS avg_asosiy2,
+            MAX(n.umumiy_ball)                    AS eng_yuqori,
+            MIN(n.umumiy_ball)                    AS eng_past,
+            COUNT(CASE WHEN n.umumiy_ball >= 160 THEN 1 END) AS yuqori_soni,
+            COUNT(CASE WHEN n.umumiy_ball >= 130
+                        AND n.umumiy_ball < 160 THEN 1 END)  AS orta_soni,
+            COUNT(CASE WHEN n.umumiy_ball >= 100
+                        AND n.umumiy_ball < 130 THEN 1 END)  AS past_soni,
+            COUNT(CASE WHEN n.umumiy_ball < 100 THEN 1 END)  AS juda_past_soni
+        FROM talabalar t
+        JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC LIMIT 1
+        )
+        WHERE t.sinf = %s AND t.status = 'aktiv'
+    """, (sinf,))
+    row = cur.fetchone()
+
+    if not row or row["oquvchilar_soni"] == 0:
+        cur.close()
+        release_connection(conn)
+        return None
+
+    # Top-3
+    cur.execute("""
+        SELECT t.ismlar, n.umumiy_ball
+        FROM talabalar t
+        JOIN test_natijalari n ON n.id = (
+            SELECT id FROM test_natijalari
+            WHERE talaba_kod = t.kod
+            ORDER BY test_sanasi DESC LIMIT 1
+        )
+        WHERE t.sinf = %s AND t.status = 'aktiv'
+        ORDER BY n.umumiy_ball DESC LIMIT 3
+    """, (sinf,))
+    top3 = [dict(r) for r in cur.fetchall()]
+
+    cur.close()
+    release_connection(conn)
+
+    result = dict(row)
+    result["sinf"] = sinf
+    result["top3"] = top3
+    return result
+
+
+def get_two_sinf_comparison(sinf_a: str, sinf_b: str) -> dict | None:
+    """
+    Ikkita sinfni yonma-yon taqqoslash uchun:
+    Har birining to'liq statistikasini va farqlarini qaytaradi.
+    """
+    a = get_sinf_detail_stats(sinf_a)
+    b = get_sinf_detail_stats(sinf_b)
+    if not a or not b:
+        return None
+    return {"a": a, "b": b}
