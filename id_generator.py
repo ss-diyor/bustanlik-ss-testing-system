@@ -8,7 +8,8 @@ Sozlamalar (settings jadvalida saqlanadi):
                      "-" qo'yilsa "SS-001" bo'ladi
 
 Foydalanish:
-  from id_generator import keyod_yarat, keyod_settings_ol, keyod_settings_saqla
+  from id_generator import keyod_yarat, keyod_settings_ol, keyod_settings_saqla,
+                           keyod_preview_list, keyod_ommaviy_yarat, kodlar_txt_fayl
 """
 
 import re
@@ -31,10 +32,10 @@ def keyod_settings_saqla(prefix: str = None, digits: int = None, separator: str 
     if separator is not None: set_setting("id_gen_separator", separator)
 
 
-# ── Asosiy generator ─────────────────────────────────────────────────────────
+# ── Qurilish yordamchilari ───────────────────────────────────────────────────
 
 def _keyod_qur(prefix: str, separator: str, digits: int, number: int) -> str:
-    """Komponentlardan to'liq kod yig'adi: SS + "" + 001 → "SS001"."""
+    """SS + "" + 001 → "SS001"."""
     return f"{prefix}{separator}{str(number).zfill(digits)}"
 
 
@@ -47,7 +48,6 @@ def _mavjud_max_raqam(prefix: str, separator: str) -> int:
     conn = get_connection()
     try:
         cur = conn.cursor()
-        # Barcha kodlarni olib, Python tomonida regex bilan filtrlaymiz
         cur.execute("SELECT kod FROM talabalar")
         rows = cur.fetchall()
         cur.close()
@@ -67,9 +67,11 @@ def _mavjud_max_raqam(prefix: str, separator: str) -> int:
     return max_num
 
 
+# ── Bitta kod yaratish ───────────────────────────────────────────────────────
+
 def keyod_yarat(prefix: str = None, separator: str = None, digits: int = None) -> str:
     """
-    Keyingi bo'sh kodni yaratadi.
+    Keyingi bo'sh kodni yaratadi (bazaga SAQLAMAYDI).
     Agar parametrlar berilmasa, sozlamalardan oladi.
     """
     cfg = keyod_settings_ol()
@@ -79,10 +81,8 @@ def keyod_yarat(prefix: str = None, separator: str = None, digits: int = None) -
 
     max_num = _mavjud_max_raqam(prefix, separator)
     next_num = max_num + 1
-
     kod = _keyod_qur(prefix, separator, digits, next_num)
 
-    # Namunaviy holda unikal ekanligini tekshirish (parallel insert bo'lmasa ham)
     from database import talaba_topish
     attempts = 0
     while talaba_topish(kod) is not None and attempts < 100:
@@ -100,3 +100,67 @@ def keyod_preview_list(prefix: str, separator: str, digits: int, count: int = 3)
         _keyod_qur(prefix, separator, digits, max_num + i)
         for i in range(1, count + 1)
     ]
+
+
+# ── Ommaviy yaratish va saqlash ──────────────────────────────────────────────
+
+def keyod_ommaviy_yarat(son: int, yonalish: str) -> dict:
+    """
+    `son` ta ketma-ket kod yaratadi va bazaga saqlaydi.
+
+    Har bir yozuv:
+      kod      = yaratilgan kod
+      yonalish = berilgan yo'nalish
+      ismlar   = "— —"   (keyinchalik to'ldiriladi)
+      sinf     = None
+
+    Qaytaradi:
+      {
+        "saqlangan": [kod1, kod2, ...],   # muvaffaqiyatli saqlangan kodlar
+        "xato":      [kod3, ...],          # saqlanmagan (takroriy yoki DB xatosi)
+      }
+    """
+    from database import talaba_qosh
+
+    cfg = keyod_settings_ol()
+    prefix    = cfg["prefix"]
+    separator = cfg["separator"]
+    digits    = cfg["digits"]
+
+    max_num = _mavjud_max_raqam(prefix, separator)
+
+    saqlangan = []
+    xato      = []
+    num = max_num + 1
+
+    while len(saqlangan) < son:
+        kod = _keyod_qur(prefix, separator, digits, num)
+        ok = talaba_qosh(
+            kod      = kod,
+            yonalish = yonalish,
+            sinf     = None,
+            ismlar   = "— —",
+        )
+        if ok:
+            saqlangan.append(kod)
+        else:
+            xato.append(kod)
+        num += 1
+        # Cheksiz loop'dan himoya
+        if num > max_num + son + 200:
+            break
+
+    return {"saqlangan": saqlangan, "xato": xato}
+
+
+# ── Chop etish formati ───────────────────────────────────────────────────────
+
+def kodlar_txt_fayl(kodlar: list[str], ustun: int = 5) -> str:
+    """
+    Kodlarni chop etishga qulay matn formatida qaytaradi.
+    `ustun` — bir qatordagi kodlar soni.
+    """
+    satrlar = []
+    for i in range(0, len(kodlar), ustun):
+        satrlar.append("   ".join(kodlar[i:i + ustun]))
+    return "\n".join(satrlar)
