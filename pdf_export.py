@@ -10,6 +10,26 @@ from database import (
     sinf_ol,
 )
 
+# DejaVu font yo'lini aniqlash (Unicode harflarni qo'llab-quvvatlash uchun)
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_FONT_REGULAR = os.path.join(_BASE_DIR, "DejaVuSans.ttf")
+_FONT_BOLD = os.path.join(_BASE_DIR, "DejaVuSans-Bold.ttf")
+
+# Agar loyiha papkasida topilmasa, tizim fontlarini ishlatamiz
+if not os.path.exists(_FONT_REGULAR):
+    _FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+if not os.path.exists(_FONT_BOLD):
+    _FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+
+def _make_pdf(orientation="P"):
+    """Unicode fontli yangi FPDF obyekti yaratish"""
+    pdf = FPDF(orientation=orientation)
+    pdf.add_font("DejaVu", style="", fname=_FONT_REGULAR)
+    pdf.add_font("DejaVu", style="B", fname=_FONT_BOLD)
+    pdf.add_font("DejaVu", style="I", fname=_FONT_REGULAR)
+    return pdf
+
 
 class PDFExporter:
     def __init__(self):
@@ -23,9 +43,9 @@ class PDFExporter:
         if not talaba:
             return None
 
-        pdf = FPDF()
+        pdf = _make_pdf()
         pdf.add_page()
-        pdf.set_font("Arial", "B", 16)
+        pdf.set_font("DejaVu", "B", 16)
 
         # Sarlavha
         pdf.cell(
@@ -38,7 +58,7 @@ class PDFExporter:
         pdf.ln(10)
 
         # Asosiy ma'lumotlar
-        pdf.set_font("Arial", "", 12)
+        pdf.set_font("DejaVu", "", 12)
         pdf.cell(0, 8, f"Kod: {talaba['kod']}", ln=True)
         pdf.cell(0, 8, f"Sinf: {talaba['sinf']}", ln=True)
         pdf.cell(0, 8, f"Yo'nalish: {talaba.get('yonalish') or '-'}", ln=True)
@@ -47,9 +67,9 @@ class PDFExporter:
         # Natijalar jadvali
         natijalar = talaba_natijalari(talaba_kod)
         if natijalar:
-            pdf.set_font("Arial", "B", 14)
+            pdf.set_font("DejaVu", "B", 14)
             pdf.cell(0, 10, "Test natijalari:", ln=True)
-            pdf.set_font("Arial", "", 10)
+            pdf.set_font("DejaVu", "", 10)
 
             # Jadval sarlavhalari
             pdf.cell(40, 8, "Sana", border=1)
@@ -69,9 +89,9 @@ class PDFExporter:
         # Statistika
         if natijalar:
             pdf.ln(10)
-            pdf.set_font("Arial", "B", 14)
+            pdf.set_font("DejaVu", "B", 14)
             pdf.cell(0, 10, "Statistika:", ln=True)
-            pdf.set_font("Arial", "", 12)
+            pdf.set_font("DejaVu", "", 12)
 
             avg_ball = sum(n["umumiy_ball"] for n in natijalar) / len(
                 natijalar
@@ -86,7 +106,7 @@ class PDFExporter:
 
         # Sana
         pdf.ln(20)
-        pdf.set_font("Arial", "I", 10)
+        pdf.set_font("DejaVu", "I", 10)
         pdf.cell(
             0,
             8,
@@ -104,9 +124,12 @@ class PDFExporter:
         if not stats:
             return None
 
-        pdf = FPDF()
+        # FIX: Landscape orientatsiya — jadval chetga chiqmasligi uchun
+        # A4 Landscape: ~277mm foydalaniladigan kenglik
+        # Ustunlar jami: 55+75+28+30+30+30 = 248mm < 277mm ✓
+        pdf = _make_pdf(orientation="L")
         pdf.add_page()
-        pdf.set_font("Arial", "B", 16)
+        pdf.set_font("DejaVu", "B", 16)
 
         # Sarlavha
         if maktab_id:
@@ -119,19 +142,19 @@ class PDFExporter:
         pdf.cell(0, 10, title, ln=True, align="C")
         pdf.ln(10)
 
-        # Jadval
-        pdf.set_font("Arial", "B", 11)
+        # Jadval sarlavhalari — kengliklar landscape uchun moslashtirilgan
+        pdf.set_font("DejaVu", "B", 11)
         pdf.cell(55, 8, "Maktab", border=1)
-        pdf.cell(70, 8, "Sinf", border=1)
+        pdf.cell(75, 8, "Sinf", border=1)
         pdf.cell(28, 8, "O'quvchilar", border=1)
         pdf.cell(30, 8, "O'rtacha", border=1)
         pdf.cell(30, 8, "Eng yuqori", border=1)
         pdf.cell(30, 8, "Eng past", border=1, ln=True)
 
-        pdf.set_font("Arial", "", 9)
+        pdf.set_font("DejaVu", "", 10)
         for stat in stats:
             pdf.cell(55, 8, stat["maktab_nomi"], border=1)
-            pdf.cell(70, 8, stat["sinf"], border=1)
+            pdf.cell(75, 8, stat["sinf"], border=1)
             pdf.cell(28, 8, str(stat["oquvchilar_soni"]), border=1)
             pdf.cell(30, 8, f"{stat['ortacha_ball']:.1f}", border=1)
             pdf.cell(30, 8, f"{stat['eng_yuqori_ball']:.1f}", border=1)
@@ -139,9 +162,9 @@ class PDFExporter:
 
         # Umumiy statistika
         pdf.ln(10)
-        pdf.set_font("Arial", "B", 14)
+        pdf.set_font("DejaVu", "B", 14)
         pdf.cell(0, 10, "Umumiy ko'rsatkichlar:", ln=True)
-        pdf.set_font("Arial", "", 12)
+        pdf.set_font("DejaVu", "", 12)
 
         jami_oquvchilar = sum(s["oquvchilar_soni"] for s in stats)
         umumiy_ortacha = (
@@ -162,7 +185,7 @@ class PDFExporter:
 
         # Sana
         pdf.ln(20)
-        pdf.set_font("Arial", "I", 10)
+        pdf.set_font("DejaVu", "I", 10)
         pdf.cell(
             0,
             8,
@@ -185,10 +208,9 @@ class PDFExporter:
         elif not sinf:
             sinflar = sinflar
 
-        # Reyting jadvalida yo'nalish matni to'liq ko'rinishi uchun landscape
-        pdf = FPDF(orientation="L")
+        pdf = _make_pdf(orientation="L")
         pdf.add_page()
-        pdf.set_font("Arial", "B", 16)
+        pdf.set_font("DejaVu", "B", 16)
 
         title = f"{sinf} sinf reytingi" if sinf else "Barcha sinflar reytingi"
         pdf.cell(0, 10, title, ln=True, align="C")
@@ -201,9 +223,9 @@ class PDFExporter:
             if not talabalar:
                 continue
 
-            pdf.set_font("Arial", "B", 14)
+            pdf.set_font("DejaVu", "B", 14)
             pdf.cell(0, 10, f"{current_sinf} sinf:", ln=True)
-            pdf.set_font("Arial", "B", 10)
+            pdf.set_font("DejaVu", "B", 10)
 
             # Jadval sarlavhalari
             pdf.cell(12, 8, "No", border=1)
@@ -212,7 +234,7 @@ class PDFExporter:
             pdf.cell(95, 8, "Yo'nalish", border=1)
             pdf.cell(25, 8, "Ball", border=1, ln=True)
 
-            pdf.set_font("Arial", "", 9)
+            pdf.set_font("DejaVu", "", 9)
             for i, talaba in enumerate(talabalar[:20], 1):  # Top 20
                 pdf.cell(12, 8, str(i), border=1)
                 pdf.cell(80, 8, talaba["ismlar"][:35], border=1)
@@ -224,7 +246,7 @@ class PDFExporter:
 
         # Sana
         pdf.ln(10)
-        pdf.set_font("Arial", "I", 10)
+        pdf.set_font("DejaVu", "I", 10)
         pdf.cell(
             0,
             8,
