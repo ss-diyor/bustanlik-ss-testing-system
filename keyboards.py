@@ -1903,7 +1903,7 @@ def pdf_export_keyboard():
 
 
 def sinf_tanlash_pdf_keyboard():
-    """PDF uchun sinf tanlash."""
+    """PDF uchun sinf tanlash — bitta sinf yoki maktab bo'yicha."""
     from database import sinf_ol
 
     sinflar = sinf_ol()
@@ -1915,12 +1915,47 @@ def sinf_tanlash_pdf_keyboard():
     buttons.append(
         [
             InlineKeyboardButton(
-                text=" Barcha sinflar", callback_data="pdf_sinf:all"
+                text="🏫 Maktab bo'yicha (barcha sinflar)", callback_data="pdf_sinf_by_maktab"
             )
         ]
     )
     buttons.append(
-        [InlineKeyboardButton(text=" Orqaga", callback_data="pdf:menu")]
+        [
+            InlineKeyboardButton(
+                text="📋 Barcha sinflar", callback_data="pdf_sinf:all"
+            )
+        ]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="pdf:menu")]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def sinf_tanlash_pdf_maktab_keyboard(maktab_id: int):
+    """Tanlangan maktabdagi sinflarni PDF uchun ko'rsatish."""
+    from database import sinf_ol_batafsil
+
+    batafsil = sinf_ol_batafsil()
+    maktab_sinflar = [s for s in batafsil if s["maktab_id"] == maktab_id]
+
+    buttons = []
+    for s in maktab_sinflar:
+        full_name = f"{s['nomi']} - {s['maktab_nomi']}"
+        buttons.append(
+            [InlineKeyboardButton(text=full_name, callback_data=f"pdf_sinf:{full_name}")]
+        )
+    # Maktabdagi BARCHA sinflar bir PDF da
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="📋 Barcha sinflar (shu maktab)",
+                callback_data=f"pdf_sinf_maktab:{maktab_id}",
+            )
+        ]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="pdf:sinf_reyting")]
     )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
