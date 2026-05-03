@@ -97,7 +97,7 @@ class CertificateGenerator:
         logo_path = s.get("cert_logo_path", "").strip()
         has_logo  = bool(logo_path and os.path.exists(logo_path))
 
-        logo_h_mm  = 32 if has_logo else 0   # kattaroq logo
+        logo_h_mm  = 40 if has_logo else 0   # kattaroq logo
         logo_gap   = 6  if has_logo else 0
         h_sarlavha = 18
         h_subtitle = 8
@@ -127,7 +127,7 @@ class CertificateGenerator:
         # ── Logo ──────────────────────────────────────────────────────────────
         if has_logo:
             try:
-                logo_w = 32
+                logo_w = 40
                 logo_x = (PAGE_W - logo_w) / 2
                 pdf.image(logo_path, x=logo_x, y=y_cursor, w=logo_w, h=logo_h_mm)
                 y_cursor += logo_h_mm + logo_gap
