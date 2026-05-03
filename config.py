@@ -63,6 +63,17 @@ if _webapp_url_raw and not _webapp_url_raw.startswith("http"):
     _webapp_url_raw = "https://" + _webapp_url_raw
 WEBAPP_URL = _webapp_url_raw
 
+# Sertifikat verify URL — QR-kodda ishlatiladi
+# Railway'da VERIFY_BASE_URL env variable sifatida bering,
+# yoki avtomatik WEBAPP_URL dan olinadi
+_verify_raw = _env(
+    "VERIFY_BASE_URL",
+    WEBAPP_URL or "https://bustanlik-ss-testing-system-production.up.railway.app",
+)
+if _verify_raw and not _verify_raw.startswith("http"):
+    _verify_raw = "https://" + _verify_raw
+VERIFY_BASE_URL = _verify_raw.rstrip("/")
+
 # Mavjud yo'nalishlar (asosiy fan juftliklari)
 YONALISHLAR = [
     "Matematika + Fizika",
