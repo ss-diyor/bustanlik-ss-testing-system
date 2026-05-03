@@ -200,19 +200,40 @@ class PDFExporter:
         pdf.output(filename)
         return filename
 
-    def create_sinf_reyting_pdf(self, sinf=None):
-        """Sinf reytingi uchun PDF"""
-        sinflar = sinf_ol()
-        if sinf and sinf not in sinflar:
-            sinflar = [sinf] if sinf in sinf_ol() else sinflar
-        elif not sinf:
-            sinflar = sinflar
+    def create_sinf_reyting_pdf(self, sinf=None, maktab_id=None):
+        """Sinf reytingi uchun PDF.
+
+        Parametrlar:
+          sinf      — bitta sinf nomi (masalan "11-A - Bo'stonliq ITMA")
+          maktab_id — maktab ID si: shu maktabdagi barcha sinflar
+          (ikkalasi ham None bo'lsa — barcha sinflar)
+        """
+        if sinf:
+            sinflar = [sinf]
+            title = f"{sinf} sinf reytingi"
+        elif maktab_id:
+            from database import sinf_ol_batafsil
+            batafsil = sinf_ol_batafsil()
+            maktablar_list = maktablar_ol()
+            maktab = next((m for m in maktablar_list if m["id"] == maktab_id), None)
+            maktab_nomi = maktab["nomi"] if maktab else "Maktab"
+            sinflar = [
+                f"{s['nomi']} - {s['maktab_nomi']}"
+                for s in batafsil
+                if s["maktab_id"] == maktab_id
+            ]
+            title = f"{maktab_nomi} — barcha sinflar reytingi"
+        else:
+            sinflar = sinf_ol()
+            title = "Barcha sinflar reytingi"
+
+        if not sinflar:
+            return None
 
         pdf = _make_pdf(orientation="L")
         pdf.add_page()
         pdf.set_font("DejaVu", "B", 16)
 
-        title = f"{sinf} sinf reytingi" if sinf else "Barcha sinflar reytingi"
         pdf.cell(0, 10, title, ln=True, align="C")
         pdf.ln(10)
 
@@ -235,7 +256,7 @@ class PDFExporter:
             pdf.cell(25, 8, "Ball", border=1, ln=True)
 
             pdf.set_font("DejaVu", "", 9)
-            for i, talaba in enumerate(talabalar[:20], 1):  # Top 20
+            for i, talaba in enumerate(talabalar, 1):
                 pdf.cell(12, 8, str(i), border=1)
                 pdf.cell(80, 8, talaba["ismlar"][:35], border=1)
                 pdf.cell(35, 8, talaba["kod"], border=1)
