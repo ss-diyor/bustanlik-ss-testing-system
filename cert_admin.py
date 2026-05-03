@@ -411,10 +411,12 @@ async def cert_preview(cb: CallbackQuery, state: FSMContext, bot: Bot):
         path = await loop.run_in_executor(
             None,
             gen.generate,
-            "Sultanov Bunyod Diyorbek o'g'li",
+            "Ahmadov Jasur Behruz o'g'li",
             189.6,
             "2025-06-01",
             "PREVIEW",
+            "11-A",
+            "Bo'stonliq ITMA",
         )
         await bot.send_document(
             cb.from_user.id,
