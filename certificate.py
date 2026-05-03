@@ -95,29 +95,27 @@ class CertificateGenerator:
 
         # ── Tarkib balandligini hisoblash (vertikal markazlash uchun) ─────────
         logo_path = s.get("cert_logo_path", "").strip()
-        has_logo   = bool(logo_path and os.path.exists(logo_path))
-        has_school = bool(sinf or maktab)
+        has_logo  = bool(logo_path and os.path.exists(logo_path))
 
-        logo_h_mm   = 25 if has_logo else 0
-        logo_gap    = 4  if has_logo else 0
-        h_sarlavha  = 18   # SERTIFIKAT (42pt)
-        h_subtitle  = 8    # subtitle
-        h_name      = 20   # ism (34pt)
-        h_school    = 7    if has_school else 0
-        h_maktab    = 8    # maktab nomi (shablondan)
-        h_matn      = 7    # qo'shimcha matn
-        h_ball      = 15   # ball
+        logo_h_mm  = 32 if has_logo else 0   # kattaroq logo
+        logo_gap   = 6  if has_logo else 0
+        h_sarlavha = 18
+        h_subtitle = 8
+        h_name     = 20
+        h_maktab   = 8
+        h_matn     = 7
+        h_ball     = 15
 
         CONTENT_H = (logo_h_mm + logo_gap
                      + h_sarlavha + h_subtitle + h_name
-                     + h_school + h_maktab + h_matn + h_ball)
+                     + h_maktab + h_matn + h_ball)
 
-        BORDER    = 14     # chegara va bo'sh joy (yuqori + pastki)
-        FOOTER_H  = 10     # footer uchun joy
-        usable_h  = PAGE_H - BORDER * 2 - FOOTER_H
+        FOOTER_H  = 12
+        TOP_PAD   = 14
+        usable_h  = PAGE_H - TOP_PAD - FOOTER_H
 
-        # Tarkibni vertikal markazga joylashtirish
-        y_cursor = BORDER + max(0, (usable_h - CONTENT_H) / 2)
+        # Tarkibni sal yuqoriroqqa joylashtirish (0.35 koeffitsient)
+        y_cursor = TOP_PAD + max(0, (usable_h - CONTENT_H) * 0.35)
 
         # ── Chegara ───────────────────────────────────────────────────────────
         pdf.set_draw_color(r, g, b)
@@ -129,10 +127,8 @@ class CertificateGenerator:
         # ── Logo ──────────────────────────────────────────────────────────────
         if has_logo:
             try:
-                logo_w = 25
+                logo_w = 32
                 logo_x = (PAGE_W - logo_w) / 2
-                # PNG transparency ni to'g'ri ko'rsatish uchun link=False,
-                # fpdf2 RGBA PNG ni natively qo'llab-quvvatlaydi
                 pdf.image(logo_path, x=logo_x, y=y_cursor, w=logo_w, h=logo_h_mm)
                 y_cursor += logo_h_mm + logo_gap
             except Exception:
@@ -157,21 +153,6 @@ class CertificateGenerator:
         self._set_font(pdf, "B", 34)
         pdf.cell(0, h_name, name_to_print, ln=True, align="C")
         y_cursor += h_name
-
-        # ── Sinf va Maktab (agar mavjud bo'lsa) ──────────────────────────────
-        if has_school:
-            pdf.set_y(y_cursor)
-            self._set_font(pdf, "", 13)
-            pdf.set_text_color(80, 80, 80)
-            parts = []
-            if maktab:
-                parts.append(self._safe(maktab))
-            if sinf:
-                parts.append(f"{self._safe(sinf)}-sinf")
-            pdf.cell(0, h_school, "  •  ".join(parts), ln=True, align="C")
-            pdf.set_text_color(0, 0, 0)
-            y_cursor += h_school
-
         # ── Maktab nomi (shablondan) ──────────────────────────────────────────
         pdf.set_y(y_cursor)
         self._set_font(pdf, "", 14)
@@ -191,12 +172,13 @@ class CertificateGenerator:
         pdf.set_text_color(0, 0, 0)
 
         # ── Footer ────────────────────────────────────────────────────────────
-        pdf.set_y(PAGE_H - 14)
+        footer_y = PAGE_H - FOOTER_H - 2
+        pdf.set_y(footer_y)
         self._set_font(pdf, "I", 11)
-        pdf.set_x(50)
-        pdf.cell(90, 10, f"Sana: {date}", ln=0, align="L")
+        pdf.set_x(20)
+        pdf.cell(120, 8, f"Sana: {date}", ln=0, align="L")
         pdf.set_x(160)
-        pdf.cell(90, 10, f"Shaxsiy kod: {kod}", ln=1, align="R")
+        pdf.cell(117, 8, f"Shaxsiy kod: {kod}", ln=1, align="R")
 
         output_path = os.path.join(self.output_dir, f"cert_{kod}.pdf")
         pdf.output(output_path)
