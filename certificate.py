@@ -172,7 +172,7 @@ class CertificateGenerator:
         pdf.set_text_color(0, 0, 0)
 
         # ── Footer ────────────────────────────────────────────────────────────
-        footer_y = PAGE_H - FOOTER_H - 2
+        footer_y = 187  # ichki chegara (199mm) dan 12mm yuqorida
         pdf.set_y(footer_y)
         self._set_font(pdf, "I", 11)
         pdf.set_x(20)
