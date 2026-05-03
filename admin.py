@@ -658,7 +658,7 @@ async def bildirishnoma_yuborish(
     if is_notification_enabled(user_id, "notify_results"):
         # Sertifikat yaratish (Blocking bo'lgani uchun executor ishlatamiz)
         try:
-            cert_gen = CertificateGenerator()
+            cert_gen = CertificateGenerator.from_db()
             sana = str(natija.get("test_sanasi", "Noaniq"))[:10]
 
             loop = asyncio.get_event_loop()
@@ -2924,6 +2924,20 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
         reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled),
     )
     await callback.answer("✅ Sozlama yangilandi")
+
+
+@router.callback_query(F.data == "open_cert_sozlama")
+async def open_cert_sozlama_cb(callback: CallbackQuery, state: FSMContext):
+    """Sozlamalar menyusidagi '📜 Sertifikat sozlamalari' tugmasi."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    # cert_admin.py'dagi menyu funksiyasini chaqiramiz
+    from cert_admin import _get_all_settings, _menu_text, _menu_keyboard
+    s = _get_all_settings()
+    await callback.message.edit_text(
+        _menu_text(s), parse_mode="HTML", reply_markup=_menu_keyboard()
+    )
+    await callback.answer()
 
 
 @router.message(F.text == "🔔 So'rovlar")
