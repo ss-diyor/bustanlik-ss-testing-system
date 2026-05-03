@@ -521,9 +521,21 @@ def _resolve_maktab(value, maktablar: list[dict]):
     return by_name.get(_normalize_name(raw))
 
 
-def _generate_certificate_file(cert_gen, ismlar, ball, sana, kod):
+def _generate_certificate_file(cert_gen, ismlar, ball, sana, kod, sinf="", maktab=""):
     """Sertifikatni alohida executor'da generatsiya qilish uchun."""
-    return cert_gen.generate(ismlar, ball, sana, kod)
+    return cert_gen.generate(ismlar, ball, sana, kod, sinf=sinf, maktab=maktab)
+
+
+def _parse_sinf_maktab(sinf_field: str) -> tuple[str, str]:
+    """
+    talabalar.sinf maydonidan sinf va maktab nomini ajratib oladi.
+    Format: "11-A - Bo'stonliq ITMA"  →  ("11-A", "Bo'stonliq ITMA")
+    Agar " - " bo'lmasa faqat sinf qaytariladi.
+    """
+    if " - " in sinf_field:
+        parts = sinf_field.split(" - ", 1)
+        return parts[0].strip(), parts[1].strip()
+    return sinf_field.strip(), ""
 
 
 def _split_long_text(text: str, max_len: int = 3500):
@@ -660,6 +672,7 @@ async def bildirishnoma_yuborish(
         try:
             cert_gen = CertificateGenerator.from_db()
             sana = str(natija.get("test_sanasi", "Noaniq"))[:10]
+            _sinf, _maktab = _parse_sinf_maktab(talaba.get("sinf", ""))
 
             loop = asyncio.get_event_loop()
             cert_path = await loop.run_in_executor(
@@ -670,6 +683,8 @@ async def bildirishnoma_yuborish(
                 natija["umumiy_ball"],
                 sana,
                 talaba["kod"],
+                _sinf,
+                _maktab,
             )
 
             await bot.send_document(
