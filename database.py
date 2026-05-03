@@ -2110,9 +2110,9 @@ def reminder_qosh(xabar: str, yuborish_vaqti: str):
 def kutilayotgan_reminders_ol():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    # UTC vaqt muammosini oldini olish uchun vaqtni biroz kengroq tekshiramiz
+    # Toshkent vaqti (UTC+5) bilan to'g'ri solishtirish
     cur.execute(
-        "SELECT * FROM reminders WHERE holat = 'kutilmoqda' AND yuborish_vaqti <= (CURRENT_TIMESTAMP + interval '5 hour')"
+        "SELECT * FROM reminders WHERE holat = 'kutilmoqda' AND yuborish_vaqti <= (NOW() AT TIME ZONE 'Asia/Tashkent')"
     )
     rows = cur.fetchall()
     cur.close()
