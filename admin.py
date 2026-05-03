@@ -6223,18 +6223,36 @@ async def sinf_taqq_start(message: Message, state: FSMContext):
 @router.callback_query(F.data == "taqq_bekor")
 async def taqq_bekor(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("❌ Taqqoslash bekor qilindi.")
+    try:
+        await callback.message.edit_text("❌ Taqqoslash bekor qilindi.")
+    except Exception:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer("❌ Taqqoslash bekor qilindi.")
     await callback.answer()
 
 
 @router.callback_query(F.data == "taqq_qayta")
 async def taqq_qayta(callback: CallbackQuery, state: FSMContext):
     await state.set_state(SinfTaqqoslash.sinf_a_kutish)
-    await callback.message.edit_text(
-        "⚖️ <b>Sinf taqqoslash</b>\n\n1-sinfni tanlang:",
-        parse_mode="HTML",
-        reply_markup=sinf_taqqoslash_birinchi_keyboard(),
-    )
+    try:
+        await callback.message.edit_text(
+            "⚖️ <b>Sinf taqqoslash</b>\n\n1-sinfni tanlang:",
+            parse_mode="HTML",
+            reply_markup=sinf_taqqoslash_birinchi_keyboard(),
+        )
+    except Exception:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(
+            "⚖️ <b>Sinf taqqoslash</b>\n\n1-sinfni tanlang:",
+            parse_mode="HTML",
+            reply_markup=sinf_taqqoslash_birinchi_keyboard(),
+        )
     await callback.answer()
 
 
