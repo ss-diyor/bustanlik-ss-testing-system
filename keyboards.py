@@ -52,7 +52,10 @@ def admin_menu_keyboard():
                 KeyboardButton(text="📄 PDF Hisobot"),
             ],
             [KeyboardButton(text="📊 Excel Hisobot")],
-            [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
+            [
+                KeyboardButton(text="⚖️ Sinf taqqoslash"),
+                KeyboardButton(text="📋 O'quvchilar ro'yxati"),
+            ],
             [KeyboardButton(text="📱 Ro'yxatdan o'tganlar")],
             [
                 KeyboardButton(text="⏰ Eslatmalar"),
@@ -2138,4 +2141,50 @@ def farzand_natija_keyboard(kod: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📋 Barcha natijalar", callback_data=f"parent_all_results:{kod}")],
         [InlineKeyboardButton(text="🏆 Reytingdagi o'rni", callback_data=f"parent_rank:{kod}")],
         [InlineKeyboardButton(text="◀️ Orqaga", callback_data="parent_back_list")],
+    ])
+
+
+# ─── Sinf Taqqoslash Keyboardlari ────────────────────────────────────────────
+
+def sinf_taqqoslash_birinchi_keyboard() -> InlineKeyboardMarkup:
+    """1-sinf tanlash uchun keyboard."""
+    from database import sinf_ol
+    sinflar = sinf_ol()
+    buttons = []
+    for s in sinflar:
+        buttons.append([InlineKeyboardButton(
+            text=s, callback_data=f"taqq_a:{s}"
+        )])
+    buttons.append([InlineKeyboardButton(text="❌ Bekor", callback_data="taqq_bekor")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def sinf_taqqoslash_ikkinchi_keyboard(sinf_a: str) -> InlineKeyboardMarkup:
+    """2-sinf tanlash uchun keyboard (1-sinf tanlangan)."""
+    from database import sinf_ol
+    sinflar = sinf_ol()
+    buttons = []
+    for s in sinflar:
+        if s != sinf_a:
+            buttons.append([InlineKeyboardButton(
+                text=s, callback_data=f"taqq_b:{s}"
+            )])
+    buttons.append([InlineKeyboardButton(
+        text="🔙 Orqaga", callback_data="taqq_qayta"
+    )])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def sinf_taqqoslash_natija_keyboard(sinf_a: str, sinf_b: str) -> InlineKeyboardMarkup:
+    """Taqqoslash natijasidagi tugmalar."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="📊 Excel eksport",
+            callback_data=f"taqq_excel:{sinf_a}|{sinf_b}"
+        )],
+        [InlineKeyboardButton(
+            text="🔄 Boshqa sinflarni tanlash",
+            callback_data="taqq_qayta"
+        )],
+        [InlineKeyboardButton(text="❌ Yopish", callback_data="taqq_bekor")],
     ])
