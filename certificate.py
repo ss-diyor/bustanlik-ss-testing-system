@@ -5,7 +5,9 @@ Admin panelidan o'zgartirish mumkin (cert_admin.py).
 """
 from __future__ import annotations
 
+import io
 import os
+import tempfile
 from fpdf import FPDF
 
 # ── Default sozlamalar ────────────────────────────────────────────────────────
@@ -180,9 +182,61 @@ class CertificateGenerator:
         pdf.set_x(160)
         pdf.cell(117, 8, f"Shaxsiy kod: {kod}", ln=1, align="R")
 
+        # ── QR-kod (pastki o'ng burchak) ─────────────────────────────────────
+        self._add_qr(pdf, kod, PAGE_W, PAGE_H)
+
         output_path = os.path.join(self.output_dir, f"cert_{kod}.pdf")
         pdf.output(output_path)
         return output_path
+
+    # ── QR-kod ───────────────────────────────────────────────────────────────
+
+    def _add_qr(self, pdf: FPDF, kod: str, page_w: int, page_h: int) -> None:
+        """PDF ning pastki o'ng burchagiga QR-kod qo'shadi."""
+        try:
+            import qrcode as qrlib
+            from config import VERIFY_BASE_URL
+            url = f"{VERIFY_BASE_URL}/verify/{kod}"
+            qr = qrlib.QRCode(
+                version=2,
+                error_correction=qrlib.constants.ERROR_CORRECT_M,
+                box_size=6,
+                border=2,
+            )
+            qr.add_data(url)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            buf.seek(0)
+
+            qr_size = 22   # mm
+            x = page_w - qr_size - 14
+            y = page_h - qr_size - 13
+            pdf.image(buf, x=x, y=y, w=qr_size, h=qr_size)
+        except Exception:
+            pass   # QR chiqmasa ham sertifikat yaratilsin
+
+    # ── Preview (PNG rasm) ────────────────────────────────────────────────────
+
+    def generate_preview(self, pdf_path: str) -> str | None:
+        """PDF dan PNG preview rasm yaratadi (admin uchun).
+        
+        Qaytaradi: PNG fayl yo'li yoki None (xato bo'lsa).
+        """
+        try:
+            import fitz  # PyMuPDF
+            doc = fitz.open(pdf_path)
+            page = doc[0]
+            mat = fitz.Matrix(2.5, 2.5)   # 2.5x zoom — aniq ko'rinadi
+            pix = page.get_pixmap(matrix=mat, alpha=False)
+            png_path = pdf_path.replace(".pdf", "_preview.png")
+            pix.save(png_path)
+            doc.close()
+            return png_path
+        except Exception:
+            return None
 
     # ── Yordamchi metodlar ────────────────────────────────────────────────────
 
