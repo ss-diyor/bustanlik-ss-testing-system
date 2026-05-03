@@ -198,15 +198,26 @@ async def send_full_results(message: Message, kod: str):
         r_sana = str(r["test_sanasi"])[:10]
         matn += f"• {r_sana}: <b>{r['umumiy_ball']} ball</b>\n"
 
+    # Preview PNG yaratish
+    preview_path = cert_gen.generate_preview(cert_path)
+
     # Sertifikatni rasm (grafik) bilan birga yuborish
     try:
-        # 1. Sertifikatni yuboramiz
+        # 1. Sertifikat preview — rasm sifatida (Telegram'da to'g'ridan ko'rinadi)
+        if preview_path and os.path.exists(preview_path):
+            await message.answer_photo(
+                FSInputFile(preview_path),
+                caption="📜 <b>Sertifikatingiz</b>\n\nPDF versiyasi quyida 👇",
+                parse_mode="HTML",
+            )
+
+        # 2. Sertifikat PDF (yuklab olish uchun)
         await message.answer_document(
             FSInputFile(cert_path),
-            caption="📜 Sizning natijangiz aks etgan sertifikat.",
+            caption="📥 PDF sertifikat (yuklab olish uchun)",
         )
 
-        # 2. Grafikni natijalar matni bilan yuboramiz
+        # 3. Grafikni natijalar matni bilan yuboramiz
         if chart_path and os.path.exists(chart_path):
             await message.answer_photo(
                 FSInputFile(chart_path), caption=matn, parse_mode="HTML"
