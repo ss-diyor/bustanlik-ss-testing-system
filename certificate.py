@@ -174,15 +174,18 @@ class CertificateGenerator:
         pdf.set_text_color(0, 0, 0)
 
         # ── Footer ────────────────────────────────────────────────────────────
-        footer_y = 187  # ichki chegara (199mm) dan 12mm yuqorida
-        pdf.set_y(footer_y)
+        footer_y = 183  # Sana va Shaxsiy kod uchun boshlang'ich Y koordinatasi
         self._set_font(pdf, "I", 11)
-        pdf.set_x(20)
-        pdf.cell(120, 8, f"Sana: {date}", ln=0, align="L")
-        pdf.set_x(160)
-        pdf.cell(117, 8, f"Shaxsiy kod: {kod}", ln=1, align="R")
+        
+        # Sana (chapda)
+        pdf.set_xy(20, footer_y)
+        pdf.cell(100, 6, f"Sana: {date}", ln=0, align="L")
+        
+        # Shaxsiy kod (chapda, sananing tagida)
+        pdf.set_xy(20, footer_y + 6)
+        pdf.cell(100, 6, f"Shaxsiy kod: {kod}", ln=0, align="L")
 
-        # ── QR-kod (pastki o'ng burchak) ─────────────────────────────────────
+        # ── QR-kod (pastki o'ng burchakda qoladi) ──────────────────────────────
         self._add_qr(pdf, kod, PAGE_W, PAGE_H)
 
         output_path = os.path.join(self.output_dir, f"cert_{kod}.pdf")
