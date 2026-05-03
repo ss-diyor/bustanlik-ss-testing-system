@@ -82,12 +82,42 @@ class CertificateGenerator:
         b = _to_int(s["cert_rang_b"], 128)
 
         pdf = FPDF(orientation="L", unit="mm", format="A4")
+        pdf.set_auto_page_break(auto=False)   # 1 betdan oshmasin
         pdf.add_page()
         self.unicode_font_ready = self._configure_unicode_fonts(pdf)
 
         name_to_print = str(full_name or "")
         if not self.unicode_font_ready:
             name_to_print = self._to_latin1_safe(name_to_print)
+
+        # ── Sahifa o'lchamlari (Landscape A4) ────────────────────────────────
+        PAGE_W, PAGE_H = 297, 210   # mm
+
+        # ── Tarkib balandligini hisoblash (vertikal markazlash uchun) ─────────
+        logo_path = s.get("cert_logo_path", "").strip()
+        has_logo   = bool(logo_path and os.path.exists(logo_path))
+        has_school = bool(sinf or maktab)
+
+        logo_h_mm   = 25 if has_logo else 0
+        logo_gap    = 4  if has_logo else 0
+        h_sarlavha  = 18   # SERTIFIKAT (42pt)
+        h_subtitle  = 8    # subtitle
+        h_name      = 20   # ism (34pt)
+        h_school    = 7    if has_school else 0
+        h_maktab    = 8    # maktab nomi (shablondan)
+        h_matn      = 7    # qo'shimcha matn
+        h_ball      = 15   # ball
+
+        CONTENT_H = (logo_h_mm + logo_gap
+                     + h_sarlavha + h_subtitle + h_name
+                     + h_school + h_maktab + h_matn + h_ball)
+
+        BORDER    = 14     # chegara va bo'sh joy (yuqori + pastki)
+        FOOTER_H  = 10     # footer uchun joy
+        usable_h  = PAGE_H - BORDER * 2 - FOOTER_H
+
+        # Tarkibni vertikal markazga joylashtirish
+        y_cursor = BORDER + max(0, (usable_h - CONTENT_H) / 2)
 
         # ── Chegara ───────────────────────────────────────────────────────────
         pdf.set_draw_color(r, g, b)
@@ -96,16 +126,15 @@ class CertificateGenerator:
         pdf.set_line_width(0.8)
         pdf.rect(11, 11, 275, 188)
 
-        y_cursor = 14
-
         # ── Logo ──────────────────────────────────────────────────────────────
-        logo_path = s.get("cert_logo_path", "").strip()
-        if logo_path and os.path.exists(logo_path):
+        if has_logo:
             try:
-                logo_w, logo_h = 25, 25
-                logo_x = (297 - logo_w) / 2
-                pdf.image(logo_path, x=logo_x, y=y_cursor, w=logo_w, h=logo_h)
-                y_cursor += logo_h + 4
+                logo_w = 25
+                logo_x = (PAGE_W - logo_w) / 2
+                # PNG transparency ni to'g'ri ko'rsatish uchun link=False,
+                # fpdf2 RGBA PNG ni natively qo'llab-quvvatlaydi
+                pdf.image(logo_path, x=logo_x, y=y_cursor, w=logo_w, h=logo_h_mm)
+                y_cursor += logo_h_mm + logo_gap
             except Exception:
                 pass
 
@@ -113,44 +142,56 @@ class CertificateGenerator:
         pdf.set_y(y_cursor)
         pdf.set_text_color(r, g, b)
         self._set_font(pdf, "B", 42)
-        pdf.cell(0, 18, self._safe(s["cert_sarlavha"]), ln=True, align="C")
+        pdf.cell(0, h_sarlavha, self._safe(s["cert_sarlavha"]), ln=True, align="C")
         pdf.set_text_color(0, 0, 0)
+        y_cursor += h_sarlavha
 
         # ── Subtitle ─────────────────────────────────────────────────────────
+        pdf.set_y(y_cursor)
         self._set_font(pdf, "", 18)
-        pdf.cell(0, 8, self._safe(s["cert_subtitle"]), ln=True, align="C")
+        pdf.cell(0, h_subtitle, self._safe(s["cert_subtitle"]), ln=True, align="C")
+        y_cursor += h_subtitle
 
         # ── O'quvchi ismi ─────────────────────────────────────────────────────
+        pdf.set_y(y_cursor)
         self._set_font(pdf, "B", 34)
-        pdf.cell(0, 20, name_to_print, ln=True, align="C")
+        pdf.cell(0, h_name, name_to_print, ln=True, align="C")
+        y_cursor += h_name
 
         # ── Sinf va Maktab (agar mavjud bo'lsa) ──────────────────────────────
-        if sinf or maktab:
+        if has_school:
+            pdf.set_y(y_cursor)
             self._set_font(pdf, "", 13)
-            pdf.set_text_color(80, 80, 80)   # kulrang
+            pdf.set_text_color(80, 80, 80)
             parts = []
             if maktab:
                 parts.append(self._safe(maktab))
             if sinf:
                 parts.append(f"{self._safe(sinf)}-sinf")
-            pdf.cell(0, 7, "  •  ".join(parts), ln=True, align="C")
+            pdf.cell(0, h_school, "  •  ".join(parts), ln=True, align="C")
             pdf.set_text_color(0, 0, 0)
+            y_cursor += h_school
 
         # ── Maktab nomi (shablondan) ──────────────────────────────────────────
+        pdf.set_y(y_cursor)
         self._set_font(pdf, "", 14)
-        pdf.cell(0, 8, self._safe(s["cert_maktab_nomi"]), ln=True, align="C")
+        pdf.cell(0, h_maktab, self._safe(s["cert_maktab_nomi"]), ln=True, align="C")
+        y_cursor += h_maktab
 
         # ── Qo'shimcha matn ───────────────────────────────────────────────────
-        pdf.cell(0, 7, self._safe(s["cert_matn"]), ln=True, align="C")
+        pdf.set_y(y_cursor)
+        pdf.cell(0, h_matn, self._safe(s["cert_matn"]), ln=True, align="C")
+        y_cursor += h_matn
 
         # ── Ball ─────────────────────────────────────────────────────────────
+        pdf.set_y(y_cursor)
         self._set_font(pdf, "B", 28)
         pdf.set_text_color(r, g, b)
-        pdf.cell(0, 15, f"{score} BALL", ln=True, align="C")
+        pdf.cell(0, h_ball, f"{score} BALL", ln=True, align="C")
         pdf.set_text_color(0, 0, 0)
 
         # ── Footer ────────────────────────────────────────────────────────────
-        pdf.set_y(172)
+        pdf.set_y(PAGE_H - 14)
         self._set_font(pdf, "I", 11)
         pdf.set_x(50)
         pdf.cell(90, 10, f"Sana: {date}", ln=0, align="L")
