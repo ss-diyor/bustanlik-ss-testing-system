@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 from fpdf import FPDF
+from tz_utils import now as tz_now
 from database import (
     talaba_topish,
     talaba_natijalari,
@@ -110,7 +111,7 @@ class PDFExporter:
         pdf.cell(
             0,
             8,
-            f"Hisobot sanasi: {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            f"Hisobot sanasi: {tz_now().strftime('%d.%m.%Y %H:%M')}",
             ln=True,
         )
 
@@ -189,13 +190,13 @@ class PDFExporter:
         pdf.cell(
             0,
             8,
-            f"Hisobot sanasi: {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            f"Hisobot sanasi: {tz_now().strftime('%d.%m.%Y %H:%M')}",
             ln=True,
         )
 
         filename = os.path.join(
             self.output_dir,
-            f"maktab_stat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            f"maktab_stat_{tz_now().strftime('%Y%m%d_%H%M%S')}.pdf",
         )
         pdf.output(filename)
         return filename
@@ -271,13 +272,13 @@ class PDFExporter:
         pdf.cell(
             0,
             8,
-            f"Hisobot sanasi: {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            f"Hisobot sanasi: {tz_now().strftime('%d.%m.%Y %H:%M')}",
             ln=True,
         )
 
         filename = os.path.join(
             self.output_dir,
-            f"reyting_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            f"reyting_{tz_now().strftime('%Y%m%d_%H%M%S')}.pdf",
         )
         pdf.output(filename)
         return filename
