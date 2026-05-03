@@ -316,6 +316,24 @@ def init_db():
         "INSERT INTO settings (key, value) VALUES ('mock_enabled', 'True') ON CONFLICT DO NOTHING"
     )
 
+    # ── Sertifikat sozlamalari (default) ─────────────────────────────────────
+    _cert_defaults = [
+        ("cert_sarlavha",    "SERTIFIKAT"),
+        ("cert_subtitle",    "O'quvchining ismi va familyasi"),
+        ("cert_maktab_nomi", "Bo'stonliq tumani ixtisoslashtirilgan maktabining"),
+        ("cert_matn",        "Bustanlik SS Testing System DTM imtihonida olingan ball"),
+        ("cert_rang_r",      "0"),
+        ("cert_rang_g",      "0"),
+        ("cert_rang_b",      "128"),
+        ("cert_logo_path",   ""),
+    ]
+    for _key, _val in _cert_defaults:
+        cur.execute(
+            "INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (_key, _val),
+        )
+    # ─────────────────────────────────────────────────────────────────────────
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS test_kalitlari (
             id SERIAL PRIMARY KEY,
