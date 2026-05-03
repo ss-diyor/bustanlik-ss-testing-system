@@ -2955,7 +2955,7 @@ async def request_action_handler(callback: CallbackQuery, state: FSMContext):
         release_connection,
         revoke_access_by_user,
     )
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
     if action == "revoke":
         revoke_access_by_user(target_id)
@@ -2969,11 +2969,11 @@ async def request_action_handler(callback: CallbackQuery, state: FSMContext):
     if action.startswith("approve"):
         expires_at = None
         if action == "approve_5m":
-            expires_at = datetime.utcnow() + timedelta(minutes=5)
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
         elif action == "approve_30m":
-            expires_at = datetime.utcnow() + timedelta(minutes=30)
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
         elif action == "approve_1h":
-            expires_at = datetime.utcnow() + timedelta(hours=1)
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
 
         update_request_status(request_id, "approved", expires_at)
         # User_id ni topish
