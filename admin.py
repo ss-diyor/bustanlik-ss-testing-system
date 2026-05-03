@@ -237,7 +237,10 @@ from database import (
     chatbot_bugungi_son,
     is_notification_enabled,
 )
-from id_generator import keyod_yarat, keyod_settings_ol, keyod_settings_saqla, keyod_preview_list
+from id_generator import (
+    keyod_yarat, keyod_settings_ol, keyod_settings_saqla,
+    keyod_preview_list, keyod_ommaviy_yarat, kodlar_txt_fayl,
+)
 from keyboards import (
     admin_menu_keyboard,
     admin_inline_menu,
@@ -1846,6 +1849,246 @@ async def idgen_separator_saqlash(message: Message, state: FSMContext):
 async def idgen_close(cb: CallbackQuery, state: FSMContext):
     await state.clear()
     await cb.message.edit_text("✅ Sozlamalar yopildi.")
+
+
+# ════════════════════════════════════════════════════════════
+# 🔢 KOD GENERATORI — OMMAVIY (alohida ishchi vosita)
+# Maqsad: yangi o'quvchilar uchun bazaga kod yozish va tarqatish
+# Oqim: nechta? → yo'nalish → bazaga saqlash → fayl yuborish
+# ════════════════════════════════════════════════════════════
+
+class KodGeneratori(StatesGroup):
+    son_kutish      = State()
+    yonalish_kutish = State()
+
+
+@router.message(F.text == "🔢 Kod generatori")
+async def kod_gen_start(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    cfg = keyod_settings_ol()
+    namunalar = keyod_preview_list(cfg["prefix"], cfg["separator"], cfg["digits"], count=3)
+    await state.set_state(KodGeneratori.son_kutish)
+    await message.answer(
+        "🔢 <b>Kod generatori</b>\n\n"
+        f"⚙️ Format: <code>{cfg['prefix']}{cfg['separator']}{'0' * cfg['digits']}</code>\n"
+        f"📋 Keyingi bo'sh kodlar: <b>{' | '.join(namunalar)}</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "📌 <b>Qanday ishlaydi:</b>\n"
+        "1. Siz sonni tanlaysiz\n"
+        "2. Yo'nalish tanlanadi\n"
+        "3. Kodlar <b>bazaga saqlanadi</b>\n"
+        "4. O'quvchiga kod beriladi\n"
+        "5. O'quvchi <code>ULASH_KOD</code> yozadi → profil ulandi ✅\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "Nechta kod kerak?",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="10", callback_data="kodgen_son:10"),
+                InlineKeyboardButton(text="20", callback_data="kodgen_son:20"),
+                InlineKeyboardButton(text="30", callback_data="kodgen_son:30"),
+            ],
+            [
+                InlineKeyboardButton(text="50", callback_data="kodgen_son:50"),
+                InlineKeyboardButton(text="100", callback_data="kodgen_son:100"),
+                InlineKeyboardButton(text="200", callback_data="kodgen_son:200"),
+            ],
+            [InlineKeyboardButton(text="⚙️ Format sozlamalari", callback_data="idgen_sozlama")],
+            [InlineKeyboardButton(text="❌ Bekor", callback_data="kodgen_bekor")],
+        ]),
+    )
+
+
+@router.callback_query(F.data.startswith("kodgen_son:"))
+async def kod_gen_son_cb(cb: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, cb.from_user.id):
+        return
+    son = int(cb.data.split(":")[1])
+    await state.update_data(son=son)
+    await _kodgen_yonalish_so_ra(cb.message, state, edit=True)
+
+
+@router.message(KodGeneratori.son_kutish)
+async def kod_gen_son_msg(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    try:
+        son = int(message.text.strip())
+        if not (1 <= son <= 500):
+            raise ValueError
+    except ValueError:
+        await message.answer("❌ 1 dan 500 gacha butun son kiriting:")
+        return
+    await state.update_data(son=son)
+    await _kodgen_yonalish_so_ra(message, state, edit=False)
+
+
+async def _kodgen_yonalish_so_ra(msg, state: FSMContext, edit: bool):
+    """Yo'nalish tanlash klaviaturasini ko'rsatadi."""
+    data = await state.get_data()
+    son  = data["son"]
+
+    yonalishlar = yonalish_ol()
+
+    buttons = []
+    if yonalishlar:
+        buttons = [
+            [InlineKeyboardButton(text=y, callback_data=f"kodgen_yonalish:{y}")]
+            for y in yonalishlar
+        ]
+    buttons.append([InlineKeyboardButton(
+        text="⏭️ O'tkazib yuborish (Aniqlanmagan)",
+        callback_data="kodgen_yonalish:Aniqlanmagan"
+    )])
+    buttons.append([InlineKeyboardButton(text="❌ Bekor", callback_data="kodgen_bekor")])
+
+    text = (
+        f"✅ Son: <b>{son} ta</b>\n\n"
+        "🎯 Yo'nalishni tanlang <i>(ixtiyoriy)</i>:"
+    )
+    if edit:
+        await msg.edit_text(text, parse_mode="HTML",
+                            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    else:
+        await state.set_state(KodGeneratori.yonalish_kutish)
+        await msg.answer(text, parse_mode="HTML",
+                         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+
+
+@router.callback_query(F.data.startswith("kodgen_yonalish:"))
+async def kod_gen_yonalish(cb: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, cb.from_user.id):
+        return
+    yonalish = cb.data.split(":", 1)[1]
+    data     = await state.get_data()
+    son      = data.get("son", 0)
+    await state.clear()
+
+    wait = await cb.message.edit_text(
+        f"⏳ <b>{son} ta</b> kod yaratilmoqda va bazaga saqlanmoqda...",
+        parse_mode="HTML",
+    )
+    await _kod_gen_saqlash_va_yuborish(wait, son, yonalish)
+
+
+async def _kod_gen_saqlash_va_yuborish(msg, son: int, yonalish: str):
+    """Kodlarni bazaga saqlaydi va fayl yuboradi."""
+    import io
+    from aiogram.types import BufferedInputFile
+
+    natija = keyod_ommaviy_yarat(son, yonalish)
+    kodlar  = natija["saqlangan"]
+    xatolar = natija["xato"]
+    cfg     = keyod_settings_ol()
+
+    if not kodlar:
+        await msg.edit_text("❌ Hech qanday kod saqlanmadi. DB xatosini tekshiring.")
+        return
+
+    # ── Xabar matni ──
+    preview_son = min(len(kodlar), 25)
+    preview     = kodlar_txt_fayl(kodlar[:preview_son], ustun=5)
+    qoldi_str   = f"\n<i>...va yana {len(kodlar) - preview_son} ta</i>" if len(kodlar) > preview_son else ""
+    xato_str    = f"\n⚠️ {len(xatolar)} ta kod saqlanmadi (DB xato)" if xatolar else ""
+
+    matn = (
+        f"✅ <b>{len(kodlar)} ta kod bazaga saqlandi!</b>\n"
+        f"🎯 Yo'nalish: <b>{yonalish}</b>\n"
+        f"📋 <b>{kodlar[0]}</b> → <b>{kodlar[-1]}</b>\n"
+        f"{xato_str}\n\n"
+        f"<code>{preview}</code>{qoldi_str}\n\n"
+        "📄 To'liq ro'yxat quyida 👇"
+    )
+
+    # ── .txt fayl ──
+    txt_tarkib = (
+        f"Shaxsiy kodlar ro'yxati\n"
+        f"Yo'nalish : {yonalish}\n"
+        f"Format    : {cfg['prefix']}{cfg['separator']}{'0' * cfg['digits']}\n"
+        f"Jami      : {len(kodlar)} ta\n"
+        f"{'─' * 38}\n\n"
+        + kodlar_txt_fayl(kodlar, ustun=5)
+        + "\n\n"
+        "─────────────────────────────────────────\n"
+        "Har bir o'quvchiga BITTA kod berilsin.\n"
+        "Botga ulash: Telegram botga  ULASH_[KOD]  deb yuboring.\n"
+        "Misol: ULASH_SS001\n"
+    )
+
+    # ── .xlsx fayl ──
+    xlsx_fayl = None
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Kodlar"
+
+        ws.merge_cells("A1:D1")
+        ws["A1"] = f"Shaxsiy kodlar — {yonalish} — {len(kodlar)} ta"
+        ws["A1"].font      = Font(bold=True, size=13)
+        ws["A1"].alignment = Alignment(horizontal="center")
+
+        sarlavhalar = ["№", "Shaxsiy kod", "O'quvchi ismi", "Imzo"]
+        for col, s in enumerate(sarlavhalar, start=1):
+            c = ws.cell(row=2, column=col, value=s)
+            c.font      = Font(bold=True, color="FFFFFF")
+            c.fill      = PatternFill("solid", fgColor="2E75B6")
+            c.alignment = Alignment(horizontal="center")
+
+        thin   = Side(style="thin")
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        for i, kod in enumerate(kodlar, start=1):
+            row = i + 2
+            for col, val in enumerate([i, kod, "", ""], start=1):
+                c = ws.cell(row=row, column=col, value=val)
+                c.alignment = Alignment(horizontal="center")
+                c.border    = border
+
+        ws.column_dimensions["A"].width = 5
+        ws.column_dimensions["B"].width = 14
+        ws.column_dimensions["C"].width = 28
+        ws.column_dimensions["D"].width = 14
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        xlsx_fayl = BufferedInputFile(
+            buf.getvalue(),
+            filename=f"kodlar_{yonalish.replace(' ', '_')}.xlsx",
+        )
+    except Exception:
+        pass
+
+    # ── Yuborish ──
+    try:
+        await msg.edit_text(matn, parse_mode="HTML")
+    except Exception:
+        await msg.answer(matn, parse_mode="HTML")
+
+    await msg.answer_document(
+        BufferedInputFile(txt_tarkib.encode("utf-8"),
+                          filename=f"kodlar_{yonalish.replace(' ', '_')}.txt"),
+        caption="📄 <b>Barcha kodlar — matn (.txt)</b>",
+        parse_mode="HTML",
+    )
+    if xlsx_fayl:
+        await msg.answer_document(
+            xlsx_fayl,
+            caption=(
+                "📊 <b>Barcha kodlar — Excel (.xlsx)</b>\n"
+                "<i>Chop etish uchun: № | Kod | Ism | Imzo ustunlari</i>"
+            ),
+            parse_mode="HTML",
+        )
+
+
+@router.callback_query(F.data == "kodgen_bekor")
+async def kodgen_bekor(cb: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await cb.message.edit_text("❌ Bekor qilindi.")
 
 
 @router.callback_query(
