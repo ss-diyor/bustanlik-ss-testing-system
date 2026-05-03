@@ -758,6 +758,135 @@ async def admin_export_excel_api(request: web.Request) -> web.Response:
         return web.json_response({"error": f"Excel yaratishda xato: {str(e)}"}, status=500)
 
 
+
+async def verify_handler(request: web.Request) -> web.Response:
+    """Sertifikatni QR-kod orqali tekshirish sahifasi — hamma uchun ochiq."""
+    from database import get_connection, release_connection
+    kod = request.match_info.get("kod", "").strip().upper()
+    if not kod:
+        raise web.HTTPNotFound()
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cur.execute("SELECT * FROM talabalar WHERE kod = %s", (kod,))
+        talaba = cur.fetchone()
+        if not talaba:
+            cur.close(); release_connection(conn)
+            return web.Response(
+                content_type="text/html",
+                text=_verify_not_found_html(kod),
+            )
+
+        cur.execute(
+            """SELECT umumiy_ball, majburiy, asosiy_1, asosiy_2, test_sanasi
+               FROM test_natijalari WHERE talaba_kod = %s
+               ORDER BY test_sanasi DESC LIMIT 1""",
+            (kod,),
+        )
+        natija = cur.fetchone()
+        cur.close(); release_connection(conn)
+    except Exception as e:
+        logging.error(f"verify_handler error: {e}")
+        raise web.HTTPInternalServerError()
+
+    return web.Response(
+        content_type="text/html",
+        text=_verify_success_html(talaba, natija),
+    )
+
+
+def _verify_not_found_html(kod: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="uz">
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sertifikat topilmadi</title>
+<style>
+  body{{font-family:system-ui,sans-serif;background:#f5f7fa;display:flex;
+       align-items:center;justify-content:center;min-height:100vh;margin:0}}
+  .card{{background:#fff;border-radius:16px;padding:40px 32px;text-align:center;
+         box-shadow:0 4px 24px rgba(0,0,0,.08);max-width:400px;width:90%}}
+  .icon{{font-size:56px;margin-bottom:16px}}
+  h2{{color:#e53e3e;margin:0 0 8px}}
+  p{{color:#718096;margin:4px 0}}
+  .kod{{background:#fff5f5;color:#e53e3e;padding:6px 14px;border-radius:8px;
+        font-family:monospace;font-size:1.1em;margin-top:12px;display:inline-block}}
+</style></head>
+<body><div class="card">
+  <div class="icon">❌</div>
+  <h2>Sertifikat topilmadi</h2>
+  <p>Bunday kodli o'quvchi mavjud emas.</p>
+  <div class="kod">{kod}</div>
+</div></body></html>"""
+
+
+def _verify_success_html(talaba: dict, natija: dict | None) -> str:
+    ism   = talaba.get("ismlar", "")
+    sinf  = talaba.get("sinf", "—")
+    yo    = talaba.get("yonalish", "—")
+    kod   = talaba.get("kod", "")
+
+    if natija:
+        ball  = natija.get("umumiy_ball", 0)
+        sana  = str(natija.get("test_sanasi", ""))[:10]
+        foiz  = round(float(ball) / 189 * 100, 1)
+        maj   = natija.get("majburiy", 0)
+        as1   = natija.get("asosiy_1", 0)
+        as2   = natija.get("asosiy_2", 0)
+        natija_blok = f"""
+        <div class="score">{ball}<span class="max">/189</span></div>
+        <div class="percent">{foiz}%</div>
+        <div class="breakdown">
+          <div class="row"><span>📘 Majburiy fanlar</span><b>{maj}/30</b></div>
+          <div class="row"><span>📗 1-asosiy fan</span><b>{as1}/30</b></div>
+          <div class="row"><span>📙 2-asosiy fan</span><b>{as2}/30</b></div>
+          <div class="row"><span>📅 Sana</span><b>{sana}</b></div>
+        </div>"""
+    else:
+        natija_blok = '<p class="no-result">Hali test topshirilmagan</p>'
+
+    return f"""<!DOCTYPE html>
+<html lang="uz">
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sertifikat — {ism}</title>
+<style>
+  *{{box-sizing:border-box}}
+  body{{font-family:system-ui,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+       min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0;padding:16px}}
+  .card{{background:#fff;border-radius:20px;padding:36px 28px;text-align:center;
+         box-shadow:0 8px 40px rgba(0,0,0,.18);max-width:420px;width:100%}}
+  .badge{{background:#ebf8ff;color:#2b6cb0;font-size:.75em;font-weight:700;
+          letter-spacing:.08em;padding:4px 12px;border-radius:20px;display:inline-block;margin-bottom:12px}}
+  .verified{{color:#38a169;font-size:.85em;margin-bottom:16px;display:flex;
+             align-items:center;justify-content:center;gap:6px}}
+  h1{{font-size:1.45em;color:#1a202c;margin:0 0 4px}}
+  .meta{{color:#718096;font-size:.88em;margin-bottom:20px}}
+  .score{{font-size:3.2em;font-weight:800;color:#667eea;line-height:1}}
+  .max{{font-size:.45em;color:#a0aec0;font-weight:400}}
+  .percent{{color:#48bb78;font-weight:700;font-size:1.1em;margin:4px 0 20px}}
+  .breakdown{{background:#f7fafc;border-radius:12px;padding:14px 18px;text-align:left}}
+  .row{{display:flex;justify-content:space-between;padding:5px 0;
+        border-bottom:1px solid #edf2f7;font-size:.9em;color:#4a5568}}
+  .row:last-child{{border-bottom:none}}
+  .kod{{background:#edf2f7;color:#4a5568;padding:6px 16px;border-radius:8px;
+        font-family:monospace;font-size:.9em;margin-top:18px;display:inline-block}}
+  .no-result{{color:#a0aec0;font-style:italic}}
+  .footer{{color:#cbd5e0;font-size:.75em;margin-top:20px}}
+</style></head>
+<body><div class="card">
+  <div class="badge">BUSTANLIK SS TESTING SYSTEM</div>
+  <div class="verified">✅ Sertifikat tasdiqlandi</div>
+  <h1>{ism}</h1>
+  <div class="meta">{sinf} &nbsp;•&nbsp; {yo}</div>
+  {natija_blok}
+  <div class="kod">Kod: {kod}</div>
+  <div class="footer">Bu sahifa sertifikat haqiqiyligini tasdiqlaydi</div>
+</div></body></html>"""
+
+
 # ─────────────────────────────────────────
 # App factory
 # ─────────────────────────────────────────
@@ -768,6 +897,7 @@ def create_app(bot_token: str) -> web.Application:
 
     app.router.add_get("/", index_handler)
     app.router.add_get("/health", health_handler)
+    app.router.add_get("/verify/{kod}", verify_handler)
     app.router.add_get("/api/student", student_api)
     
     app.router.add_get("/admin", admin_handler)
