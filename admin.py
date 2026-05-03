@@ -296,6 +296,10 @@ from keyboards import (
     pdf_export_keyboard,
     sinf_tanlash_pdf_keyboard,
     sinf_tanlash_pdf_maktab_keyboard,
+    # Excel export klaviaturalar
+    excel_export_keyboard,
+    sinf_tanlash_excel_keyboard,
+    sinf_tanlash_excel_maktab_keyboard,
     maktab_tanlash_keyboard,
     broadcast_cancel_keyboard,
     broadcast_confirm_keyboard,
@@ -5873,3 +5877,217 @@ async def chatbot_foydalanuvchilar_handler(message: Message, state: FSMContext):
         )
 
     await message.answer(text, parse_mode="HTML")
+
+
+# =====================================================================
+# EXCEL HISOBOT — barcha handlerlar
+# =====================================================================
+
+class ExcelStudentKod(StatesGroup):
+    kod_kutish = State()
+
+
+@router.message(F.text == "📊 Excel Hisobot")
+async def excel_hisobot_start(message: Message, state: FSMContext):
+    """Excel Hisobot — asosiy menyu."""
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    await message.answer(
+        "📊 <b>Excel Hisobot</b>\n\nQanday hisobot yaratmoqchisiz?",
+        parse_mode="HTML",
+        reply_markup=excel_export_keyboard(),
+    )
+
+
+@router.callback_query(F.data.startswith("excel:"))
+async def excel_export_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    action = callback.data.split(":")[1]
+
+    if action == "student":
+        await state.set_state(ExcelStudentKod.kod_kutish)
+        await callback.message.edit_text(
+            "📊 Excel hisobotini yaratmoqchi bo'lgan o'quvchi kodini kiriting:"
+        )
+
+    elif action == "maktab_stat":
+        await callback.message.edit_text(
+            "🏫 Maktab statistikasi uchun maktabni tanlang:",
+            reply_markup=maktab_tanlash_keyboard(maktablar_ol(), "excel_maktab"),
+        )
+
+    elif action == "sinf_reyting":
+        await callback.message.edit_text(
+            "🏆 Sinf reytingi uchun sinfni tanlang:",
+            reply_markup=sinf_tanlash_excel_keyboard(),
+        )
+
+    elif action == "menu":
+        await callback.message.edit_text(
+            "📊 <b>Excel Hisobot:</b>\n\nQanday hisobot yaratmoqchisiz?",
+            parse_mode="HTML",
+            reply_markup=excel_export_keyboard(),
+        )
+
+    await callback.answer()
+
+
+@router.message(ExcelStudentKod.kod_kutish)
+async def excel_student_kod_handler(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+
+    kod = message.text.strip().upper()
+    talaba = talaba_topish(kod)
+
+    if not talaba:
+        await message.answer(
+            f"❌ <code>{kod}</code> kodli o'quvchi topilmadi.",
+            parse_mode="HTML",
+        )
+        await state.clear()
+        return
+
+    wait_msg = await message.answer("⏳ Excel yaratilmoqda...")
+
+    try:
+        from excel_export import ExcelExporter
+
+        exporter = ExcelExporter()
+        path = exporter.create_student_excel(kod)
+
+        if path and os.path.exists(path):
+            await message.bot.send_document(
+                message.from_user.id,
+                FSInputFile(path),
+                caption=f"📊 {talaba['ismlar']} — Excel hisoboti",
+            )
+            await wait_msg.delete()
+        else:
+            await wait_msg.delete()
+            await message.answer("❌ Excel yaratishda xatolik yuz berdi.")
+    except Exception as e:
+        await wait_msg.delete()
+        await message.answer(f"❌ Xatolik: {str(e)}")
+
+    await state.clear()
+
+
+@router.callback_query(F.data.startswith("excel_maktab:"))
+async def excel_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    maktab_id = int(callback.data.split(":")[1])
+    wait_msg = await callback.message.answer("⏳ Excel yaratilmoqda...")
+
+    try:
+        from excel_export import ExcelExporter
+
+        exporter = ExcelExporter()
+        path = exporter.create_maktab_statistika_excel(maktab_id)
+
+        if path and os.path.exists(path):
+            await callback.bot.send_document(
+                callback.from_user.id,
+                FSInputFile(path),
+                caption="📊 Maktab statistikasi — Excel hisoboti",
+            )
+            await wait_msg.delete()
+            await callback.answer("✅ Excel muvaffaqiyatli yaratildi!", show_alert=True)
+        else:
+            await wait_msg.delete()
+            await callback.answer("❌ Excel yaratishda xatolik!", show_alert=True)
+    except Exception as e:
+        await wait_msg.delete()
+        await callback.answer(f"❌ Xatolik: {str(e)}", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("excel_sinf:"))
+async def excel_sinf_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    sinf = callback.data.split(":")[1]
+    wait_msg = await callback.message.answer("⏳ Excel yaratilmoqda...")
+
+    try:
+        from excel_export import ExcelExporter
+
+        exporter = ExcelExporter()
+        path = exporter.create_sinf_reyting_excel(
+            sinf if sinf != "all" else None
+        )
+
+        if path and os.path.exists(path):
+            await callback.bot.send_document(
+                callback.from_user.id,
+                FSInputFile(path),
+                caption="📊 Sinf reytingi — Excel hisoboti",
+            )
+            await wait_msg.delete()
+            await callback.answer("✅ Excel muvaffaqiyatli yaratildi!", show_alert=True)
+        else:
+            await wait_msg.delete()
+            await callback.answer("❌ Excel yaratishda xatolik!", show_alert=True)
+    except Exception as e:
+        await wait_msg.delete()
+        await callback.answer(f"❌ Xatolik: {str(e)}", show_alert=True)
+
+
+@router.callback_query(F.data == "excel_sinf_by_maktab")
+async def excel_sinf_by_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    maktablar = maktablar_ol()
+    await callback.message.edit_text(
+        "🏫 Maktabni tanlang:",
+        reply_markup=maktab_tanlash_keyboard(maktablar, prefix="excel_reyting_maktab"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("excel_reyting_maktab:"))
+async def excel_reyting_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    maktab_id = int(callback.data.split(":")[1])
+    await callback.message.edit_text(
+        "📋 Sinfni tanlang yoki barcha sinflarni bir Excel da oling:",
+        reply_markup=sinf_tanlash_excel_maktab_keyboard(maktab_id),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("excel_sinf_maktab:"))
+async def excel_sinf_maktab_callback(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    maktab_id = int(callback.data.split(":")[1])
+    wait_msg = await callback.message.answer("⏳ Excel yaratilmoqda...")
+
+    try:
+        from excel_export import ExcelExporter
+
+        exporter = ExcelExporter()
+        path = exporter.create_sinf_reyting_excel(maktab_id=maktab_id)
+
+        if path and os.path.exists(path):
+            await callback.bot.send_document(
+                callback.from_user.id,
+                FSInputFile(path),
+                caption="📊 Maktab sinflar reytingi — Excel hisoboti",
+            )
+            await wait_msg.delete()
+            await callback.answer("✅ Excel muvaffaqiyatli yaratildi!", show_alert=True)
+        else:
+            await wait_msg.delete()
+            await callback.answer("❌ Excel yaratishda xatolik!", show_alert=True)
+    except Exception as e:
+        await wait_msg.delete()
+        await callback.answer(f"❌ Xatolik: {str(e)}", show_alert=True)
