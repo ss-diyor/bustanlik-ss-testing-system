@@ -21,6 +21,7 @@ def admin_menu_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="➕ O'quvchi qo'shish")],
+            [KeyboardButton(text="🔢 Kod generatori")],
             [KeyboardButton(text="📥 Exceldan import")],
             [
                 KeyboardButton(text="📝 Mock natija qo'shish"),
