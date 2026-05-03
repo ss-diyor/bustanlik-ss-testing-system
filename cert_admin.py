@@ -333,7 +333,10 @@ async def cert_logo_upload_start(cb: CallbackQuery, state: FSMContext):
         "• PNG yoki JPG formatida\n"
         "• Iloji boricha kvadrat (masalan 200×200 px)\n"
         "• Fondi oq yoki shaffof bo'lsa yaxshi\n\n"
-        "<i>Rasmni Telegram'ga yuklang (fayl sifatida emas, rasm sifatida)</i>",
+        "⚠️ <b>Shaffof (transparent) fon uchun:</b>\n"
+        "Rasmni 📎 <b>Fayl sifatida</b> yuboring — aks holda Telegram\n"
+        "transparency ni yo'qotib, qora fon hosil qiladi.\n\n"
+        "<i>Oddiy fon uchun rasm sifatida yuborish ham mumkin.</i>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="❌ Bekor", callback_data="cert_menu")]
@@ -342,26 +345,95 @@ async def cert_logo_upload_start(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
 
 
+def _save_logo_as_png(raw_bytes: bytes, logo_path: str) -> str:
+    """
+    Rasmni PNG formatida saqlaydi.
+    Transparent (RGBA) fon saqlanadi — FPDF uchun RGB ga o'tkazilmaydi,
+    chunki fpdf2 PNG transparency ni to'g'ri handle qiladi.
+    Agar Pillow mavjud bo'lmasa, xom baytlarni to'g'ridan-to'g'ri yozadi.
+    """
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(raw_bytes))
+        # RGBA yoki P (palette + transparency) ni to'g'ridan-to'g'ri saqlash
+        # fpdf2 PNG transparency ni qo'llab-quvvatlaydi
+        if img.mode not in ("RGBA", "RGB", "L", "LA"):
+            img = img.convert("RGBA")
+        img.save(logo_path, format="PNG")
+    except ImportError:
+        # Pillow yo'q — xom baytlarni yoz (agar original PNG bo'lsa)
+        with open(logo_path, "wb") as f:
+            f.write(raw_bytes)
+    return logo_path
+
+
 @router.message(CertSozlama.logo_kutish, F.photo)
 async def cert_logo_received(message: Message, state: FSMContext, bot: Bot):
+    """Rasm sifatida yuborilganda (Telegram JPEG ga o'zgartiradi, transparency yo'qoladi)."""
     if not await _admin_tekshir(state, message.from_user.id):
         return
 
     logo_dir = "cert_assets"
     os.makedirs(logo_dir, exist_ok=True)
-    logo_path = os.path.join(logo_dir, "cert_logo.jpg")
+    logo_path = os.path.join(logo_dir, "cert_logo.png")
 
     # Eng katta o'lchamdagi rasmni olish
     photo = message.photo[-1]
     file = await bot.get_file(photo.file_id)
-    await bot.download_file(file.file_path, destination=logo_path)
+
+    import io
+    buf = io.BytesIO()
+    await bot.download_file(file.file_path, destination=buf)
+    _save_logo_as_png(buf.getvalue(), logo_path)
 
     set_setting("cert_logo_path", logo_path)
     await state.clear()
 
     s = _get_all_settings()
     await message.answer(
-        "✅ Logo yuklandi va saqlandi!\n\n" + _menu_text(s),
+        "✅ Logo yuklandi va saqlandi!\n\n"
+        "⚠️ <i>Eslatma: Shaffof (transparent) logoni saqlash uchun rasmni "
+        "<b>fayl sifatida</b> yuboring (📎 → Fayl), chunki Telegram oddiy "
+        "rasm yuborganda transparency ni yo'qotadi.</i>\n\n" + _menu_text(s),
+        parse_mode="HTML",
+        reply_markup=_menu_keyboard(),
+    )
+
+
+@router.message(CertSozlama.logo_kutish, F.document)
+async def cert_logo_received_as_file(message: Message, state: FSMContext, bot: Bot):
+    """Fayl sifatida yuborilganda — PNG transparency to'liq saqlanadi."""
+    if not await _admin_tekshir(state, message.from_user.id):
+        return
+
+    doc = message.document
+    mime = doc.mime_type or ""
+    if mime not in ("image/png", "image/jpeg", "image/jpg", "image/webp") and \
+       not (doc.file_name or "").lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+        await message.answer(
+            "⚠️ Faqat PNG, JPG yoki WEBP formatidagi rasm fayli yuboring.\n"
+            "Yoki /cancel yozing.",
+            parse_mode="HTML",
+        )
+        return
+
+    logo_dir = "cert_assets"
+    os.makedirs(logo_dir, exist_ok=True)
+    logo_path = os.path.join(logo_dir, "cert_logo.png")
+
+    import io
+    file = await bot.get_file(doc.file_id)
+    buf = io.BytesIO()
+    await bot.download_file(file.file_path, destination=buf)
+    _save_logo_as_png(buf.getvalue(), logo_path)
+
+    set_setting("cert_logo_path", logo_path)
+    await state.clear()
+
+    s = _get_all_settings()
+    await message.answer(
+        "✅ Logo (fayl) yuklandi va saqlandi! Transparency saqlanadi.\n\n" + _menu_text(s),
         parse_mode="HTML",
         reply_markup=_menu_keyboard(),
     )
@@ -370,7 +442,9 @@ async def cert_logo_received(message: Message, state: FSMContext, bot: Bot):
 @router.message(CertSozlama.logo_kutish)
 async def cert_logo_wrong_type(message: Message, state: FSMContext):
     await message.answer(
-        "⚠️ Iltimos <b>rasm</b> yuboring (fayl emas).\n"
+        "⚠️ Iltimos <b>rasm</b> yuboring.\n"
+        "• Shaffof (transparent) fon uchun: 📎 <b>Fayl sifatida</b> yuboring\n"
+        "• Oddiy fon uchun: Rasm sifatida yuboring\n"
         "Yoki /cancel yozing.",
         parse_mode="HTML",
     )
