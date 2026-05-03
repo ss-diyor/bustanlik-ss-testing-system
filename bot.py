@@ -3,6 +3,7 @@ import logging
 import os
 import psycopg2.extras
 from datetime import datetime
+from tz_utils import now as tz_now, TZ
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, ReplyKeyboardRemove
@@ -273,7 +274,7 @@ async def send_backup():
         return
 
     df = pd.DataFrame(data)
-    filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"backup_{tz_now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     df.to_excel(filename, index=False)
 
     for admin_id in ADMIN_IDS:
@@ -283,7 +284,7 @@ async def send_backup():
             await bot.send_document(
                 admin_id,
                 FSInputFile(filename),
-                caption=f"📅 Kundalik zaxira nusxa (Backup)\nSana: {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+                caption=f"📅 Kundalik zaxira nusxa (Backup)\nSana: {tz_now().strftime('%d.%m.%Y %H:%M')}",
             )
         except Exception as e:
             logging.error(f"Backup yuborishda xato (Admin: {admin_id}): {e}")
@@ -328,7 +329,7 @@ async def test_schedule_reminder_scheduler():
     
     while True:
         try:
-            now = datetime.now()
+            now = tz_now()
             # Har kuni soat 08:00 da bugungi testlar haqida eslatma yuboramiz
             if now.hour == 8 and now.minute == 0:
                 conn = get_connection()
@@ -370,7 +371,7 @@ async def group_ranking_scheduler():
     from database import guruhlar_ol, sinf_ol, get_all_in_class
 
     while True:
-        now = datetime.now()
+        now = tz_now()
         if now.hour == 20 and now.minute == 0:
             guruhlar = guruhlar_ol()
             sinflar = sinf_ol()
@@ -399,10 +400,10 @@ async def group_ranking_scheduler():
 
 
 async def scheduler():
-    """Har kuni soat 23:00 da backup yuborish."""
+    """Har kuni soat 04:00 da backup yuborish."""
     while True:
-        now = datetime.now()
-        if now.hour == 23 and now.minute == 0:
+        now = tz_now()
+        if now.hour == 4 and now.minute == 0:
             await send_backup()
             await asyncio.sleep(61)
         await asyncio.sleep(30)
