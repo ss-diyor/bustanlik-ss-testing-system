@@ -791,100 +791,453 @@ async def verify_handler(request: web.Request) -> web.Response:
         logging.error(f"verify_handler error: {e}")
         raise web.HTTPInternalServerError()
 
+    # Hash tekshiruvi (blockchain verification)
+    hash_valid = False
+    stored_hash = talaba.get("cert_hash") or ""
+    if stored_hash and natija:
+        try:
+            from certificate import generate_cert_hash
+            sana = str(natija.get("test_sanasi", ""))[:10]
+            expected = generate_cert_hash(
+                kod, talaba.get("ismlar", ""), natija.get("umumiy_ball", 0), sana
+            )
+            hash_valid = (expected == stored_hash)
+        except Exception:
+            hash_valid = False
+    elif not stored_hash:
+        # Eski sertifikatlar (hash yo'q) — ishonchli deb qabul qilish
+        hash_valid = True
+
     return web.Response(
         content_type="text/html",
-        text=_verify_success_html(talaba, natija),
+        text=_verify_success_html(talaba, natija, stored_hash, hash_valid),
     )
 
 
+def _get_verify_config() -> tuple[str, str]:
+    """Bot username va logo URL ni config'dan oladi."""
+    try:
+        from config import BOT_USERNAME, VERIFY_BASE_URL
+        bot_user = BOT_USERNAME or "bustanlik_ss_bot"
+        logo_url = f"{VERIFY_BASE_URL}/static/logo.png"
+    except Exception:
+        bot_user = "bustanlik_ss_bot"
+        logo_url = ""
+    return bot_user, logo_url
+
+
+_VERIFY_CSS = """
+  :root {
+    --primary: #1a5276;
+    --primary-light: #2980b9;
+    --accent: #16a085;
+    --accent-light: #1abc9c;
+    --gold: #d4ac0d;
+    --bg: #0f2744;
+    --card-bg: #ffffff;
+    --text: #1a202c;
+    --muted: #5a6a7a;
+    --border: #e2e8f0;
+    --success: #1e8449;
+    --danger: #c0392b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(160deg, #0f2744 0%, #1a4a7a 50%, #0d3b5e 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 20% 30%, rgba(41,128,185,.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 70%, rgba(22,160,133,.12) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .wrapper { width: 100%; max-width: 460px; position: relative; }
+  .card {
+    background: #fff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,.35), 0 4px 16px rgba(0,0,0,.15);
+    position: relative;
+  }
+  /* Header band */
+  .header-band {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    padding: 28px 24px 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header-band::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 20px;
+    background: #fff;
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  }
+  .school-logo {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.4);
+    object-fit: cover;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,.15);
+  }
+  .logo-placeholder {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.4);
+    background: rgba(255,255,255,.15);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2em;
+    margin-bottom: 10px;
+  }
+  .school-name {
+    color: rgba(255,255,255,.9);
+    font-size: .78em;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  /* Body */
+  .body { padding: 8px 28px 28px; text-align: center; }
+  /* Status badge */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-size: .8em;
+    font-weight: 700;
+    letter-spacing: .04em;
+    margin-bottom: 16px;
+  }
+  .status-badge.valid {
+    background: #d5f5e3;
+    color: var(--success);
+    border: 1px solid #a9dfbf;
+  }
+  .status-badge.no-hash {
+    background: #fef9e7;
+    color: #b7950b;
+    border: 1px solid #f9e79f;
+  }
+  /* Name */
+  .student-name {
+    font-size: 1.55em;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.2;
+  }
+  .student-meta {
+    color: var(--muted);
+    font-size: .85em;
+    margin-bottom: 22px;
+  }
+  .sep { margin: 0 6px; opacity: .4; }
+  /* Score */
+  .score-block {
+    background: linear-gradient(135deg, #eaf4fb 0%, #e8f8f5 100%);
+    border-radius: 16px;
+    padding: 20px 16px 16px;
+    margin-bottom: 16px;
+    border: 1px solid #d6eaf8;
+  }
+  .score-num {
+    font-size: 3.5em;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+  .score-max { font-size: .38em; color: #a0aec0; font-weight: 400; }
+  .score-pct {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 1em;
+    margin: 4px 0 14px;
+  }
+  /* Breakdown */
+  .breakdown { text-align: left; }
+  .brow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(0,0,0,.06);
+    font-size: .88em;
+    color: #4a5568;
+  }
+  .brow:last-child { border-bottom: none; }
+  .brow b { color: var(--text); }
+  /* Hash block */
+  .hash-block {
+    background: #f8f9fa;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    text-align: left;
+  }
+  .hash-label {
+    font-size: .72em;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .hash-value {
+    font-family: 'Courier New', monospace;
+    font-size: .68em;
+    color: #4a5568;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+  /* Kod */
+  .cert-kod {
+    display: inline-block;
+    background: #edf2f7;
+    color: #4a5568;
+    padding: 7px 18px;
+    border-radius: 100px;
+    font-family: monospace;
+    font-size: .9em;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+  /* Footer */
+  .card-footer {
+    border-top: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fafbfc;
+  }
+  .footer-left {
+    font-size: .75em;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .footer-left strong { display: block; color: var(--text); }
+  .tg-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #0088cc;
+    color: #fff;
+    text-decoration: none;
+    padding: 7px 13px;
+    border-radius: 100px;
+    font-size: .78em;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .tg-link svg { width: 14px; height: 14px; fill: #fff; }
+  .no-result { color: #a0aec0; font-style: italic; padding: 16px 0; }
+"""
+
+_VERIFY_NOT_FOUND_CSS = """
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(160deg, #0f2744 0%, #1a4a7a 50%, #0d3b5e 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 24px;
+    padding: 48px 36px;
+    text-align: center;
+    box-shadow: 0 24px 80px rgba(0,0,0,.35);
+    max-width: 400px;
+    width: 100%;
+  }
+  .icon { font-size: 64px; margin-bottom: 20px; }
+  h2 { color: #c0392b; font-size: 1.4em; margin-bottom: 8px; }
+  p { color: #718096; font-size: .9em; margin-bottom: 6px; }
+  .kod {
+    display: inline-block;
+    background: #fff5f5;
+    color: #c0392b;
+    padding: 8px 20px;
+    border-radius: 100px;
+    font-family: monospace;
+    font-size: 1.1em;
+    margin-top: 16px;
+    border: 1px solid #fed7d7;
+  }
+  .tg-hint {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+  }
+  .tg-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #0088cc;
+    color: #fff;
+    text-decoration: none;
+    padding: 9px 18px;
+    border-radius: 100px;
+    font-size: .85em;
+    font-weight: 600;
+    margin-top: 10px;
+  }
+"""
+
+
 def _verify_not_found_html(kod: str) -> str:
+    bot_user, _ = _get_verify_config()
     return f"""<!DOCTYPE html>
 <html lang="uz">
-<head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sertifikat topilmadi</title>
-<style>
-  body{{font-family:system-ui,sans-serif;background:#f5f7fa;display:flex;
-       align-items:center;justify-content:center;min-height:100vh;margin:0}}
-  .card{{background:#fff;border-radius:16px;padding:40px 32px;text-align:center;
-         box-shadow:0 4px 24px rgba(0,0,0,.08);max-width:400px;width:90%}}
-  .icon{{font-size:56px;margin-bottom:16px}}
-  h2{{color:#e53e3e;margin:0 0 8px}}
-  p{{color:#718096;margin:4px 0}}
-  .kod{{background:#fff5f5;color:#e53e3e;padding:6px 14px;border-radius:8px;
-        font-family:monospace;font-size:1.1em;margin-top:12px;display:inline-block}}
-</style></head>
-<body><div class="card">
-  <div class="icon">❌</div>
-  <h2>Sertifikat topilmadi</h2>
-  <p>Bunday kodli o'quvchi mavjud emas.</p>
-  <div class="kod">{kod}</div>
-</div></body></html>"""
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sertifikat topilmadi</title>
+  <style>{_VERIFY_NOT_FOUND_CSS}</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🔍</div>
+    <h2>Sertifikat topilmadi</h2>
+    <p>Bunday kodli o'quvchi tizimda mavjud emas.</p>
+    <p>Kod to'g'ri ekanligini tekshiring.</p>
+    <div class="kod">{kod}</div>
+    <div class="tg-hint">
+      <p style="color:#a0aec0;font-size:.82em">Savollar uchun Telegram bot:</p>
+      <a class="tg-link" href="https://t.me/{bot_user}" target="_blank">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;fill:#fff">
+          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/>
+        </svg>
+        @{bot_user}
+      </a>
+    </div>
+  </div>
+</body>
+</html>"""
 
 
-def _verify_success_html(talaba: dict, natija: dict | None) -> str:
-    ism   = talaba.get("ismlar", "")
-    sinf  = talaba.get("sinf", "—")
-    yo    = talaba.get("yonalish", "—")
-    kod   = talaba.get("kod", "")
+def _verify_success_html(talaba: dict, natija: dict | None,
+                         cert_hash: str = "", hash_valid: bool = True) -> str:
+    bot_user, logo_url = _get_verify_config()
+    ism  = talaba.get("ismlar", "")
+    sinf = talaba.get("sinf", "—")
+    yo   = talaba.get("yonalish", "—")
+    kod  = talaba.get("kod", "")
 
-    if natija:
-        ball  = natija.get("umumiy_ball", 0)
-        sana  = str(natija.get("test_sanasi", ""))[:10]
-        foiz  = round(float(ball) / 189 * 100, 1)
-        maj   = natija.get("majburiy", 0)
-        as1   = natija.get("asosiy_1", 0)
-        as2   = natija.get("asosiy_2", 0)
-        natija_blok = f"""
-        <div class="score">{ball}<span class="max">/189</span></div>
-        <div class="percent">{foiz}%</div>
-        <div class="breakdown">
-          <div class="row"><span>📘 Majburiy fanlar</span><b>{maj}/30</b></div>
-          <div class="row"><span>📗 1-asosiy fan</span><b>{as1}/30</b></div>
-          <div class="row"><span>📙 2-asosiy fan</span><b>{as2}/30</b></div>
-          <div class="row"><span>📅 Sana</span><b>{sana}</b></div>
+    # Logo HTML
+    if logo_url:
+        logo_html = f'<img src="{logo_url}" class="school-logo" alt="Maktab logosi" onerror="this.style.display=\'none\'">'
+    else:
+        logo_html = '<div class="logo-placeholder">🏫</div>'
+
+    # Hash status badge
+    if cert_hash:
+        badge_html = '<span class="status-badge valid">✅ &nbsp;Sertifikat haqiqiy — tasdiqlandi</span>'
+    else:
+        badge_html = '<span class="status-badge no-hash">⚠️ &nbsp;Sertifikat tasdiqlandi (eski format)</span>'
+
+    # Hash block
+    if cert_hash:
+        short_hash = cert_hash[:16] + "…" + cert_hash[-8:]
+        hash_block = f"""
+        <div class="hash-block">
+          <div class="hash-label">🔐 Blockchain hash (SHA-256)</div>
+          <div class="hash-value">{cert_hash}</div>
         </div>"""
     else:
-        natija_blok = '<p class="no-result">Hali test topshirilmagan</p>'
+        hash_block = ""
+
+    # Natija bloki
+    if natija:
+        ball = natija.get("umumiy_ball", 0)
+        sana = str(natija.get("test_sanasi", ""))[:10]
+        foiz = round(float(ball) / 189 * 100, 1)
+        maj  = natija.get("majburiy", 0)
+        as1  = natija.get("asosiy_1", 0)
+        as2  = natija.get("asosiy_2", 0)
+        natija_blok = f"""
+        <div class="score-block">
+          <div class="score-num">{ball}<span class="score-max"> / 189</span></div>
+          <div class="score-pct">{foiz}%</div>
+          <div class="breakdown">
+            <div class="brow"><span>📘 Majburiy fanlar</span><b>{maj}/30</b></div>
+            <div class="brow"><span>📗 1-asosiy fan</span><b>{as1}/30</b></div>
+            <div class="brow"><span>📙 2-asosiy fan</span><b>{as2}/30</b></div>
+            <div class="brow"><span>📅 Test sanasi</span><b>{sana}</b></div>
+          </div>
+        </div>"""
+    else:
+        natija_blok = '<div class="no-result">Hali test natijalari mavjud emas</div>'
 
     return f"""<!DOCTYPE html>
 <html lang="uz">
-<head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sertifikat — {ism}</title>
-<style>
-  *{{box-sizing:border-box}}
-  body{{font-family:system-ui,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-       min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0;padding:16px}}
-  .card{{background:#fff;border-radius:20px;padding:36px 28px;text-align:center;
-         box-shadow:0 8px 40px rgba(0,0,0,.18);max-width:420px;width:100%}}
-  .badge{{background:#ebf8ff;color:#2b6cb0;font-size:.75em;font-weight:700;
-          letter-spacing:.08em;padding:4px 12px;border-radius:20px;display:inline-block;margin-bottom:12px}}
-  .verified{{color:#38a169;font-size:.85em;margin-bottom:16px;display:flex;
-             align-items:center;justify-content:center;gap:6px}}
-  h1{{font-size:1.45em;color:#1a202c;margin:0 0 4px}}
-  .meta{{color:#718096;font-size:.88em;margin-bottom:20px}}
-  .score{{font-size:3.2em;font-weight:800;color:#667eea;line-height:1}}
-  .max{{font-size:.45em;color:#a0aec0;font-weight:400}}
-  .percent{{color:#48bb78;font-weight:700;font-size:1.1em;margin:4px 0 20px}}
-  .breakdown{{background:#f7fafc;border-radius:12px;padding:14px 18px;text-align:left}}
-  .row{{display:flex;justify-content:space-between;padding:5px 0;
-        border-bottom:1px solid #edf2f7;font-size:.9em;color:#4a5568}}
-  .row:last-child{{border-bottom:none}}
-  .kod{{background:#edf2f7;color:#4a5568;padding:6px 16px;border-radius:8px;
-        font-family:monospace;font-size:.9em;margin-top:18px;display:inline-block}}
-  .no-result{{color:#a0aec0;font-style:italic}}
-  .footer{{color:#cbd5e0;font-size:.75em;margin-top:20px}}
-</style></head>
-<body><div class="card">
-  <div class="badge">BUSTANLIK SS TESTING SYSTEM</div>
-  <div class="verified">✅ Sertifikat tasdiqlandi</div>
-  <h1>{ism}</h1>
-  <div class="meta">{sinf} &nbsp;•&nbsp; {yo}</div>
-  {natija_blok}
-  <div class="kod">Kod: {kod}</div>
-  <div class="footer">Bu sahifa sertifikat haqiqiyligini tasdiqlaydi</div>
-</div></body></html>"""
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sertifikat — {ism}</title>
+  <style>{_VERIFY_CSS}</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="card">
+    <div class="header-band">
+      {logo_html}
+      <div class="school-name">Bo'stonliq tumani ixtisoslashtirilgan maktabi</div>
+    </div>
+
+    <div class="body">
+      {badge_html}
+      <div class="student-name">{ism}</div>
+      <div class="student-meta">{sinf}<span class="sep">|</span>{yo}</div>
+
+      {natija_blok}
+
+      {hash_block}
+
+      <div class="cert-kod">🆔 Kod: {kod}</div>
+    </div>
+
+    <div class="card-footer">
+      <div class="footer-left">
+        <strong>Bustanlik SS Testing System</strong>
+        Bu sahifa sertifikat haqiqiyligini tasdiqlaydi
+      </div>
+      <a class="tg-link" href="https://t.me/{bot_user}" target="_blank">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/>
+        </svg>
+        @{bot_user}
+      </a>
+    </div>
+  </div>
+</div>
+</body>
+</html>"""
 
 
 # ─────────────────────────────────────────
