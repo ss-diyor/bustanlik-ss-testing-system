@@ -870,31 +870,20 @@ _VERIFY_CSS = """
   /* Header band */
   .header-band {
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-    padding: 28px 24px 20px;
+    padding: 28px 24px 22px;
     text-align: center;
     position: relative;
-    overflow: hidden;
-  }
-  .header-band::after {
-    content: '';
-    position: absolute;
-    bottom: -1px; left: 0; right: 0;
-    height: 20px;
-    background: #fff;
-    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
   }
   .school-logo {
-    width: 72px; height: 72px;
-    border-radius: 50%;
-    border: 3px solid rgba(255,255,255,.4);
-    object-fit: cover;
+    width: 80px; height: 80px;
+    border-radius: 0;
+    border: none;
+    object-fit: contain;
     margin-bottom: 10px;
-    background: rgba(255,255,255,.15);
+    background: transparent;
   }
   .logo-placeholder {
     width: 72px; height: 72px;
-    border-radius: 50%;
-    border: 3px solid rgba(255,255,255,.4);
     background: rgba(255,255,255,.15);
     display: inline-flex;
     align-items: center;
@@ -1207,7 +1196,7 @@ def _verify_success_html(talaba: dict, natija: dict | None,
   <div class="card">
     <div class="header-band">
       {logo_html}
-      <div class="school-name">Bo'stonliq tuman ixtisoslashtirilgan maktabi</div>
+      <div class="school-name">Bo'stonliq tumani ixtisoslashtirilgan maktabi</div>
     </div>
 
     <div class="body">
