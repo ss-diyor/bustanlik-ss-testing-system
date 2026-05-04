@@ -181,6 +181,10 @@ def init_db():
     cur.execute(
         "CREATE INDEX IF NOT EXISTS idx_talabalar_user_id ON talabalar(user_id)"
     )
+    # Migration: blockchain hash ustuni (IF NOT EXISTS — xavfsiz)
+    cur.execute(
+        "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS cert_hash TEXT DEFAULT NULL"
+    )
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS test_natijalari (
