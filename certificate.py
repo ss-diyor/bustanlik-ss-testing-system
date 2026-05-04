@@ -9,6 +9,7 @@ Dizayn rejimlari:
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import os
 from fpdf import FPDF
@@ -27,6 +28,28 @@ CERT_DEFAULTS: dict[str, str] = {
     "cert_dizayn":      "colored_border",   # "colored_border" | "national_bg"
     "cert_bg_path":     "national_background.png",
 }
+
+
+def generate_cert_hash(kod: str, ism: str, ball, sana: str) -> str:
+    """
+    Sertifikat uchun unikal SHA-256 hash generatsiya qiladi.
+    Bu hash blockchain-ga asoslangan tekshiruv uchun ishlatiladi —
+    sertifikat ma'lumotlari o'zgartirilsa, hash mos kelmaydi.
+
+    Parametrlar:
+        kod  — o'quvchining unikal kodi
+        ism  — to'liq ismi
+        ball — olingan ball
+        sana — sertifikat sanasi (string)
+    """
+    try:
+        from config import BOT_TOKEN  # maxfiy tuz sifatida
+        salt = BOT_TOKEN
+    except Exception:
+        salt = "bustanlik-ss"  # fallback
+
+    raw = f"{kod}|{ism}|{ball}|{sana}|{salt}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def _to_int(val: str, fallback: int) -> int:
@@ -67,11 +90,18 @@ class CertificateGenerator:
 
     # ── Asosiy metod ──────────────────────────────────────────────────────────
 
-    def generate(self, full_name, score, date, kod, sinf="", maktab="") -> str:
+    def generate(self, full_name, score, date, kod, sinf="", maktab="") -> tuple[str, str]:
+        """
+        Sertifikat PDF faylini generatsiya qiladi.
+        Returns: (pdf_path, cert_hash) — fayl yo'li va SHA-256 hash
+        """
+        cert_hash = generate_cert_hash(kod, full_name, score, str(date))
         dizayn = self._s.get("cert_dizayn", "colored_border").strip()
         if dizayn == "national_bg":
-            return self._generate_national_bg(full_name, score, date, kod)
-        return self._generate_colored_border(full_name, score, date, kod)
+            pdf_path = self._generate_national_bg(full_name, score, date, kod)
+        else:
+            pdf_path = self._generate_colored_border(full_name, score, date, kod)
+        return pdf_path, cert_hash
 
     # ── 1-DIZAYN: Rangli ramkali (avvalgi ko'rinish) ──────────────────────────
 
