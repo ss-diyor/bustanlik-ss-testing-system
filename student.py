@@ -161,7 +161,7 @@ async def send_full_results(message: Message, kod: str):
     # Sertifikat yaratish — database sozlamalar bilan (logo, ranglar va h.k.)
     cert_gen = CertificateGenerator.from_db()
     sana = str(natija.get("test_sanasi", "Noaniq"))[:10]
-    cert_path = await asyncio.get_event_loop().run_in_executor(
+    cert_path, cert_hash = await asyncio.get_event_loop().run_in_executor(
         None,
         _generate_certificate_file,
         cert_gen,
@@ -172,6 +172,21 @@ async def send_full_results(message: Message, kod: str):
         talaba.get("sinf", ""),
         talaba.get("maktab", ""),
     )
+
+    # Hash'ni database'ga saqlaymiz
+    try:
+        from database import get_connection, release_connection
+        _conn = get_connection()
+        _cur = _conn.cursor()
+        _cur.execute(
+            "UPDATE talabalar SET cert_hash = %s WHERE kod = %s",
+            (cert_hash, kod),
+        )
+        _conn.commit()
+        _cur.close()
+        release_connection(_conn)
+    except Exception as _he:
+        print(f"cert_hash saqlashda xato: {_he}")
 
     # Xabar matni
     foiz = round((natija["umumiy_ball"] / 189) * 100, 1)
