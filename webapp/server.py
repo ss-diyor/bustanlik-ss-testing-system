@@ -1196,7 +1196,7 @@ def _verify_success_html(talaba: dict, natija: dict | None,
   <div class="card">
     <div class="header-band">
       {logo_html}
-      <div class="school-name">Bo'stonliq tumani ixtisoslashtirilgan maktabi</div>
+      <div class="school-name">Bo'stonliq tuman ixtisoslashtirilgan maktabi</div>
     </div>
 
     <div class="body">
