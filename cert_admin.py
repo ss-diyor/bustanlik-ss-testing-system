@@ -514,7 +514,7 @@ async def cert_preview(cb: CallbackQuery, state: FSMContext, bot: Bot):
     loop = asyncio.get_event_loop()
     try:
         gen = CertificateGenerator.from_db()
-        path = await loop.run_in_executor(
+        path, _ = await loop.run_in_executor(
             None,
             gen.generate,
             "Sultanov Diyorbek Alibek o'g'li",
@@ -524,14 +524,25 @@ async def cert_preview(cb: CallbackQuery, state: FSMContext, bot: Bot):
             "11-A",
             "Bo'stonliq ITMA",
         )
+        caption = (
+            "👁 <b>Sertifikat ko'rinishi (preview)</b>\n\n"
+            "Bu namuna sertifikat. Haqiqiy o'quvchi ma'lumotlari bilan ham xuddi shunday ko'rinadi."
+        )
+        # Avval PNG preview (ko'rinishi uchun)
+        preview_path = gen.generate_preview(path)
+        if preview_path and os.path.exists(preview_path):
+            await bot.send_photo(
+                cb.from_user.id,
+                FSInputFile(preview_path),
+                caption=caption,
+                parse_mode="HTML",
+            )
+            os.remove(preview_path)
+        # Keyin PDF (yuklab olish uchun)
         await bot.send_document(
             cb.from_user.id,
             FSInputFile(path),
-            caption=(
-                "👁 <b>Sertifikat ko'rinishi (preview)</b>\n\n"
-                "Bu namuna sertifikat. Haqiqiy o'quvchi ma'lumotlari bilan ham xuddi shunday ko'rinadi."
-            ),
-            parse_mode="HTML",
+            caption="📥 PDF versiyasi (yuklab olish uchun)",
         )
         if os.path.exists(path):
             os.remove(path)
