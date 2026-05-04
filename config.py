@@ -36,6 +36,9 @@ def _parse_admin_ids(raw_value: str) -> list[int]:
 # Bot tokeni Railway environment variable'dan olinadi
 BOT_TOKEN = _env("BOT_TOKEN", required=True)
 
+# Bot username — verify sahifasida ko'rsatiladi (@ belgisisiz)
+BOT_USERNAME = _env("BOT_USERNAME", "bustanlik_ss_bot")
+
 # Admin paroli — Railway'da ADMIN_PASSWORD env variable sifatida saqlang
 ADMIN_PASSWORD = _env("ADMIN_PASSWORD", "admin123")
 
