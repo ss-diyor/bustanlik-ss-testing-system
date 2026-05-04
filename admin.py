@@ -522,7 +522,9 @@ def _resolve_maktab(value, maktablar: list[dict]):
 
 
 def _generate_certificate_file(cert_gen, ismlar, ball, sana, kod, sinf="", maktab=""):
-    """Sertifikatni alohida executor'da generatsiya qilish uchun."""
+    """Sertifikatni alohida executor'da generatsiya qilish uchun.
+    Returns: (pdf_path, cert_hash)
+    """
     return cert_gen.generate(ismlar, ball, sana, kod, sinf=sinf, maktab=maktab)
 
 
@@ -675,7 +677,7 @@ async def bildirishnoma_yuborish(
             _sinf, _maktab = _parse_sinf_maktab(talaba.get("sinf", ""))
 
             loop = asyncio.get_event_loop()
-            cert_path = await loop.run_in_executor(
+            cert_path, cert_hash = await loop.run_in_executor(
                 None,
                 _generate_certificate_file,
                 cert_gen,
@@ -686,6 +688,21 @@ async def bildirishnoma_yuborish(
                 _sinf,
                 _maktab,
             )
+
+            # Hash'ni database'ga saqlaymiz (blockchain tekshiruvi uchun)
+            try:
+                from database import get_connection, release_connection
+                _conn = get_connection()
+                _cur = _conn.cursor()
+                _cur.execute(
+                    "UPDATE talabalar SET cert_hash = %s WHERE kod = %s",
+                    (cert_hash, talaba["kod"]),
+                )
+                _conn.commit()
+                _cur.close()
+                release_connection(_conn)
+            except Exception as _he:
+                print(f"cert_hash saqlashda xato: {_he}")
 
             await bot.send_document(
                 user_id, FSInputFile(cert_path), caption=matn, parse_mode="HTML"
