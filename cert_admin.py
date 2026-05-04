@@ -29,6 +29,12 @@ from aiogram.fsm.state import State, StatesGroup
 from database import get_setting, set_setting
 from certificate import CertificateGenerator, CERT_DEFAULTS
 
+# Dizayn rejimlari
+DIZAYN_VARIANTLAR = {
+    "🖼 Rangli ramka": "colored_border",
+    "🏛 Milliy naqsh":  "national_bg",
+}
+
 router = Router()
 
 # ── FSM holatlari ─────────────────────────────────────────────────────────────
@@ -42,6 +48,7 @@ class CertSozlama(StatesGroup):
     rang_g_kutish      = State()
     rang_b_kutish      = State()
     logo_kutish        = State()
+    bg_kutish          = State()    # milliy fon rasmi yuklash
 
 # ── Oldindan tayyorlangan ranglar ─────────────────────────────────────────────
 
@@ -85,6 +92,8 @@ def _rang_text(r: str, g: str, b: str) -> str:
 
 
 def _menu_text(s: dict) -> str:
+    dizayn_val = s.get("cert_dizayn", "colored_border")
+    dizayn_nom = next((k for k, v in DIZAYN_VARIANTLAR.items() if v == dizayn_val), dizayn_val)
     return (
         "📜 <b>Sertifikat sozlamalari</b>\n\n"
         f"🔤 <b>Sarlavha:</b> {s['cert_sarlavha']}\n"
@@ -92,7 +101,8 @@ def _menu_text(s: dict) -> str:
         f"🏫 <b>Maktab nomi:</b> {s['cert_maktab_nomi']}\n"
         f"📄 <b>Matn:</b> {s['cert_matn']}\n"
         f"🎨 <b>Rang:</b> {_rang_text(s['cert_rang_r'], s['cert_rang_g'], s['cert_rang_b'])}\n"
-        f"🖼 <b>Logo:</b> {('✅ Yuklangan' if s.get('cert_logo_path') and os.path.exists(s['cert_logo_path']) else chr(10060)+' Yo'+chr(39)+'q')}\n\n"
+        f"🖼 <b>Logo:</b> {('✅ Yuklangan' if s.get('cert_logo_path') and os.path.exists(s['cert_logo_path']) else chr(10060)+' Yo'+chr(39)+'q')}\n"
+        f"🎭 <b>Dizayn:</b> {dizayn_nom}\n\n"
         "O'zgartirmoqchi bo'lgan bo'limni tanlang:"
     )
 
@@ -105,6 +115,7 @@ def _menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📄 Qo'shimcha matn", callback_data="cert_edit:matn")],
         [InlineKeyboardButton(text="🎨 Rang",         callback_data="cert_edit:rang")],
         [InlineKeyboardButton(text="🖼 Logo",         callback_data="cert_edit:logo")],
+        [InlineKeyboardButton(text="🎭 Dizayn uslubi", callback_data="cert_edit:dizayn")],
         [InlineKeyboardButton(text="👁 Ko'rinish (Preview)", callback_data="cert_preview")],
         [InlineKeyboardButton(text="🔄 Defaults",    callback_data="cert_reset")],
     ])
@@ -167,6 +178,27 @@ async def cert_edit_start(cb: CallbackQuery, state: FSMContext):
             "🎨 <b>Rang tanlang:</b>\n\nSertifikat chegara va sarlavha rangi:",
             parse_mode="HTML",
             reply_markup=_rang_keyboard(),
+        )
+        await cb.answer()
+        return
+
+    if field == "dizayn":
+        s = _get_all_settings()
+        current = s.get("cert_dizayn", "colored_border")
+        buttons = [
+            [InlineKeyboardButton(
+                text=f"{'✅ ' if v == current else ''}{nom}",
+                callback_data=f"cert_dizayn_set:{v}"
+            )]
+            for nom, v in DIZAYN_VARIANTLAR.items()
+        ]
+        buttons.append([InlineKeyboardButton(text="◀️ Orqaga", callback_data="cert_menu")])
+        await cb.message.edit_text(
+            "🎭 <b>Dizayn uslubini tanlang:</b>\n\n"
+            "• <b>Rangli ramka</b> — avvalgi ko'rinish (PDF ichida chizilgan chegara)\n"
+            "• <b>Milliy naqsh</b> — milliy ornament bilan bezatilgan fon rasm",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         )
         await cb.answer()
         return
@@ -542,3 +574,114 @@ async def cert_reset_confirm(cb: CallbackQuery, state: FSMContext):
         reply_markup=_menu_keyboard(),
     )
     await cb.answer()
+
+# ── Dizayn uslubi tanlash ─────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("cert_dizayn_set:"))
+async def cert_dizayn_set(cb: CallbackQuery, state: FSMContext):
+    if not await _admin_tekshir(state, cb.from_user.id):
+        return
+    dizayn = cb.data.split(":")[1]
+    if dizayn not in ("colored_border", "national_bg"):
+        await cb.answer("Noto'g'ri dizayn")
+        return
+
+    set_setting("cert_dizayn", dizayn)
+
+    # national_bg tanlansa — fon rasm borligini tekshir, yo'q bo'lsa yuklashni taklif et
+    if dizayn == "national_bg":
+        from database import get_setting as gs
+        bg_path = gs("cert_bg_path", "national_background.png")
+        if not (bg_path and os.path.exists(bg_path)):
+            await cb.message.edit_text(
+                "✅ <b>Milliy naqsh dizayni tanlandi.</b>\n\n"
+                "⚠️ Fon rasm topilmadi! Iltimos <b>milliy_fon rasmini</b> yuboring\n"
+                "(PNG yoki JPG, A4 Landscape nisbatida — masalan 2480×1754 px).\n\n"
+                "Fayl sifatida yuboring (📎) — sifat saqlanadi.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="📤 Fon rasm yuklash", callback_data="cert_bg:upload")],
+                    [InlineKeyboardButton(text="◀️ Orqaga",           callback_data="cert_menu")],
+                ]),
+            )
+            await cb.answer()
+            return
+
+    s = _get_all_settings()
+    nom = next((k for k, v in DIZAYN_VARIANTLAR.items() if v == dizayn), dizayn)
+    await cb.message.edit_text(
+        f"✅ Dizayn saqlandi: <b>{nom}</b>\n\n" + _menu_text(s),
+        parse_mode="HTML",
+        reply_markup=_menu_keyboard(),
+    )
+    await cb.answer()
+
+
+# ── Milliy fon rasmini yuklash ────────────────────────────────────────────────
+
+@router.callback_query(F.data == "cert_bg:upload")
+async def cert_bg_upload_start(cb: CallbackQuery, state: FSMContext):
+    if not await _admin_tekshir(state, cb.from_user.id):
+        return
+    await state.set_state(CertSozlama.bg_kutish)
+    await cb.message.edit_text(
+        "🏛 <b>Milliy fon rasmini yuboring:</b>\n\n"
+        "• PNG yoki JPG formatida\n"
+        "• A4 Landscape nisbati (masalan 2480×1754 px yoki 3508×2480 px)\n"
+        "• Matn yaxshi ko'rinishi uchun fon och rangda bo'lsin\n\n"
+        "📎 <b>Fayl sifatida</b> yuboring — sifat saqlanadi.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Bekor", callback_data="cert_menu")]
+        ]),
+    )
+    await cb.answer()
+
+
+@router.message(CertSozlama.bg_kutish, F.document)
+async def cert_bg_received(message: Message, state: FSMContext, bot: Bot):
+    if not await _admin_tekshir(state, message.from_user.id):
+        return
+    doc = message.document
+    mime = doc.mime_type or ""
+    if mime not in ("image/png", "image/jpeg", "image/jpg", "image/webp") and \
+       not (doc.file_name or "").lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+        await message.answer("⚠️ Faqat PNG yoki JPG formatidagi rasm yuboring.")
+        return
+
+    bg_dir = "cert_assets"
+    os.makedirs(bg_dir, exist_ok=True)
+    bg_path = os.path.join(bg_dir, "cert_background.png")
+
+    file = await bot.get_file(doc.file_id)
+    buf = io.BytesIO()
+    await bot.download_file(file.file_path, destination=buf)
+    _save_logo_as_png(buf.getvalue(), bg_path)
+
+    set_setting("cert_bg_path", bg_path)
+    await state.clear()
+
+    s = _get_all_settings()
+    await message.answer(
+        "✅ Milliy fon rasm saqlandi!\n\n" + _menu_text(s),
+        parse_mode="HTML",
+        reply_markup=_menu_keyboard(),
+    )
+
+
+@router.message(CertSozlama.bg_kutish, F.photo)
+async def cert_bg_received_photo(message: Message, state: FSMContext, bot: Bot):
+    await message.answer(
+        "⚠️ Iltimos rasmni 📎 <b>Fayl sifatida</b> yuboring — sifat saqlanadi.\n"
+        "Yoki /cancel yozing.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(CertSozlama.bg_kutish)
+async def cert_bg_wrong_type(message: Message, state: FSMContext):
+    await message.answer(
+        "⚠️ Iltimos PNG yoki JPG rasmni 📎 <b>Fayl sifatida</b> yuboring.\n"
+        "Yoki /cancel yozing.",
+        parse_mode="HTML",
+    )
