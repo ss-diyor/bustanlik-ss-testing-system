@@ -84,10 +84,19 @@ class CertificateGenerator:
 
         PAGE_W, PAGE_H = 297, 210
 
-        # ── Fon rasmi (Background) ───────────────────────────────────────────
+        # ── Fon va Chegara (Background & Border) ─────────────────────────────
         bg_path = "national_background.png"
-        if os.path.exists(bg_path):
+        use_bg = os.path.exists(bg_path)
+        
+        if use_bg:
             pdf.image(bg_path, x=0, y=0, w=PAGE_W, h=PAGE_H)
+        
+        if not use_bg:
+            pdf.set_draw_color(r, g, b)
+            pdf.set_line_width(3)
+            pdf.rect(8, 8, 281, 194)
+            pdf.set_line_width(0.8)
+            pdf.rect(11, 11, 275, 188)
 
         logo_path = s.get("cert_logo_path", "").strip()
         has_logo  = bool(logo_path and os.path.exists(logo_path))
@@ -109,13 +118,6 @@ class CertificateGenerator:
         TOP_PAD   = 14
         usable_h  = PAGE_H - TOP_PAD - FOOTER_H
         y_cursor = TOP_PAD + max(0, (usable_h - CONTENT_H) * 0.35)
-
-        # ── Chegara ───────────────────────────────────────────────────────────
-        pdf.set_draw_color(r, g, b)
-        pdf.set_line_width(3)
-        pdf.rect(8, 8, 281, 194)
-        pdf.set_line_width(0.8)
-        pdf.rect(11, 11, 275, 188)
 
         if has_logo:
             try:
@@ -158,7 +160,7 @@ class CertificateGenerator:
         pdf.cell(0, h_ball, f"{score} BALL", ln=True, align="C")
         pdf.set_text_color(0, 0, 0)
 
-        # ── Footer (Sana va Shaxsiy kod chapda ustma-ust) ──────────────────────
+        # ── Footer ────────────────────────────────────────────────────────────
         footer_y = 183
         self._set_font(pdf, "I", 11)
         pdf.set_xy(20, footer_y)
@@ -166,7 +168,6 @@ class CertificateGenerator:
         pdf.set_xy(20, footer_y + 6)
         pdf.cell(100, 6, f"Shaxsiy kod: {kod}", ln=0, align="L")
 
-        # ── QR-kod (o'ngda) ───────────────────────────────────────────────────
         self._add_qr(pdf, kod, PAGE_W, PAGE_H)
 
         output_path = os.path.join(self.output_dir, f"cert_{kod}.pdf")
@@ -192,6 +193,20 @@ class CertificateGenerator:
         except Exception:
             pass
 
+    def generate_preview(self, pdf_path: str) -> str | None:
+        try:
+            import fitz
+            doc = fitz.open(pdf_path)
+            page = doc[0]
+            mat = fitz.Matrix(2.5, 2.5)
+            pix = page.get_pixmap(matrix=mat, alpha=False)
+            png_path = pdf_path.replace(".pdf", "_preview.png")
+            pix.save(png_path)
+            doc.close()
+            return png_path
+        except Exception:
+            return None
+
     def _safe(self, text: str) -> str:
         if self.unicode_font_ready:
             return str(text or "")
@@ -205,10 +220,11 @@ class CertificateGenerator:
             pdf.set_font("Helvetica", style, size)
 
     def _configure_unicode_fonts(self, pdf: FPDF) -> bool:
-        regular_path = "DejaVuSans.ttf"
-        bold_path = "DejaVuSans-Bold.ttf"
-        if not os.path.exists(regular_path) or not os.path.exists(bold_path):
-            return False
+        regular_candidates = ["DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+        bold_candidates = ["DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
+        regular_path = next((p for p in regular_candidates if os.path.exists(p)), None)
+        bold_path = next((p for p in bold_candidates if os.path.exists(p)), None)
+        if not regular_path or not bold_path: return False
         pdf.add_font(self.unicode_font_family, "", regular_path)
         pdf.add_font(self.unicode_font_family, "B", bold_path)
         return True
