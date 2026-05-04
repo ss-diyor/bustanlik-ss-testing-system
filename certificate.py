@@ -33,11 +33,6 @@ def _to_int(val: str, fallback: int) -> int:
 class CertificateGenerator:
     """
     Sertifikat generatori.
-
-    Oddiy ishlatilish:
-        gen = CertificateGenerator()           # default sozlamalar
-        gen = CertificateGenerator(settings)   # dict bilan
-        gen = CertificateGenerator.from_db()   # database'dan (tavsiya etiladi)
     """
 
     def __init__(self, settings: dict[str, str] | None = None):
@@ -52,11 +47,8 @@ class CertificateGenerator:
         self.unicode_font_family = "DejaVuSans"
         self.unicode_font_ready = False
 
-    # ── Konstruktorlar ────────────────────────────────────────────────────────
-
     @classmethod
     def from_db(cls) -> "CertificateGenerator":
-        """Database'dagi sozlamalar bilan generator yaratadi."""
         try:
             from database import get_setting
             settings = {
@@ -66,8 +58,6 @@ class CertificateGenerator:
         except Exception:
             settings = {}
         return cls(settings)
-
-    # ── Asosiy metod ──────────────────────────────────────────────────────────
 
     def generate(
         self,
@@ -84,7 +74,7 @@ class CertificateGenerator:
         b = _to_int(s["cert_rang_b"], 128)
 
         pdf = FPDF(orientation="L", unit="mm", format="A4")
-        pdf.set_auto_page_break(auto=False)   # 1 betdan oshmasin
+        pdf.set_auto_page_break(auto=False)
         pdf.add_page()
         self.unicode_font_ready = self._configure_unicode_fonts(pdf)
 
@@ -92,14 +82,17 @@ class CertificateGenerator:
         if not self.unicode_font_ready:
             name_to_print = self._to_latin1_safe(name_to_print)
 
-        # ── Sahifa o'lchamlari (Landscape A4) ────────────────────────────────
-        PAGE_W, PAGE_H = 297, 210   # mm
+        PAGE_W, PAGE_H = 297, 210
 
-        # ── Tarkib balandligini hisoblash (vertikal markazlash uchun) ─────────
+        # ── Fon rasmi (Background) ───────────────────────────────────────────
+        bg_path = "national_background.png"
+        if os.path.exists(bg_path):
+            pdf.image(bg_path, x=0, y=0, w=PAGE_W, h=PAGE_H)
+
         logo_path = s.get("cert_logo_path", "").strip()
         has_logo  = bool(logo_path and os.path.exists(logo_path))
 
-        logo_h_mm  = 40 if has_logo else 0   # kattaroq logo
+        logo_h_mm  = 40 if has_logo else 0
         logo_gap   = 6  if has_logo else 0
         h_sarlavha = 18
         h_subtitle = 8
@@ -115,8 +108,6 @@ class CertificateGenerator:
         FOOTER_H  = 12
         TOP_PAD   = 14
         usable_h  = PAGE_H - TOP_PAD - FOOTER_H
-
-        # Tarkibni sal yuqoriroqqa joylashtirish (0.35 koeffitsient)
         y_cursor = TOP_PAD + max(0, (usable_h - CONTENT_H) * 0.35)
 
         # ── Chegara ───────────────────────────────────────────────────────────
@@ -126,7 +117,6 @@ class CertificateGenerator:
         pdf.set_line_width(0.8)
         pdf.rect(11, 11, 275, 188)
 
-        # ── Logo ──────────────────────────────────────────────────────────────
         if has_logo:
             try:
                 logo_w = 40
@@ -136,7 +126,6 @@ class CertificateGenerator:
             except Exception:
                 pass
 
-        # ── Sarlavha ──────────────────────────────────────────────────────────
         pdf.set_y(y_cursor)
         pdf.set_text_color(r, g, b)
         self._set_font(pdf, "B", 42)
@@ -144,104 +133,64 @@ class CertificateGenerator:
         pdf.set_text_color(0, 0, 0)
         y_cursor += h_sarlavha
 
-        # ── Subtitle ─────────────────────────────────────────────────────────
         pdf.set_y(y_cursor)
         self._set_font(pdf, "", 18)
         pdf.cell(0, h_subtitle, self._safe(s["cert_subtitle"]), ln=True, align="C")
         y_cursor += h_subtitle
 
-        # ── O'quvchi ismi ─────────────────────────────────────────────────────
         pdf.set_y(y_cursor)
         self._set_font(pdf, "B", 34)
         pdf.cell(0, h_name, name_to_print, ln=True, align="C")
         y_cursor += h_name
-        # ── Maktab nomi (shablondan) ──────────────────────────────────────────
+
         pdf.set_y(y_cursor)
         self._set_font(pdf, "", 14)
         pdf.cell(0, h_maktab, self._safe(s["cert_maktab_nomi"]), ln=True, align="C")
         y_cursor += h_maktab
 
-        # ── Qo'shimcha matn ───────────────────────────────────────────────────
         pdf.set_y(y_cursor)
         pdf.cell(0, h_matn, self._safe(s["cert_matn"]), ln=True, align="C")
         y_cursor += h_matn
 
-        # ── Ball ─────────────────────────────────────────────────────────────
         pdf.set_y(y_cursor)
         self._set_font(pdf, "B", 28)
         pdf.set_text_color(r, g, b)
         pdf.cell(0, h_ball, f"{score} BALL", ln=True, align="C")
         pdf.set_text_color(0, 0, 0)
 
-        # ── Footer ────────────────────────────────────────────────────────────
-        footer_y = 183  # Sana va Shaxsiy kod uchun boshlang'ich Y koordinatasi
+        # ── Footer (Sana va Shaxsiy kod chapda ustma-ust) ──────────────────────
+        footer_y = 183
         self._set_font(pdf, "I", 11)
-        
-        # Sana (chapda)
         pdf.set_xy(20, footer_y)
         pdf.cell(100, 6, f"Sana: {date}", ln=0, align="L")
-        
-        # Shaxsiy kod (chapda, sananing tagida)
         pdf.set_xy(20, footer_y + 6)
         pdf.cell(100, 6, f"Shaxsiy kod: {kod}", ln=0, align="L")
 
-        # ── QR-kod (pastki o'ng burchakda qoladi) ──────────────────────────────
+        # ── QR-kod (o'ngda) ───────────────────────────────────────────────────
         self._add_qr(pdf, kod, PAGE_W, PAGE_H)
 
         output_path = os.path.join(self.output_dir, f"cert_{kod}.pdf")
         pdf.output(output_path)
         return output_path
 
-    # ── QR-kod ───────────────────────────────────────────────────────────────
-
     def _add_qr(self, pdf: FPDF, kod: str, page_w: int, page_h: int) -> None:
-        """PDF ning pastki o'ng burchagiga QR-kod qo'shadi."""
         try:
             import qrcode as qrlib
             from config import VERIFY_BASE_URL
             url = f"{VERIFY_BASE_URL}/verify/{kod}"
-            qr = qrlib.QRCode(
-                version=2,
-                error_correction=qrlib.constants.ERROR_CORRECT_M,
-                box_size=6,
-                border=2,
-            )
+            qr = qrlib.QRCode(version=2, box_size=6, border=2)
             qr.add_data(url)
             qr.make(fit=True)
             img = qr.make_image(fill_color="black", back_color="white")
-
             buf = io.BytesIO()
             img.save(buf, format="PNG")
             buf.seek(0)
-
-            qr_size = 22   # mm
+            qr_size = 22
             x = page_w - qr_size - 14
             y = page_h - qr_size - 13
             pdf.image(buf, x=x, y=y, w=qr_size, h=qr_size)
         except Exception:
-            pass   # QR chiqmasa ham sertifikat yaratilsin
-
-    # ── Preview (PNG rasm) ────────────────────────────────────────────────────
-
-    def generate_preview(self, pdf_path: str) -> str | None:
-        """PDF dan PNG preview rasm yaratadi (admin uchun).
-        
-        Qaytaradi: PNG fayl yo'li yoki None (xato bo'lsa).
-        """
-        try:
-            import fitz  # PyMuPDF
-            doc = fitz.open(pdf_path)
-            page = doc[0]
-            mat = fitz.Matrix(2.5, 2.5)   # 2.5x zoom — aniq ko'rinadi
-            pix = page.get_pixmap(matrix=mat, alpha=False)
-            png_path = pdf_path.replace(".pdf", "_preview.png")
-            pix.save(png_path)
-            doc.close()
-            return png_path
-        except Exception:
-            return None
-
-    # ── Yordamchi metodlar ────────────────────────────────────────────────────
+            pass
 
     def _safe(self, text: str) -> str:
         if self.unicode_font_ready:
@@ -256,27 +205,9 @@ class CertificateGenerator:
             pdf.set_font("Helvetica", style, size)
 
     def _configure_unicode_fonts(self, pdf: FPDF) -> bool:
-        regular_candidates = [
-            os.getenv("CERTIFICATE_FONT_REGULAR"),
-            "DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/local/share/fonts/DejaVuSans.ttf",
-            "C:/Windows/Fonts/DejaVuSans.ttf",
-        ]
-        bold_candidates = [
-            os.getenv("CERTIFICATE_FONT_BOLD"),
-            "DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/local/share/fonts/DejaVuSans-Bold.ttf",
-            "C:/Windows/Fonts/DejaVuSans-Bold.ttf",
-        ]
-        regular_path = next(
-            (p for p in regular_candidates if p and os.path.exists(p)), None
-        )
-        bold_path = next(
-            (p for p in bold_candidates if p and os.path.exists(p)), None
-        )
-        if not regular_path or not bold_path:
+        regular_path = "DejaVuSans.ttf"
+        bold_path = "DejaVuSans-Bold.ttf"
+        if not os.path.exists(regular_path) or not os.path.exists(bold_path):
             return False
         pdf.add_font(self.unicode_font_family, "", regular_path)
         pdf.add_font(self.unicode_font_family, "B", bold_path)
@@ -284,10 +215,5 @@ class CertificateGenerator:
 
     @staticmethod
     def _to_latin1_safe(text) -> str:
-        if text is None:
-            return ""
-        return str(text).translate(
-            str.maketrans(
-                {"ʻ": "'", "ʼ": "'", "\u2018": "'", "\u2019": "'", "`": "'", "´": "'"}
-            )
-        )
+        if text is None: return ""
+        return str(text).translate(str.maketrans({"ʻ": "'", "ʼ": "'", "`": "'"}))
