@@ -1026,32 +1026,32 @@ _VERIFY_CSS = """
   /* Footer */
   .card-footer {
     border-top: 1px solid var(--border);
-    padding: 16px 24px;
+    padding: 18px 24px 22px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    gap: 10px;
     background: #fafbfc;
+    text-align: center;
   }
-  .footer-left {
+  .footer-hint {
     font-size: .75em;
     color: var(--muted);
-    line-height: 1.5;
   }
-  .footer-left strong { display: block; color: var(--text); }
   .tg-link {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     background: #0088cc;
     color: #fff;
     text-decoration: none;
-    padding: 7px 13px;
+    padding: 9px 20px;
     border-radius: 100px;
-    font-size: .78em;
+    font-size: .82em;
     font-weight: 600;
     white-space: nowrap;
   }
-  .tg-link svg { width: 14px; height: 14px; fill: #fff; }
+  .tg-link svg { width: 15px; height: 15px; fill: #fff; }
   .no-result { color: #a0aec0; font-style: italic; padding: 16px 0; }
 """
 
@@ -1207,7 +1207,7 @@ def _verify_success_html(talaba: dict, natija: dict | None,
   <div class="card">
     <div class="header-band">
       {logo_html}
-      <div class="school-name">Bo'stonliq tumani ixtisoslashtirilgan maktabi</div>
+      <div class="school-name">Bo'stonliq tuman ixtisoslashtirilgan maktabi</div>
     </div>
 
     <div class="body">
@@ -1223,10 +1223,7 @@ def _verify_success_html(talaba: dict, natija: dict | None,
     </div>
 
     <div class="card-footer">
-      <div class="footer-left">
-        <strong>Bustanlik SS Testing System</strong>
-        Bu sahifa sertifikat haqiqiyligini tasdiqlaydi
-      </div>
+      <div class="footer-hint">Bu sahifa sertifikat haqiqiyligini tasdiqlaydi</div>
       <a class="tg-link" href="https://t.me/{bot_user}" target="_blank">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/>
