@@ -77,6 +77,11 @@ if _verify_raw and not _verify_raw.startswith("http"):
     _verify_raw = "https://" + _verify_raw
 VERIFY_BASE_URL = _verify_raw.rstrip("/")
 
+# Google Sheets eksport sozlamalari
+# Railway Variables da GOOGLE_CREDENTIALS_JSON va GOOGLE_SHEETS_ID ni qo'shing
+GOOGLE_SHEETS_ID = _env("GOOGLE_SHEETS_ID", "")
+GOOGLE_CREDENTIALS_JSON = _env("GOOGLE_CREDENTIALS_JSON", "")
+
 # Mavjud yo'nalishlar (asosiy fan juftliklari)
 YONALISHLAR = [
     "Matematika + Fizika",
