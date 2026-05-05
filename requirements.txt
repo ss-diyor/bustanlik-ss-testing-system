@@ -1,4 +1,6 @@
 aiogram==3.27.0
+gspread>=6.0.0
+google-auth>=2.28.0
 pydantic==2.10.6
 pydantic-core==2.27.2
 pandas>=2.0.0,<3.0.0
