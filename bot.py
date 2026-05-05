@@ -121,7 +121,7 @@ async def start_handler(message: Message):
     mini_test_enabled = get_setting("mini_test_enabled", "True")
 
     await message.answer(
-        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM imtihoni va mock testlar natijalari botiga xush kelibsiz!</b>\n\n"
+        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM imtihoni va mock test natijalari botiga xush kelibsiz!</b>\n\n"
         "📌 <b>O'quvchilar uchun:</b>\n"
         "Shaxsiy kodingizni yuboring — natijangiz darhol ko'rsatiladi.\n"
         "<i>Masalan: A-007 yoki 52B</i>\n\n"
@@ -413,6 +413,10 @@ async def scheduler():
 
 async def main():
     """Botni ishga tushiradi."""
+    import time
+    from bot_status import set_start_time
+    set_start_time(time.time())
+
     # ─── 1. Web server BIRINCHI bind bo'lishi kerak ───────────────────────────
     # Railway health check PORT ga ulanishga harakat qiladi. Agar web server
     # DB init tugaguncha ishga tushmasa, deploy muvaffaqiyatsiz bo'ladi.
