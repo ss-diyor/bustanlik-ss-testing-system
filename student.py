@@ -80,6 +80,7 @@ class ResultCheckState(StatesGroup):
 
 
 ADMIN_TUGMALAR = {
+    # ── Admin menyusi tugmalari ──────────────────────────────────────────────
     "➕ O'quvchi qo'shish",
     "📥 Exceldan import",
     "🔑 Test kalitlarini boshqarish",
@@ -92,11 +93,22 @@ ADMIN_TUGMALAR = {
     "🧹 Bazani tozalash",
     "📢 Xabar yuborish",
     "🔍 Kod bo'yicha qidirish",
-    "🚪 Chiqish",
-    "✍️ Admin bilan bog'lanish",
     "❌ Bekor qilish",
-    "✅ Javoblarni tekshirish",
+    # ── O'quvchi menyusi tugmalari (holat o'rtasida bosilsa — to'xtatish) ────
     "📊 Mening natijam",
+    "👤 Shaxsiy kabinet",      # BUG FIX: yo'q edi → "Bunday kod topilmadi" xatosi
+    "🏆 Mening o'rnim",
+    "✅ Javoblarni tekshirish",
+    "⚖️ Apellyatsiya",
+    "🧪 Mock natijalarim",
+    "📈 Statistika",
+    "🧠 AI Tahlili",
+    "🤖 AI Chatbot",
+    "📝 Mashq qilish (Quiz)",
+    "🔔 Bildirishnomalar",
+    "📦 Mini-testlar",
+    "✍️ Admin bilan bog'lanish",
+    "🚪 Chiqish",
 }
 
 # ─────────────────────────────────────────
