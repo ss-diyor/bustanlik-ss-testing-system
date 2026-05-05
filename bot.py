@@ -57,6 +57,10 @@ session = AiohttpSession(timeout=300)
 bot = Bot(token=BOT_TOKEN, session=session)
 dp = Dispatcher(storage=MemoryStorage())
 
+# ── Rate Limiter — spam himoyasi ──────────────────────────────────────────
+from rate_limiter import rate_limiter
+dp.update.middleware(rate_limiter)
+
 # Routerlarni ulash
 dp.include_router(admin.router)
 dp.include_router(mock_admin.router)
@@ -121,7 +125,7 @@ async def start_handler(message: Message):
     mini_test_enabled = get_setting("mini_test_enabled", "True")
 
     await message.answer(
-        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM imtihoni va mock test natijalari botiga xush kelibsiz!</b>\n\n"
+        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
         "📌 <b>O'quvchilar uchun:</b>\n"
         "Shaxsiy kodingizni yuboring — natijangiz darhol ko'rsatiladi.\n"
         "<i>Masalan: A-007 yoki 52B</i>\n\n"
