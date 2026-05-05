@@ -1506,6 +1506,35 @@ def get_student_rank(kod: str):
     return res
 
 
+def get_students_count_by_yonalish(maktab_id: int = None):
+    """Yo'nalish bo'yicha o'quvchilar sonini qaytaradi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    if maktab_id:
+        cur.execute("""
+            SELECT
+                COALESCE(yonalish, 'Belgilanmagan') AS yonalish,
+                COUNT(*) AS soni
+            FROM talabalar
+            WHERE maktab_id = %s
+            GROUP BY yonalish
+            ORDER BY soni DESC
+        """, (maktab_id,))
+    else:
+        cur.execute("""
+            SELECT
+                COALESCE(yonalish, 'Belgilanmagan') AS yonalish,
+                COUNT(*) AS soni
+            FROM talabalar
+            GROUP BY yonalish
+            ORDER BY soni DESC
+        """)
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [dict(r) for r in rows]
+
+
 def get_avg_score_by_direction():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
