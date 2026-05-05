@@ -138,6 +138,74 @@ def create_direction_chart(stats_data):
     return filename
 
 
+def create_yonalish_pie_chart(data: list, maktab_nomi: str = None) -> str | None:
+    """Yo'nalishlar bo'yicha o'quvchilar taqsimotini pie chart ko'rinishida chizadi."""
+    if not data:
+        return None
+
+    labels = [d["yonalish"] for d in data]
+    sizes  = [d["soni"] for d in data]
+    jami   = sum(sizes)
+
+    # Ranglar palitasi
+    COLORS = [
+        "#4E79A7", "#F28E2B", "#E15759", "#76B7B2",
+        "#59A14F", "#EDC948", "#B07AA1", "#FF9DA7",
+        "#9C755F", "#BAB0AC",
+    ]
+    colors = (COLORS * ((len(labels) // len(COLORS)) + 1))[:len(labels)]
+
+    fig, ax = plt.subplots(figsize=(9, 7), facecolor="white")
+
+    wedges, texts, autotexts = ax.pie(
+        sizes,
+        labels=None,
+        autopct=lambda p: f"{p:.1f}%\n({int(round(p * jami / 100))} ta)",
+        colors=colors,
+        startangle=140,
+        pctdistance=0.75,
+        wedgeprops={"linewidth": 1.5, "edgecolor": "white"},
+    )
+
+    for at in autotexts:
+        at.set_fontsize(9)
+        at.set_fontweight("bold")
+        at.set_color("white")
+
+    # Markazga jami soni
+    ax.text(
+        0, 0,
+        f"Jami\n{jami} ta",
+        ha="center", va="center",
+        fontsize=13, fontweight="bold", color="#333333",
+    )
+
+    # Legenda
+    legend_labels = [f"{l}  —  {s} ta ({s/jami*100:.1f}%)" for l, s in zip(labels, sizes)]
+    ax.legend(
+        wedges,
+        legend_labels,
+        title="Yo'nalishlar",
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.18),
+        ncol=2,
+        fontsize=9,
+        title_fontsize=10,
+        frameon=True,
+        framealpha=0.9,
+    )
+
+    sarlavha = f"Yo'nalishlar bo'yicha o'quvchilar taqsimoti"
+    if maktab_nomi:
+        sarlavha += f"\n{maktab_nomi}"
+    ax.set_title(sarlavha, fontsize=14, fontweight="bold", pad=16, color="#222222")
+
+    plt.tight_layout()
+    filename = "yonalish_pie.png"
+    plt.savefig(filename, dpi=120, bbox_inches="tight", facecolor="white")
+    plt.close()
+    return filename
+
 from database import (
     init_db,
     talaba_topish,
@@ -185,6 +253,7 @@ from database import (
     get_class_comparison_by_maktab,
     get_avg_score_by_direction,
     get_avg_score_by_direction_by_maktab,
+    get_students_count_by_yonalish,
     get_most_improved_students,
     get_most_improved_students_by_maktab,
     get_most_declined_students,
@@ -2843,6 +2912,45 @@ async def stats_callback_handler(callback: CallbackQuery, state: FSMContext):
                 os.remove(chart_file)
             else:
                 await callback.message.edit_text(text, parse_mode="HTML")
+
+    elif action == "yonalish_pie":
+        data = await state.get_data()
+        maktab_id = data.get("selected_maktab_id")
+        maktab_nomi = data.get("selected_maktab_nomi")
+
+        wait = await callback.message.answer("⏳ Pie chart tayyorlanmoqda...")
+        try:
+            pie_data = get_students_count_by_yonalish(maktab_id)
+            if not pie_data:
+                await wait.delete()
+                await callback.message.answer("⚠️ Ma'lumotlar topilmadi.")
+                await callback.answer()
+                return
+
+            chart_file = create_yonalish_pie_chart(pie_data, maktab_nomi)
+            jami = sum(d["soni"] for d in pie_data)
+
+            sarlavha = "🥧 <b>Yo'nalishlar bo'yicha o'quvchilar taqsimoti"
+            if maktab_nomi:
+                sarlavha += f"\n{maktab_nomi}"
+            sarlavha += f"</b>\n\nJami: <b>{jami} ta</b> o'quvchi\n\n"
+            for i, d in enumerate(pie_data, 1):
+                foiz = d["soni"] / jami * 100
+                sarlavha += f"{i}. <b>{d['yonalish']}</b> — {d['soni']} ta ({foiz:.1f}%)\n"
+
+            await wait.delete()
+            if chart_file and os.path.exists(chart_file):
+                await callback.message.answer_photo(
+                    photo=FSInputFile(chart_file),
+                    caption=sarlavha,
+                    parse_mode="HTML",
+                )
+                os.remove(chart_file)
+            else:
+                await callback.message.answer(sarlavha, parse_mode="HTML")
+        except Exception as e:
+            await wait.delete()
+            await callback.message.answer(f"❌ Xatolik: {e}")
 
     elif action == "improved":
         # Eng ko'p o'sganlar
