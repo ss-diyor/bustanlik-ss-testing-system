@@ -52,6 +52,7 @@ def admin_menu_keyboard():
                 KeyboardButton(text="📄 PDF Hisobot"),
             ],
             [KeyboardButton(text="📊 Excel Hisobot")],
+            [KeyboardButton(text="📗 Google Sheets Eksport")],
             [
                 KeyboardButton(text="⚖️ Sinf taqqoslash"),
                 KeyboardButton(text="📋 O'quvchilar ro'yxati"),
@@ -1990,6 +1991,39 @@ def excel_export_keyboard():
             [
                 InlineKeyboardButton(
                     text="🏆 Sinf reytingi", callback_data="excel:sinf_reyting"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Orqaga", callback_data="cancel:admin_menu"
+                )
+            ],
+        ]
+    )
+
+
+def sheets_export_keyboard():
+    """Google Sheets eksport menyusi."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="👤 O'quvchi tarixi", callback_data="sheets:student"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="👥 Barcha o'quvchilar", callback_data="sheets:all_students"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏫 Maktab statistikasi", callback_data="sheets:maktab_stat"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏆 Sinf reytingi", callback_data="sheets:sinf_reyting"
                 )
             ],
             [
