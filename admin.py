@@ -1,6 +1,7 @@
 import asyncio
 import os
 from aiogram import Router, F, Bot
+from aiogram.filters import Command
 from aiogram.types import (
     Message,
     CallbackQuery,
@@ -6816,3 +6817,58 @@ async def sheets_sinf_callback(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         await wait_msg.delete()
         await callback.answer(f"❌ Xatolik: {e}", show_alert=True)
+
+
+# =====================================================================
+# /status — Bot holati monitoringi
+# =====================================================================
+
+@router.message(Command("status"))
+async def status_command(message: Message, state: FSMContext):
+    """Faqat adminlar uchun — bot holati, DB ping, xotira, CPU, disk."""
+    from config import ADMIN_IDS
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("❌ Bu buyruq faqat adminlar uchun.")
+        return
+
+    wait = await message.answer("⏳ Ma'lumotlar yig'ilmoqda...")
+    try:
+        from bot_status import build_status_text
+        text = await build_status_text()
+        await wait.delete()
+        await message.answer(
+            text,
+            parse_mode="HTML",
+            reply_markup=status_refresh_keyboard(),
+        )
+    except Exception as e:
+        await wait.delete()
+        await message.answer(f"❌ Status xatosi: {e}")
+
+
+@router.callback_query(F.data == "status:refresh")
+async def status_refresh_callback(callback: CallbackQuery, state: FSMContext):
+    """Statusni yangilash tugmasi."""
+    from config import ADMIN_IDS
+    if callback.from_user.id not in ADMIN_IDS:
+        await callback.answer("❌ Ruxsat yo'q!", show_alert=True)
+        return
+
+    await callback.answer("🔄 Yangilanmoqda...")
+    try:
+        from bot_status import build_status_text
+        text = await build_status_text()
+        await callback.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=status_refresh_keyboard(),
+        )
+    except Exception as e:
+        await callback.message.answer(f"❌ Status xatosi: {e}")
+
+
+def status_refresh_keyboard():
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🔄 Yangilash", callback_data="status:refresh")
+    ]])
