@@ -5021,7 +5021,7 @@ async def dublikatlar_back_callback(
 
 @router.message(F.text == "/cancel")
 async def cancel_handler(message: Message, state: FSMContext):
-    """Barcha faol FSM holatlarini bekor qilish"""
+    """Barcha faol FSM holatlarini bekor qilish — foydalanuvchi roliga qarab to'g'ri menyu ko'rsatiladi"""
     current_state = await state.get_state()
 
     if current_state is None:
@@ -5031,11 +5031,29 @@ async def cancel_handler(message: Message, state: FSMContext):
         return
 
     await state.clear()
-    await message.answer(
-        "✅ <b>Barcha amallar bekor qilindi!</b>\n\n" "🏠 Asosiy menyu:",
-        parse_mode="HTML",
-        reply_markup=admin_menu_keyboard(),
-    )
+
+    # ✅ FIX: Admin bo'lsa admin menyusi, bo'lmasa o'quvchi menyusi ko'rsatiladi
+    if is_admin_id(message.from_user.id):
+        await message.answer(
+            "✅ <b>Barcha amallar bekor qilindi!</b>\n\n🏠 Admin menyusi:",
+            parse_mode="HTML",
+            reply_markup=admin_menu_keyboard(),
+        )
+    else:
+        from database import get_setting
+        from keyboards import user_menu_keyboard
+        await message.answer(
+            "✅ <b>Barcha amallar bekor qilindi!</b>\n\n🏠 Asosiy menyu:",
+            parse_mode="HTML",
+            reply_markup=user_menu_keyboard(
+                get_setting("ranking_enabled", "True"),
+                get_setting("stats_enabled", "True"),
+                get_setting("chatbot_enabled", "True"),
+                get_setting("mock_enabled", "True"),
+                get_setting("quiz_enabled", "True"),
+                get_setting("mini_test_enabled", "True"),
+            ),
+        )
 
 
 @router.callback_query(F.data.startswith("cancel:"))
