@@ -203,7 +203,7 @@ def export_all_students(tab_title: str = "Barcha o'quvchilar") -> str:
 
     # 1-qator: sarlavha
     ws.update("A1", [[f"Barcha o'quvchilar — {now_str}"]])
-    ws.merge_cells("A1", f"{_col_letter(col_count)}1")
+    ws.merge_cells(f"A1:{_col_letter(col_count)}1")
     _fmt_title(ws, 1, col_count)
 
     # 2-qator: ustun nomlari
@@ -265,7 +265,7 @@ def export_maktab_statistika(
     col_count = len(headers)
 
     ws.update("A1", [[f"{title_text} — {now_str}"]])
-    ws.merge_cells("A1", f"{_col_letter(col_count)}1")
+    ws.merge_cells(f"A1:{_col_letter(col_count)}1")
     _fmt_title(ws, 1, col_count)
 
     ws.update("A2", [headers])
@@ -356,7 +356,7 @@ def export_sinf_reyting(
     col_count = len(headers)
 
     ws.update("A1", [[f"{title_text} — {now_str}"]])
-    ws.merge_cells("A1", f"{_col_letter(col_count)}1")
+    ws.merge_cells(f"A1:{_col_letter(col_count)}1")
     _fmt_title(ws, 1, col_count)
 
     ws.update("A2", [headers])
@@ -396,7 +396,7 @@ def export_student_history(
     col_count = 5
 
     ws.update("A1", [[f"O'quvchi hisoboti — {talaba['ismlar']}"]])
-    ws.merge_cells("A1", f"{_col_letter(col_count)}1")
+    ws.merge_cells(f"A1:{_col_letter(col_count)}1")
     _fmt_title(ws, 1, col_count)
 
     # Ma'lumot bloki
