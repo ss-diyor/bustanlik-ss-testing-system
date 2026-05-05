@@ -6872,3 +6872,55 @@ def status_refresh_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="🔄 Yangilash", callback_data="status:refresh")
     ]])
+
+
+# =====================================================================
+# Rate Limiter boshqaruvi — /rl_status, /rl_unban
+# =====================================================================
+
+@router.message(Command("rl_status"))
+async def rl_status_command(message: Message, state: FSMContext):
+    """Rate limiter holati — faqat adminlar."""
+    from config import ADMIN_IDS
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    from rate_limiter import rate_limiter
+    await message.answer(rate_limiter.get_stats(), parse_mode="HTML")
+
+
+@router.message(Command("rl_unban"))
+async def rl_unban_command(message: Message, state: FSMContext):
+    """Foydalanuvchini banidan chiqarish: /rl_unban 123456789"""
+    from config import ADMIN_IDS
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    parts = message.text.split()
+    if len(parts) < 2 or not parts[1].isdigit():
+        await message.answer("❌ Foydalanish: <code>/rl_unban USER_ID</code>", parse_mode="HTML")
+        return
+
+    user_id = int(parts[1])
+    from rate_limiter import rate_limiter
+    if rate_limiter.unban(user_id):
+        await message.answer(f"✅ <code>{user_id}</code> banidan chiqarildi.", parse_mode="HTML")
+    else:
+        await message.answer(f"ℹ️ <code>{user_id}</code> hozir banlangan emas.", parse_mode="HTML")
+
+
+@router.message(Command("rl_reset"))
+async def rl_reset_command(message: Message, state: FSMContext):
+    """Foydalanuvchi rate limit holatini tozalash: /rl_reset 123456789"""
+    from config import ADMIN_IDS
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    parts = message.text.split()
+    if len(parts) < 2 or not parts[1].isdigit():
+        await message.answer("❌ Foydalanish: <code>/rl_reset USER_ID</code>", parse_mode="HTML")
+        return
+
+    user_id = int(parts[1])
+    from rate_limiter import rate_limiter
+    rate_limiter.reset(user_id)
+    await message.answer(f"✅ <code>{user_id}</code> holati tozalandi.", parse_mode="HTML")
