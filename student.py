@@ -1027,7 +1027,7 @@ async def student_profile(message: Message):
 
     if not talaba:
         await message.answer(
-            "⚠️ Avval profilingizni ulashing (Masalan: ULASH_A-001)"
+            "⚠️ Avval profilingizni ulang (Masalan: ULASH_A-001)"
         )
         return
 
