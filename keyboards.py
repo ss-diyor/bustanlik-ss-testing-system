@@ -1298,6 +1298,12 @@ def stats_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    text="🥧 Yo'nalishlar pie chart",
+                    callback_data="stats:yonalish_pie",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="🏫 Sinflar bo'yicha", callback_data="stats:class"
                 )
             ],
