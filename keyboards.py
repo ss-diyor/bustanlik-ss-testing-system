@@ -485,7 +485,7 @@ def broadcast_confirm_keyboard():
 
 
 def broadcast_target_keyboard():
-    """Broadcast maqsadini tanlash: barcha yoki maktab bo'yicha."""
+    """Broadcast maqsadini tanlash: barcha, maktab, sinf yoki yo'nalish bo'yicha."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -496,8 +496,18 @@ def broadcast_target_keyboard():
             ],
             [
                 InlineKeyboardButton(
-                    text="🏫 Maktab bo'yicha tanlash",
+                    text="🏫 Maktab bo'yicha",
                     callback_data="bcast_target:school"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🎓 Sinf bo'yicha",
+                    callback_data="bcast_target:sinf"
+                ),
+                InlineKeyboardButton(
+                    text="📚 Yo'nalish bo'yicha",
+                    callback_data="bcast_target:yonalish"
                 )
             ],
             [
@@ -524,6 +534,44 @@ def broadcast_maktab_tanlash_keyboard(maktablar: list):
         InlineKeyboardButton(
             text="❌ Bekor qilish",
             callback_data="bcast_school:cancel"
+        )
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def broadcast_sinf_tanlash_keyboard(sinflar: list):
+    """Broadcast uchun sinflar ro'yxatidan birini tanlash uchun inline keyboard."""
+    buttons = []
+    for sinf_nomi in sinflar:
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"🎓 {sinf_nomi}",
+                callback_data=f"bcast_sinf:{sinf_nomi}"
+            )
+        ])
+    buttons.append([
+        InlineKeyboardButton(
+            text="❌ Bekor qilish",
+            callback_data="bcast_sinf:cancel"
+        )
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def broadcast_yonalish_tanlash_keyboard(yonalishlar: list):
+    """Broadcast uchun yo'nalishlar ro'yxatidan birini tanlash uchun inline keyboard."""
+    buttons = []
+    for y in yonalishlar:
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"📚 {y}",
+                callback_data=f"bcast_yonalish:{y}"
+            )
+        ])
+    buttons.append([
+        InlineKeyboardButton(
+            text="❌ Bekor qilish",
+            callback_data="bcast_yonalish:cancel"
         )
     ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
