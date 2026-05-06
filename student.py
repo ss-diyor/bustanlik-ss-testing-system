@@ -109,6 +109,7 @@ ADMIN_TUGMALAR = {
     "📦 Mini-testlar",
     "✍️ Admin bilan bog'lanish",
     "🚪 Chiqish",
+    "🎭 Demo kodlar",
 }
 
 # ─────────────────────────────────────────
