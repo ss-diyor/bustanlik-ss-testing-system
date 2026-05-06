@@ -1829,11 +1829,34 @@ def guruh_boshqarish_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    text="🗑 Guruhni o'chirish",
+                    callback_data="guruh:ochirish_royxat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="🔙 Orqaga", callback_data="admin_menu"
                 )
             ],
         ]
     )
+
+
+def guruh_ochirish_keyboard(guruhlar: list):
+    """Har bir guruh uchun o'chirish tugmasi."""
+    buttons = []
+    for g in guruhlar:
+        nomi = g.get('nomi') or 'Nomsiz guruh'
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"🗑 {nomi}",
+                callback_data=f"guruh_del:{g['chat_id']}",
+            )
+        ])
+    buttons.append([
+        InlineKeyboardButton(text="🔙 Orqaga", callback_data="guruh:ro'yxat_menu")
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def appeals_keyboard(appeals_list):
