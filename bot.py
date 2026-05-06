@@ -215,18 +215,37 @@ async def handle_group_message(message: Message):
 
 @dp.message(F.text.startswith("ULASH_"))
 async def bind_user_to_kod(message: Message):
+    from database import demo_sessiya_boshlash, demo_kodlar_ol
     kod = message.text.replace("ULASH_", "").strip().upper()
     talaba = talaba_topish(kod)
     if talaba:
-        # Oldin ulangan-ulanmaganligini tekshirish
-        avval_ulangan = talaba.get("user_id") is not None
+        # ── Demo kod tekshiruvi ────────────────────────────────────────────
+        if talaba.get("is_demo"):
+            demo_sessiya_boshlash(message.from_user.id, kod)
+            await message.answer(
+                "🎭 <b>Demo rejimga xush kelibsiz!</b>\n\n"
+                f"📌 Sizning demo kodingiz: <code>{kod}</code>\n\n"
+                "Botning barcha funksiyalarini sinab ko'rishingiz mumkin.\n"
+                "<i>Bu vaqtinchalik demo — haqiqiy kodingiz tayyor bo'lgach, uni yuboring.</i>",
+                parse_mode="HTML",
+                reply_markup=user_menu_keyboard(
+                    get_setting("ranking_enabled", "True"),
+                    get_setting("stats_enabled", "True"),
+                    get_setting("chatbot_enabled", "True"),
+                    get_setting("mock_enabled", "True"),
+                    get_setting("quiz_enabled", "True"),
+                    get_setting("mini_test_enabled", "True"),
+                ),
+            )
+            return
 
+        # ── Oddiy talaba ulash ─────────────────────────────────────────────
+        avval_ulangan = talaba.get("user_id") is not None
         talaba_user_id_yangila(kod, message.from_user.id)
         await message.answer(
             f"✅ Tabriklaymiz! Sizning profilingiz <b>{kod}</b> kodiga muvaffaqiyatli ulandi. Endi yangi natijalar haqida avtomatik xabar olasiz.",
             parse_mode="HTML",
         )
-        # Faqat birinchi marta ulanayotganda guruhga xabar yuborish
         if not avval_ulangan:
             asyncio.create_task(
                 _guruh_royxat_bildirish(message.bot, tg_user=message.from_user, talaba=talaba)
