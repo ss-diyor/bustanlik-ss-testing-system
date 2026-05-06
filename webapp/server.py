@@ -114,9 +114,20 @@ async def student_api(request: web.Request) -> web.Response:
         conn = get_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # O'quvchi ma'lumotlari
+        # O'quvchi ma'lumotlari (real yoki demo sessiya orqali)
         cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (user_id,))
         talaba = cur.fetchone()
+
+        # Demo sessiyadan qidirish
+        if not talaba or talaba.get("is_demo"):
+            cur.execute("""
+                SELECT t.* FROM talabalar t
+                JOIN demo_sessions d ON d.kod = t.kod
+                WHERE d.user_id = %s AND t.is_demo = TRUE
+            """, (user_id,))
+            demo_talaba = cur.fetchone()
+            if demo_talaba:
+                talaba = demo_talaba
 
         if not talaba:
             cur.close()
