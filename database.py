@@ -2704,6 +2704,42 @@ def count_users_by_maktab(maktab_id: int) -> int:
     return len(get_user_ids_by_maktab(maktab_id))
 
 
+def get_user_ids_by_sinf(sinf_nomi: str) -> list:
+    """Berilgan sinf nomidagi botga ulangan o'quvchilar user_id larini qaytaradi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        "SELECT user_id FROM talabalar WHERE sinf = %s AND user_id IS NOT NULL",
+        (sinf_nomi,)
+    )
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [r["user_id"] for r in rows]
+
+
+def get_user_ids_by_yonalish(yonalish_nomi: str) -> list:
+    """Berilgan yo'nalish bo'yicha botga ulangan o'quvchilar user_id larini qaytaradi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        "SELECT user_id FROM talabalar WHERE yonalish = %s AND user_id IS NOT NULL",
+        (yonalish_nomi,)
+    )
+    rows = cur.fetchall()
+    cur.close()
+    release_connection(conn)
+    return [r["user_id"] for r in rows]
+
+
+def count_users_by_sinf(sinf_nomi: str) -> int:
+    return len(get_user_ids_by_sinf(sinf_nomi))
+
+
+def count_users_by_yonalish(yonalish_nomi: str) -> int:
+    return len(get_user_ids_by_yonalish(yonalish_nomi))
+
+
 def talaba_qidirish(query: str, limit: int = 10) -> list:
     """
     Ism bo'yicha o'quvchini qidiradi (katta-kichik harfga sezgir emas).
