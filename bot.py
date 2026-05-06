@@ -237,19 +237,27 @@ async def bind_user_to_kod(message: Message):
                     get_setting("mini_test_enabled", "True"),
                 ),
             )
+            # Guruhga demo foydalanuvchi haqida xabar yuborish
+            asyncio.create_task(
+                _guruh_royxat_bildirish(
+                    message.bot,
+                    tg_user=message.from_user,
+                    talaba={**talaba, "ismlar": message.from_user.full_name or talaba["ismlar"]},
+                    demo=True,
+                )
+            )
             return
 
         # ── Oddiy talaba ulash ─────────────────────────────────────────────
-        avval_ulangan = talaba.get("user_id") is not None
         talaba_user_id_yangila(kod, message.from_user.id)
         await message.answer(
             f"✅ Tabriklaymiz! Sizning profilingiz <b>{kod}</b> kodiga muvaffaqiyatli ulandi. Endi yangi natijalar haqida avtomatik xabar olasiz.",
             parse_mode="HTML",
         )
-        if not avval_ulangan:
-            asyncio.create_task(
-                _guruh_royxat_bildirish(message.bot, tg_user=message.from_user, talaba=talaba)
-            )
+        # Har safar ulashganda guruhga xabar yuboriladi (qayta ulashsa ham)
+        asyncio.create_task(
+            _guruh_royxat_bildirish(message.bot, tg_user=message.from_user, talaba=talaba)
+        )
     else:
         await message.answer("❌ Bunday kod topilmadi.")
 
@@ -259,11 +267,13 @@ async def _guruh_royxat_bildirish(
     tg_user,
     talaba: dict = None,
     phone_number: str = None,
+    demo: bool = False,
 ):
     """Guruhlarga yangi foydalanuvchi haqida xabar yuboradi.
 
     - phone_number berilsa: telefon orqali ro'yxatdan o'tish
     - talaba berilsa: ULASH_KOD orqali akkaunt ulash
+    - demo=True: demo kod orqali kirgan foydalanuvchi
     """
     from database import guruhlar_ol
 
@@ -283,6 +293,15 @@ async def _guruh_royxat_bildirish(
             f"📞 Telefon: <b>{phone_number}</b>\n"
             f"🔗 Telegram: {username}\n\n"
             f"<i>Hali talaba kodi bilan ulanmagan</i>"
+        )
+    elif demo and talaba:
+        # Demo kod orqali kirgan foydalanuvchi
+        text = (
+            f"🎭 <b>Yangi demo foydalanuvchi!</b>\n\n"
+            f"👤 Telegram ism: <b>{full_name}</b>\n"
+            f"🔗 Telegram: {username}\n"
+            f"📌 Demo kod: <b>{talaba['kod']}</b>\n\n"
+            f"<i>Haqiqiy kod hali berilmagan</i>"
         )
     else:
         # ULASH_KOD orqali talaba profili ulandi
