@@ -265,6 +265,7 @@ from database import (
     set_setting,
     guruhlar_ol,
     guruh_qosh,
+    guruh_ochir,
     appeal_qosh,
     appeal_javob_ber,
     appeals_ol,
@@ -342,6 +343,7 @@ from keyboards import (
     reminder_boshqarish_keyboard,
     maktab_boshqarish_keyboard,
     guruh_boshqarish_keyboard,
+    guruh_ochirish_keyboard,
     reminder_list_keyboard,
     maktab_list_keyboard,
     maktab_detail_keyboard,
@@ -4749,6 +4751,97 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
             f"✅ Backup {sent} ta guruhga yuborildi.", show_alert=True
         )
         return
+
+
+@router.callback_query(F.data == "guruh:ochirish_royxat")
+async def guruh_ochirish_royxat(call: CallbackQuery, state: FSMContext):
+    """O'chirish uchun guruhlar ro'yxatini ko'rsatish."""
+    if not await admin_tekshir(state, call.from_user.id):
+        return
+    guruhlar = guruhlar_ol()
+    if not guruhlar:
+        await call.answer("⚠️ Hali ulangan guruhlar mavjud emas.", show_alert=True)
+        return
+    await call.message.edit_text(
+        "🗑 <b>Qaysi guruhni o'chirmoqchisiz?</b>\n\n"
+        "Guruh o'chirilgandan so'ng unga xabarlar yuborilmaydi.\n"
+        "<i>Bot guruhdan chiqarilmaydi — faqat bazadan o'chiriladi.</i>",
+        parse_mode="HTML",
+        reply_markup=guruh_ochirish_keyboard(guruhlar),
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data == "guruh:ro'yxat_menu")
+async def guruh_royxat_menu_back(call: CallbackQuery, state: FSMContext):
+    """Guruhlar boshqaruv menyusiga qaytish."""
+    if not await admin_tekshir(state, call.from_user.id):
+        return
+    await call.message.edit_text(
+        "📢 Guruhlarni boshqarish bo'limi:",
+        reply_markup=guruh_boshqarish_keyboard(),
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("guruh_del:"))
+async def guruh_ochir_tasdiqlash(call: CallbackQuery, state: FSMContext):
+    """Guruhni o'chirish — tasdiqlash so'rash."""
+    if not await admin_tekshir(state, call.from_user.id):
+        return
+    chat_id = int(call.data.split(":")[1])
+    guruhlar = guruhlar_ol()
+    guruh = next((g for g in guruhlar if g["chat_id"] == chat_id), None)
+    nomi = guruh.get("nomi") or "Nomsiz guruh" if guruh else "Noma'lum"
+
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    tasdiq_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="✅ Ha, o'chirish",
+                callback_data=f"guruh_del_ha:{chat_id}",
+            ),
+            InlineKeyboardButton(
+                text="❌ Bekor",
+                callback_data="guruh:ochirish_royxat",
+            ),
+        ]
+    ])
+    await call.message.edit_text(
+        f"⚠️ <b>Tasdiqlash</b>\n\n"
+        f"<b>{nomi}</b> (<code>{chat_id}</code>) guruhini bazadan o'chirasizmi?\n\n"
+        f"<i>Bot guruhdan chiqarilmaydi.</i>",
+        parse_mode="HTML",
+        reply_markup=tasdiq_kb,
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("guruh_del_ha:"))
+async def guruh_ochir_bajar(call: CallbackQuery, state: FSMContext):
+    """Guruhni bazadan o'chirish."""
+    if not await admin_tekshir(state, call.from_user.id):
+        return
+    chat_id = int(call.data.split(":")[1])
+    guruh_ochir(chat_id)
+    guruhlar = guruhlar_ol()
+    await call.answer("✅ Guruh muvaffaqiyatli o'chirildi!", show_alert=True)
+    if not guruhlar:
+        await call.message.edit_text(
+            "📢 Guruhlarni boshqarish bo'limi:\n\n<i>Hozircha ulangan guruhlar yo'q.</i>",
+            parse_mode="HTML",
+            reply_markup=guruh_boshqarish_keyboard(),
+        )
+    else:
+        await call.message.edit_text(
+            "🗑 <b>Guruh o'chirildi.</b> Qolgan guruhlar:\n\n"
+            + "\n".join(
+                f"• {g.get('nomi') or 'Nomsiz'} — <code>{g['chat_id']}</code>"
+                for g in guruhlar
+            ),
+            parse_mode="HTML",
+            reply_markup=guruh_ochirish_keyboard(guruhlar),
+        )
 
 
 @router.message(F.text == "📱 Ro'yxatdan o'tganlar")
