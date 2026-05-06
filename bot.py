@@ -6,8 +6,8 @@ from datetime import datetime
 from tz_utils import now as tz_now, TZ
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message, ReplyKeyboardRemove
-from aiogram.filters import CommandStart
+from aiogram.types import Message, ReplyKeyboardRemove, ChatMemberUpdated
+from aiogram.filters import CommandStart, ChatMemberUpdatedFilter, JOIN_TRANSITION
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
@@ -48,6 +48,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+
+logger = logging.getLogger(__name__)
 
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiohttp import ClientTimeout
@@ -193,9 +195,21 @@ async def logout_handler(message: Message):
     await start_handler(message)
 
 
+# ── TUZATISH 1: Bot guruhga qo'shilganda avtomatik ro'yxatdan o'tkazish ──────
+@dp.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=JOIN_TRANSITION))
+async def bot_added_to_group(event: ChatMemberUpdated):
+    """Bot guruhga qo'shilganda guruhni bazaga saqlaydi."""
+    if event.chat.type in ("group", "supergroup"):
+        guruh_qosh(event.chat.id, event.chat.title)
+        logger.info(
+            f"Bot guruhga qo'shildi va saqlandi: '{event.chat.title}' (ID: {event.chat.id})"
+        )
+
+
+# ── TUZATISH 2: Guruhda xabar yozilganda ham yangilash (chat_id o'zgarishi uchun) ──
 @dp.message(F.chat.type.in_({"group", "supergroup"}))
 async def handle_group_message(message: Message):
-    """Guruhga bot qo'shilganda yoki xabar yozilganda guruhni bazaga qo'shadi."""
+    """Guruhda xabar yozilganda guruhni bazaga qo'shadi/yangilaydi."""
     guruh_qosh(message.chat.id, message.chat.title)
 
 
@@ -236,6 +250,7 @@ async def _guruh_royxat_bildirish(
 
     guruhlar = guruhlar_ol()
     if not guruhlar:
+        logger.warning("Guruhlar ro'yxati bo'sh — xabar yuborilmadi.")
         return
 
     username = f"@{tg_user.username}" if tg_user.username else "—"
@@ -262,11 +277,17 @@ async def _guruh_royxat_bildirish(
             f"🔗 Telegram: {username}"
         )
 
+    # ── TUZATISH 3: Xatolarni log qilish, sukut bilan o'tkazmaslik ──────────
     for g in guruhlar:
         try:
             await bot.send_message(g["chat_id"], text, parse_mode="HTML")
-        except Exception:
-            pass
+            logger.info(f"Guruhga xabar yuborildi: '{g.get('nomi', '')}' (ID: {g['chat_id']})")
+        except Exception as e:
+            logger.error(
+                f"Guruhga xabar yuborishda XATO — "
+                f"Guruh: '{g.get('nomi', 'Noma\\'lum')}' (ID: {g['chat_id']}) | "
+                f"Xato: {e}"
+            )
 
 
 async def send_backup():
@@ -399,8 +420,12 @@ async def group_ranking_scheduler():
                         await bot.send_message(
                             g["chat_id"], text, parse_mode="HTML"
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.error(
+                            f"Reyting yuborishda xato — "
+                            f"Guruh: '{g.get('nomi', 'Noma\\'lum')}' (ID: {g['chat_id']}) | "
+                            f"Xato: {e}"
+                        )
             await asyncio.sleep(61)
         await asyncio.sleep(30)
 
@@ -469,6 +494,7 @@ async def main():
                 "callback_query",
                 "edited_message",
                 "inline_query",
+                "my_chat_member",   # ← TUZATISH 4: bot qo'shilishini kuzatish uchun
             ],
         )
     finally:
