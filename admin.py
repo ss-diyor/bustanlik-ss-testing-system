@@ -7008,3 +7008,203 @@ async def rl_reset_command(message: Message, state: FSMContext):
     from rate_limiter import rate_limiter
     rate_limiter.reset(user_id)
     await message.answer(f"✅ <code>{user_id}</code> holati tozalandi.", parse_mode="HTML")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎭 DEMO KOD BOSHQARUVI
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from database import (
+    demo_kod_qosh      as _demo_qosh,
+    demo_kodlar_ol     as _demo_ol,
+    demo_sessiyalarni_tozala as _demo_tozala,
+    demo_kod_ochir     as _demo_ochir,
+)
+
+
+class DemoKodYaratish(StatesGroup):
+    kod_kutish  = State()
+    sinf_kutish = State()
+    ism_kutish  = State()
+
+
+def _demo_bosh_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Yangi demo kod yaratish", callback_data="demo:create")],
+        [InlineKeyboardButton(text="📋 Demo kodlar ro'yxati",    callback_data="demo:list")],
+        [InlineKeyboardButton(text="🧹 Barcha sessiyalarni tozala", callback_data="demo:clear_all")],
+        [InlineKeyboardButton(text="❌ Yopish",                  callback_data="demo:close")],
+    ])
+
+
+@router.message(F.text == "🎭 Demo kodlar")
+async def demo_boshqaruv(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    kodlar = _demo_ol()
+    jami_sessiya = sum(k["ulangan_soni"] for k in kodlar)
+    if kodlar:
+        info = "\n".join(
+            f"  • <code>{k['kod']}</code> — {k['ulangan_soni']} ta foydalanuvchi ulangan"
+            for k in kodlar
+        )
+    else:
+        info = "  <i>Hali demo kod yaratilmagan</i>"
+
+    await message.answer(
+        f"🎭 <b>Demo kod boshqaruvi</b>\n\n"
+        f"Demo kodlar orqali ko'p foydalanuvchi bir vaqtda botni sinab ko'rishi mumkin.\n"
+        f"Hech kim boshqasining ma'lumotini ko'rmaydi.\n\n"
+        f"<b>Mavjud demo kodlar:</b>\n{info}\n\n"
+        f"📊 Jami: <b>{len(kodlar)} kod</b>, <b>{jami_sessiya} sessiya</b>",
+        parse_mode="HTML",
+        reply_markup=_demo_bosh_keyboard(),
+    )
+
+
+@router.callback_query(F.data == "demo:list")
+async def demo_list_cb(cb: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, cb.from_user.id):
+        return
+    kodlar = _demo_ol()
+    if not kodlar:
+        await cb.answer("Demo kodlar yo'q", show_alert=True)
+        return
+
+    lines = [
+        f"🎭 <code>{k['kod']}</code> | {k['sinf']} | {k['ulangan_soni']} foydalanuvchi"
+        for k in kodlar
+    ]
+    buttons = [
+        [InlineKeyboardButton(
+            text=f"🗑 {k['kod']} o'chirish",
+            callback_data=f"demo:del:{k['kod']}"
+        )]
+        for k in kodlar
+    ]
+    buttons.append([InlineKeyboardButton(text="🧹 Sessiyalarni tozala", callback_data="demo:clear_all")])
+    buttons.append([InlineKeyboardButton(text="◀️ Orqaga", callback_data="demo:back")])
+
+    await cb.message.edit_text(
+        "📋 <b>Demo kodlar:</b>\n\n" + "\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data.startswith("demo:del:"))
+async def demo_delete_cb(cb: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, cb.from_user.id):
+        return
+    kod = cb.data.split(":")[2]
+    _demo_ochir(kod)
+    await cb.answer(f"✅ {kod} o'chirildi", show_alert=True)
+    # Ro'yxatni yangilash
+    kodlar = _demo_ol()
+    if not kodlar:
+        await cb.message.edit_text("📋 Demo kodlar yo'q.", reply_markup=_demo_bosh_keyboard())
+        return
+    lines = [f"🎭 <code>{k['kod']}</code> | {k['sinf']} | {k['ulangan_soni']} foydalanuvchi" for k in kodlar]
+    buttons = [[InlineKeyboardButton(text=f"🗑 {k['kod']} o'chirish", callback_data=f"demo:del:{k['kod']}")] for k in kodlar]
+    buttons.append([InlineKeyboardButton(text="◀️ Orqaga", callback_data="demo:back")])
+    await cb.message.edit_text(
+        "📋 <b>Demo kodlar:</b>\n\n" + "\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+    )
+
+
+@router.callback_query(F.data == "demo:clear_all")
+async def demo_clear_all_cb(cb: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, cb.from_user.id):
+        return
+    count = _demo_tozala()
+    await cb.answer(f"✅ {count} ta sessiya tozalandi", show_alert=True)
+    await cb.message.edit_reply_markup(reply_markup=_demo_bosh_keyboard())
+
+
+@router.callback_query(F.data == "demo:back")
+async def demo_back_cb(cb: CallbackQuery, state: FSMContext):
+    await cb.message.edit_reply_markup(reply_markup=_demo_bosh_keyboard())
+    await cb.answer()
+
+
+@router.callback_query(F.data == "demo:close")
+async def demo_close_cb(cb: CallbackQuery, state: FSMContext):
+    await cb.message.delete()
+    await cb.answer()
+
+
+@router.callback_query(F.data == "demo:create")
+async def demo_create_start(cb: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, cb.from_user.id):
+        return
+    await state.set_state(DemoKodYaratish.kod_kutish)
+    await cb.message.answer(
+        "🎭 <b>Yangi demo kod yaratish</b>\n\n"
+        "1️⃣ Demo kod kiriting:\n"
+        "<i>Misol: DEMO01, SINOV, TEST2025</i>\n\n"
+        "Bekor qilish: /cancel",
+        parse_mode="HTML",
+    )
+    await cb.answer()
+
+
+@router.message(DemoKodYaratish.kod_kutish)
+async def demo_kod_kiritildi(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    kod = message.text.strip().upper().replace(" ", "")
+    if len(kod) < 2 or len(kod) > 20:
+        await message.answer("❌ Kod 2–20 belgidan iborat bo'lishi kerak. Qayta kiriting:")
+        return
+    await state.update_data(demo_kod=kod)
+    await state.set_state(DemoKodYaratish.sinf_kutish)
+    await message.answer(
+        f"✅ Kod: <b>{kod}</b>\n\n"
+        "2️⃣ Sinf kiriting:\n"
+        "<i>Misol: 11A, Demo, Umumiy</i>",
+        parse_mode="HTML",
+    )
+
+
+@router.message(DemoKodYaratish.sinf_kutish)
+async def demo_sinf_kiritildi(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    await state.update_data(demo_sinf=message.text.strip())
+    await state.set_state(DemoKodYaratish.ism_kutish)
+    await message.answer(
+        "3️⃣ Ko'rsatiladigan ism kiriting:\n"
+        "<i>Misol: Demo O'quvchi, Sinov Foydalanuvchi</i>\n\n"
+        "Standart uchun: <code>demo</code> yozing",
+        parse_mode="HTML",
+    )
+
+
+@router.message(DemoKodYaratish.ism_kutish)
+async def demo_ism_kiritildi(message: Message, state: FSMContext):
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    data = await state.get_data()
+    kod  = data["demo_kod"]
+    sinf = data["demo_sinf"]
+    ism  = "Demo O'quvchi" if message.text.strip().lower() == "demo" else message.text.strip()
+    await state.clear()
+
+    ok = _demo_qosh(kod=kod, sinf=sinf, ism=ism)
+    if ok:
+        await message.answer(
+            f"✅ <b>Demo kod yaratildi!</b>\n\n"
+            f"📌 Kod: <code>{kod}</code>\n"
+            f"🏫 Sinf: {sinf}\n"
+            f"👤 Ism: {ism}\n\n"
+            f"👇 O'quvchilarga yuboring:\n"
+            f"<code>ULASH_{kod}</code>\n\n"
+            f"<i>Bu kodni barcha o'quvchilar kiritishi mumkin — hech qanday muammo bo'lmaydi.</i>",
+            parse_mode="HTML",
+            reply_markup=_demo_bosh_keyboard(),
+        )
+    else:
+        await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
