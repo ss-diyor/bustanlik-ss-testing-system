@@ -4752,36 +4752,27 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
         )
         return
 
-
-@router.callback_query(F.data == "guruh:ochirish_royxat")
-async def guruh_ochirish_royxat(call: CallbackQuery, state: FSMContext):
-    """O'chirish uchun guruhlar ro'yxatini ko'rsatish."""
-    if not await admin_tekshir(state, call.from_user.id):
+    elif action == "ochirish_royxat":
+        if not guruhlar:
+            await call.answer("⚠️ Hali ulangan guruhlar mavjud emas.", show_alert=True)
+            return
+        await call.message.edit_text(
+            "🗑 <b>Qaysi guruhni o'chirmoqchisiz?</b>\n\n"
+            "Guruh o'chirilgandan so'ng unga xabarlar yuborilmaydi.\n"
+            "<i>Bot guruhdan chiqarilmaydi — faqat bazadan o'chiriladi.</i>",
+            parse_mode="HTML",
+            reply_markup=guruh_ochirish_keyboard(guruhlar),
+        )
+        await call.answer()
         return
-    guruhlar = guruhlar_ol()
-    if not guruhlar:
-        await call.answer("⚠️ Hali ulangan guruhlar mavjud emas.", show_alert=True)
-        return
-    await call.message.edit_text(
-        "🗑 <b>Qaysi guruhni o'chirmoqchisiz?</b>\n\n"
-        "Guruh o'chirilgandan so'ng unga xabarlar yuborilmaydi.\n"
-        "<i>Bot guruhdan chiqarilmaydi — faqat bazadan o'chiriladi.</i>",
-        parse_mode="HTML",
-        reply_markup=guruh_ochirish_keyboard(guruhlar),
-    )
-    await call.answer()
 
-
-@router.callback_query(F.data == "guruh:ro'yxat_menu")
-async def guruh_royxat_menu_back(call: CallbackQuery, state: FSMContext):
-    """Guruhlar boshqaruv menyusiga qaytish."""
-    if not await admin_tekshir(state, call.from_user.id):
+    elif action in ("ro\'yxat_menu", "royxat_menu"):
+        await call.message.edit_text(
+            "📢 Guruhlarni boshqarish bo'limi:",
+            reply_markup=guruh_boshqarish_keyboard(),
+        )
+        await call.answer()
         return
-    await call.message.edit_text(
-        "📢 Guruhlarni boshqarish bo'limi:",
-        reply_markup=guruh_boshqarish_keyboard(),
-    )
-    await call.answer()
 
 
 @router.callback_query(F.data.startswith("guruh_del:"))
