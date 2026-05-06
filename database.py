@@ -303,6 +303,18 @@ def init_db():
         "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'aktiv'"
     )
 
+    # ── Demo rejim ────────────────────────────────────────────────────────────
+    _optional_exec(
+        "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS is_demo BOOLEAN DEFAULT FALSE"
+    )
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS demo_sessions (
+            user_id   BIGINT PRIMARY KEY,
+            kod       VARCHAR(20) NOT NULL,
+            linked_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
     # Default settings
     cur.execute(
         "INSERT INTO settings (key, value) VALUES ('ranking_enabled', 'True') ON CONFLICT DO NOTHING"
@@ -2924,3 +2936,143 @@ def get_two_sinf_comparison(sinf_a: str, sinf_b: str) -> dict | None:
     if not a or not b:
         return None
     return {"a": a, "b": b}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEMO REJIM FUNKSIYALARI
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def demo_kod_qosh(kod: str, sinf: str = "Demo", yonalish: str = "Umumiy", ism: str = "Demo O'quvchi") -> bool:
+    """Yangi demo talaba yaratadi. is_demo=TRUE bo'lgani uchun ko'p odam ulana oladi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO talabalar (kod, ismlar, sinf, yonalish, is_demo)
+            VALUES (%s, %s, %s, %s, TRUE)
+            ON CONFLICT (kod) DO UPDATE SET is_demo = TRUE, ismlar = EXCLUDED.ismlar,
+                sinf = EXCLUDED.sinf, yonalish = EXCLUDED.yonalish
+        """, (kod.upper(), ism, sinf, yonalish))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        release_connection(conn)
+
+
+def demo_kodlar_ol() -> list:
+    """Barcha demo kodlar va har birida nechta sessiya borligini qaytaradi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT t.kod, t.ismlar, t.sinf, t.yonalish,
+                   COUNT(d.user_id) AS ulangan_soni
+            FROM talabalar t
+            LEFT JOIN demo_sessions d ON d.kod = t.kod
+            WHERE t.is_demo = TRUE
+            GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish
+            ORDER BY t.kod
+        """)
+        return [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+def demo_sessiya_boshlash(user_id: int, kod: str) -> bool:
+    """Foydalanuvchini demo kodga ulaydi. Avvalgi sessiyasi bo'lsa yangilanadi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO demo_sessions (user_id, kod, linked_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (user_id) DO UPDATE SET kod = EXCLUDED.kod, linked_at = NOW()
+        """, (user_id, kod.upper()))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        release_connection(conn)
+
+
+def demo_sessiya_topish(user_id: int) -> dict | None:
+    """Foydalanuvchining aktiv demo sessiyasini topadi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT d.kod, d.linked_at, t.ismlar, t.sinf, t.yonalish
+            FROM demo_sessions d
+            JOIN talabalar t ON t.kod = d.kod
+            WHERE d.user_id = %s AND t.is_demo = TRUE
+        """, (user_id,))
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    finally:
+        release_connection(conn)
+
+
+def demo_sessiyalarni_tozala(kod: str | None = None) -> int:
+    """Demo sessiyalarni o'chiradi. kod=None → barchasi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        if kod:
+            cur.execute("DELETE FROM demo_sessions WHERE kod = %s", (kod.upper(),))
+        else:
+            cur.execute("DELETE FROM demo_sessions")
+        count = cur.rowcount
+        conn.commit()
+        cur.close()
+        return count
+    except Exception:
+        conn.rollback()
+        return 0
+    finally:
+        release_connection(conn)
+
+
+def demo_kod_ochir(kod: str) -> bool:
+    """Demo kodni va unga bog'liq barcha sessiyalarni o'chiradi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM demo_sessions WHERE kod = %s", (kod.upper(),))
+        cur.execute("DELETE FROM talabalar WHERE kod = %s AND is_demo = TRUE", (kod.upper(),))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        release_connection(conn)
+
+
+def talaba_topish_demo(user_id: int) -> dict | None:
+    """
+    user_id bo'yicha talabani topadi:
+    1. Avval oddiy (real) talaba
+    2. Topilmasa → demo sessiyadan qidiradi
+    """
+    # 1. Real talaba
+    t = talaba_topish_user_id(user_id)
+    if t and not t.get('is_demo'):
+        return t
+    # 2. Demo sessiya
+    sess = demo_sessiya_topish(user_id)
+    if sess:
+        t2 = talaba_topish(sess['kod'])
+        if t2:
+            t2['_is_demo_session'] = True
+            return t2
+    return None
