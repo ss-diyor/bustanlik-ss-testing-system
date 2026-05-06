@@ -21,6 +21,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from database import (
     talaba_topish,
+    talaba_topish_demo,
     talaba_natijalari,
     get_all_user_ids,
     kalit_ol,
@@ -57,6 +58,14 @@ from config import ADMIN_IDS, AI_DAILY_LIMIT
 from certificate import CertificateGenerator
 
 router = Router()
+
+
+def _talaba_ol(user_id: int) -> dict | None:
+    """
+    user_id bo'yicha talabani topadi.
+    Avval real talaba, topilmasa demo sessiyadan qidiradi.
+    """
+    return talaba_topish_demo(user_id)
 
 # ─────────────────────────────────────────
 # FSM holatlari
@@ -532,15 +541,7 @@ async def ranking_menu(event):
         )
         return
 
-    from database import get_connection, release_connection
-    import psycopg2.extras
-
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (user_id,))
-    talaba = cur.fetchone()
-    cur.close()
-    release_connection(conn)
+    talaba = _talaba_ol(user_id)
 
     if not talaba:
         await message.answer(
@@ -597,18 +598,7 @@ async def ranking_process(callback: CallbackQuery):
 
     is_admin = is_admin_id(callback.from_user.id)
 
-    # Talabani user_id orqali topish
-    from database import get_connection, release_connection
-    import psycopg2.extras
-
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        "SELECT * FROM talabalar WHERE user_id = %s", (callback.from_user.id,)
-    )
-    talaba = cur.fetchone()
-    cur.close()
-    release_connection(conn)
+    talaba = _talaba_ol(callback.from_user.id)
 
     if action == "overall_top50":
         if not is_admin and not check_access(callback.from_user.id):
@@ -958,18 +948,14 @@ async def stats_process(callback: CallbackQuery):
 
 @router.message(F.text == "📊 Mening natijam")
 async def my_results(message: Message, state: FSMContext):
-    # Foydalanuvchini user_id orqali topish
-    from database import get_connection, release_connection
-    import psycopg2.extras
+    talaba = _talaba_ol(message.from_user.id)
 
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        "SELECT * FROM talabalar WHERE user_id = %s", (message.from_user.id,)
-    )
-    talaba = cur.fetchone()
-    cur.close()
-    release_connection(conn)
+    # Demo yoki ulangan talaba bo'lsa — to'g'ridan-to'g'ri natijasini ko'rsat
+    if talaba:
+        kod = talaba["kod"]
+        await state.clear()
+        await send_full_results(message, kod)
+        return
 
     await state.set_state(ResultCheckState.kod_kutish)
     await message.answer(
@@ -994,7 +980,9 @@ async def process_result_code(message: Message, state: FSMContext):
         await state.set_state(ResultCheckState.kod_kutish)
         return
 
-    if talaba.get("user_id") != message.from_user.id:
+    # Demo sessiya yoki user_id mosligini tekshirish
+    is_demo = talaba.get("is_demo") or talaba.get("_is_demo_session")
+    if not is_demo and talaba.get("user_id") != message.from_user.id:
         await message.answer(
             "❌ Bu kod sizning profilingizga ulanmagan. Avval o'z kodingizni "
             "<code>ULASH_KODINGIZ</code> formatida ulang.",
@@ -1014,17 +1002,7 @@ async def process_result_code(message: Message, state: FSMContext):
 
 @router.message(F.text == "👤 Shaxsiy kabinet")
 async def student_profile(message: Message):
-    from database import get_connection, release_connection
-    import psycopg2.extras
-
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        "SELECT * FROM talabalar WHERE user_id = %s", (message.from_user.id,)
-    )
-    talaba = cur.fetchone()
-    cur.close()
-    release_connection(conn)
+    talaba = _talaba_ol(message.from_user.id)
 
     if not talaba:
         await message.answer(
@@ -1138,17 +1116,7 @@ def _generate_student_chart(talaba: dict, results: list) -> str:
 async def profile_callback(callback: CallbackQuery):
     action = callback.data.split(":")[1]
 
-    from database import get_connection, release_connection
-    import psycopg2.extras
-
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        "SELECT * FROM talabalar WHERE user_id = %s", (callback.from_user.id,)
-    )
-    talaba = cur.fetchone()
-    cur.close()
-    release_connection(conn)
+    talaba = _talaba_ol(callback.from_user.id)
 
     if not talaba:
         await callback.answer("⚠️ Xato: Talaba topilmadi.", show_alert=True)
@@ -1227,18 +1195,7 @@ async def profile_callback(callback: CallbackQuery):
 
 @router.inline_query(F.query.contains("my_result"))
 async def inline_result_handler(inline_query: InlineQuery):
-    from database import get_connection, release_connection
-    import psycopg2.extras
-
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        "SELECT * FROM talabalar WHERE user_id = %s",
-        (inline_query.from_user.id,),
-    )
-    talaba = cur.fetchone()
-    cur.close()
-    release_connection(conn)
+    talaba = _talaba_ol(inline_query.from_user.id)
 
     if not talaba:
         return
