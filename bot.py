@@ -279,14 +279,14 @@ async def _guruh_royxat_bildirish(
 
     # ── TUZATISH 3: Xatolarni log qilish, sukut bilan o'tkazmaslik ──────────
     for g in guruhlar:
+        guruh_nomi = g.get("nomi") or "Nomsiz"
         try:
             await bot.send_message(g["chat_id"], text, parse_mode="HTML")
-            logger.info(f"Guruhga xabar yuborildi: '{g.get('nomi', '')}' (ID: {g['chat_id']})")
+            logger.info("Guruhga xabar yuborildi: '%s' (ID: %s)", guruh_nomi, g["chat_id"])
         except Exception as e:
             logger.error(
-                f"Guruhga xabar yuborishda XATO — "
-                f"Guruh: '{g.get('nomi', 'Noma\\'lum')}' (ID: {g['chat_id']}) | "
-                f"Xato: {e}"
+                "Guruhga xabar yuborishda XATO — Guruh: '%s' (ID: %s) | Xato: %s",
+                guruh_nomi, g["chat_id"], e
             )
 
 
@@ -421,10 +421,10 @@ async def group_ranking_scheduler():
                             g["chat_id"], text, parse_mode="HTML"
                         )
                     except Exception as e:
+                        guruh_nomi = g.get("nomi") or "Nomsiz"
                         logging.error(
-                            f"Reyting yuborishda xato — "
-                            f"Guruh: '{g.get('nomi', 'Noma\\'lum')}' (ID: {g['chat_id']}) | "
-                            f"Xato: {e}"
+                            "Reyting yuborishda xato — Guruh: '%s' (ID: %s) | Xato: %s",
+                            guruh_nomi, g["chat_id"], e
                         )
             await asyncio.sleep(61)
         await asyncio.sleep(30)
