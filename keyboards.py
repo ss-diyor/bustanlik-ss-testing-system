@@ -80,6 +80,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="📦 Mini-test yuborish")],
             [KeyboardButton(text="📝 Mashq Quiz (Web)")],
             [KeyboardButton(text="🔍 Kod bo'yicha qidirish")],
+            [KeyboardButton(text="🎭 Demo kodlar")],
             [KeyboardButton(text="🚪 Chiqish")],
         ],
         resize_keyboard=True,
