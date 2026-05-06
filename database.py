@@ -2532,6 +2532,15 @@ def guruhlar_ol():
     release_connection(conn)
     return [dict(r) for r in rows]
 
+
+def guruh_ochir(chat_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM guruhlar WHERE chat_id = %s", (chat_id,))
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
 # Til sozlamalari
 def update_user_language(user_id: int, language: str) -> bool:
     """Foydalanuvchi tilini yangilash"""
