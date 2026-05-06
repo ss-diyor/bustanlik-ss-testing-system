@@ -22,6 +22,8 @@ from aiogram.fsm.state import State, StatesGroup
 from database import (
     talaba_topish,
     talaba_topish_demo,
+    natija_uslub_ol,
+    natija_uslub_saqlash,
     talaba_natijalari,
     get_all_user_ids,
     kalit_ol,
@@ -950,13 +952,22 @@ async def stats_process(callback: CallbackQuery):
 async def my_results(message: Message, state: FSMContext):
     talaba = _talaba_ol(message.from_user.id)
 
-    # Demo yoki ulangan talaba bo'lsa — to'g'ridan-to'g'ri natijasini ko'rsat
     if talaba:
-        kod = talaba["kod"]
-        await state.clear()
-        await send_full_results(message, kod)
+        uslub = talaba.get("natija_uslub") or "kod_bilan"
+        if uslub == "darhol":
+            # ⚡ Darhol ko'rsatish — kod so'ramasdan
+            await state.clear()
+            await send_full_results(message, talaba["kod"])
+        else:
+            # 🔐 Kod so'rash (standart)
+            await state.set_state(ResultCheckState.kod_kutish)
+            await message.answer(
+                "📝 <b>Natijangizni ko'rish uchun shaxsiy kodingizni yuboring:</b>",
+                parse_mode="HTML",
+            )
         return
 
+    # Profilga ulanmagan — har doim kod so'raladi
     await state.set_state(ResultCheckState.kod_kutish)
     await message.answer(
         "📝 <b>Natijangizni ko'rish uchun shaxsiy kodingizni yuboring:</b>",
@@ -1025,8 +1036,9 @@ async def student_profile(message: Message):
         f"📈 Oxirgi natija: <b>{oxirgi_ball} ball</b>\n"
     )
 
+    uslub = talaba.get("natija_uslub") or "kod_bilan"
     await message.answer(
-        text, parse_mode="HTML", reply_markup=profile_keyboard()
+        text, parse_mode="HTML", reply_markup=profile_keyboard(uslub)
     )
 
 
@@ -1189,6 +1201,20 @@ async def profile_callback(callback: CallbackQuery):
     elif action == "refresh":
         await callback.message.delete()
         await student_profile(callback.message)
+
+    elif action == "uslub":
+        # ⚙️ Natija ko'rsatish uslubini o'zgartirish
+        yangi_uslub = callback.data.split(":")[2]  # 'darhol' yoki 'kod_bilan'
+        natija_uslub_saqlash(talaba["kod"], yangi_uslub)
+
+        label = "⚡ Darhol ko'rsatilsin" if yangi_uslub == "darhol" else "🔐 Kod so'ralsin"
+        await callback.answer(f"✅ Sozlama saqlandi: {label}", show_alert=False)
+
+        # Tugmani yangilash
+        await callback.message.edit_reply_markup(
+            reply_markup=profile_keyboard(yangi_uslub)
+        )
+        return
 
     await callback.answer()
 
