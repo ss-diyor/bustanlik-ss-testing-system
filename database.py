@@ -307,6 +307,9 @@ def init_db():
     _optional_exec(
         "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS is_demo BOOLEAN DEFAULT FALSE"
     )
+    _optional_exec(
+        "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS natija_uslub VARCHAR(20) DEFAULT 'kod_bilan'"
+    )
     cur.execute("""
         CREATE TABLE IF NOT EXISTS demo_sessions (
             user_id   BIGINT PRIMARY KEY,
@@ -3076,3 +3079,40 @@ def talaba_topish_demo(user_id: int) -> dict | None:
             t2['_is_demo_session'] = True
             return t2
     return None
+
+
+def natija_uslub_ol(user_id: int) -> str:
+    """O'quvchining natija ko'rsatish uslubini qaytaradi: 'kod_bilan' yoki 'darhol'."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT natija_uslub FROM talabalar WHERE user_id = %s",
+            (user_id,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        return (row[0] or 'kod_bilan') if row else 'kod_bilan'
+    finally:
+        release_connection(conn)
+
+
+def natija_uslub_saqlash(kod: str, uslub: str) -> bool:
+    """O'quvchining natija ko'rsatish uslubini saqlaydi."""
+    if uslub not in ('kod_bilan', 'darhol'):
+        return False
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE talabalar SET natija_uslub = %s WHERE kod = %s",
+            (uslub, kod.upper())
+        )
+        conn.commit()
+        cur.close()
+        return True
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        release_connection(conn)
