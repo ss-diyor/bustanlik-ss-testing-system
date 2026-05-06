@@ -1597,9 +1597,20 @@ def request_actions_keyboard(request_id, user_id=None):
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def profile_keyboard():
+def profile_keyboard(natija_uslub: str = "kod_bilan"):
     """Shaxsiy kabinet uchun inline tugmalar."""
     from config import WEBAPP_URL
+
+    uslub_text = (
+        "⚡ Natija: darhol ko'rsatilsin"
+        if natija_uslub == "darhol"
+        else "🔐 Natija: kod so'ralsin"
+    )
+    uslub_cb = (
+        "profile:uslub:kod_bilan"
+        if natija_uslub == "darhol"
+        else "profile:uslub:darhol"
+    )
 
     buttons = [
         [
@@ -1611,6 +1622,9 @@ def profile_keyboard():
             InlineKeyboardButton(
                 text="📈 Mening dinamikam", callback_data="profile:chart"
             )
+        ],
+        [
+            InlineKeyboardButton(text=uslub_text, callback_data=uslub_cb)
         ],
         [
             InlineKeyboardButton(
