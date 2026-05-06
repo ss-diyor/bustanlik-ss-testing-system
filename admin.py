@@ -309,6 +309,10 @@ from database import (
     is_notification_enabled,
     get_sinf_detail_stats,
     get_two_sinf_comparison,
+    get_user_ids_by_sinf,
+    get_user_ids_by_yonalish,
+    count_users_by_sinf,
+    count_users_by_yonalish,
 )
 from id_generator import (
     keyod_yarat, keyod_settings_ol, keyod_settings_saqla,
@@ -381,6 +385,8 @@ from keyboards import (
     broadcast_confirm_keyboard,
     broadcast_target_keyboard,
     broadcast_maktab_tanlash_keyboard,
+    broadcast_sinf_tanlash_keyboard,
+    broadcast_yonalish_tanlash_keyboard,
     shaxsiy_xabar_confirm_keyboard,
     sinf_taqqoslash_birinchi_keyboard,
     sinf_taqqoslash_ikkinchi_keyboard,
@@ -1017,7 +1023,8 @@ async def run_broadcast_simple(bot, user_ids, text, kb=None):
         try:
             await bot.send_message(uid, text, parse_mode="HTML", reply_markup=kb)
             await asyncio.sleep(0.05)
-        except Exception:
+        except Exception as e:
+            logging.warning(f"[Broadcast:simple] uid={uid} xatolik: {type(e).__name__}: {e}")
             continue
 
 
@@ -3955,6 +3962,128 @@ async def broadcast_school_selected(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+# ── Sinf bo'yicha broadcast ──────────────────────────────────────────────────
+
+@router.callback_query(Broadcast.maktab_tanlash, F.data == "bcast_target:sinf")
+async def broadcast_target_sinf(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    sinflar = sinf_ol()
+    if not sinflar:
+        await callback.answer("❌ Hozircha sinflar yo'q.", show_alert=True)
+        return
+    await callback.message.edit_text(
+        "🎓 Qaysi sinfga yubormoqchisiz?",
+        reply_markup=broadcast_sinf_tanlash_keyboard(sinflar),
+    )
+    await callback.answer()
+
+
+@router.callback_query(Broadcast.maktab_tanlash, F.data.startswith("bcast_sinf:"))
+async def broadcast_sinf_selected(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        await callback.answer()
+        return
+    sinf_nomi = callback.data.split(":", 1)[1]
+    if sinf_nomi == "cancel":
+        await state.clear()
+        await callback.message.edit_text("❌ Xabar yuborish bekor qilindi.")
+        await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
+        await callback.answer()
+        return
+    user_count = count_users_by_sinf(sinf_nomi)
+    await state.update_data(
+        broadcast_target="sinf",
+        broadcast_sinf_nomi=sinf_nomi,
+        broadcast_maktab_id=None,
+    )
+    await state.set_state(Broadcast.xabar_kutish)
+    try:
+        await callback.message.edit_text(
+            f"✅ <b>{sinf_nomi}</b> sinfi tanlandi.\n"
+            f"👥 Botga ulangan o'quvchilar: <b>{user_count} ta</b>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+    if user_count == 0:
+        await callback.message.answer(
+            f"⚠️ <b>{sinf_nomi}</b> sinfidan hali hech kim botga ulanmagan.",
+            parse_mode="HTML",
+            reply_markup=admin_menu_keyboard(),
+        )
+        await state.clear()
+        await callback.answer()
+        return
+    await callback.message.answer(
+        f"📝 <b>{sinf_nomi}</b> ga yubormoqchi bo'lgan xabaringizni yozing:",
+        parse_mode="HTML",
+        reply_markup=broadcast_cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+# ── Yo'nalish bo'yicha broadcast ─────────────────────────────────────────────
+
+@router.callback_query(Broadcast.maktab_tanlash, F.data == "bcast_target:yonalish")
+async def broadcast_target_yonalish(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    yonalishlar = yonalish_ol()
+    if not yonalishlar:
+        await callback.answer("❌ Hozircha yo'nalishlar yo'q.", show_alert=True)
+        return
+    await callback.message.edit_text(
+        "📚 Qaysi yo'nalishga yubormoqchisiz?",
+        reply_markup=broadcast_yonalish_tanlash_keyboard(yonalishlar),
+    )
+    await callback.answer()
+
+
+@router.callback_query(Broadcast.maktab_tanlash, F.data.startswith("bcast_yonalish:"))
+async def broadcast_yonalish_selected(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        await callback.answer()
+        return
+    yonalish_nomi = callback.data.split(":", 1)[1]
+    if yonalish_nomi == "cancel":
+        await state.clear()
+        await callback.message.edit_text("❌ Xabar yuborish bekor qilindi.")
+        await callback.message.answer("🏠 Asosiy menyu:", reply_markup=admin_menu_keyboard())
+        await callback.answer()
+        return
+    user_count = count_users_by_yonalish(yonalish_nomi)
+    await state.update_data(
+        broadcast_target="yonalish",
+        broadcast_yonalish_nomi=yonalish_nomi,
+        broadcast_maktab_id=None,
+    )
+    await state.set_state(Broadcast.xabar_kutish)
+    try:
+        await callback.message.edit_text(
+            f"✅ <b>{yonalish_nomi}</b> yo'nalishi tanlandi.\n"
+            f"👥 Botga ulangan o'quvchilar: <b>{user_count} ta</b>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+    if user_count == 0:
+        await callback.message.answer(
+            f"⚠️ <b>{yonalish_nomi}</b> yo'nalishidan hali hech kim botga ulanmagan.",
+            parse_mode="HTML",
+            reply_markup=admin_menu_keyboard(),
+        )
+        await state.clear()
+        await callback.answer()
+        return
+    await callback.message.answer(
+        f"📝 <b>{yonalish_nomi}</b> ga yubormoqchi bo'lgan xabaringizni yozing:",
+        parse_mode="HTML",
+        reply_markup=broadcast_cancel_keyboard(),
+    )
+    await callback.answer()
+
+
 @router.message(
     Broadcast.xabar_kutish, F.text == "❌ Xabar yuborishni bekor qilish"
 )
@@ -4027,6 +4156,14 @@ async def broadcast_confirm_callback(
     if broadcast_target == "school" and broadcast_maktab_id:
         user_ids = get_user_ids_by_maktab(broadcast_maktab_id)
         maktab_nomi = data.get("broadcast_maktab_nomi", "Tanlangan maktab")
+    elif broadcast_target == "sinf":
+        sinf_nomi = data.get("broadcast_sinf_nomi", "")
+        user_ids = get_user_ids_by_sinf(sinf_nomi)
+        maktab_nomi = f"🎓 {sinf_nomi} sinfi"
+    elif broadcast_target == "yonalish":
+        yonalish_nomi = data.get("broadcast_yonalish_nomi", "")
+        user_ids = get_user_ids_by_yonalish(yonalish_nomi)
+        maktab_nomi = f"📚 {yonalish_nomi} yo'nalishi"
     else:
         user_ids = get_all_user_ids()
         maktab_nomi = "Barcha foydalanuvchilar"
@@ -4065,8 +4202,9 @@ async def broadcast_confirm_callback(
             )
             sent_count += 1
             await asyncio.sleep(0.05)
-        except Exception:
+        except Exception as e:
             fail_count += 1
+            logging.warning(f"[Broadcast] uid={uid} xatolik: {type(e).__name__}: {e}")
         finally:
             processed += 1
 
