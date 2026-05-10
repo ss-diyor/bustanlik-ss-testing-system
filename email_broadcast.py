@@ -6,7 +6,7 @@ FSM oqimi:
     1. Mavzu (subject) so'rash
     2. Xabar matni so'rash
     3. Kimga: o'quvchilar / ota-onalar / hammasi — tanlash
-    4. Tasdiqlash → Brevo orqali yuborish
+    4. Tasdiqlash → Brevo orqali yuborish (har biriga alohida, ismi bilan)
 
 Integratsiya (admin.py):
     from email_broadcast import router as email_broadcast_router
@@ -27,7 +27,7 @@ from aiogram.types import (
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from brevo_email import send_bulk_emails, build_announcement_html
+from brevo_email import send_bulk_emails
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -45,6 +45,7 @@ class EmailBroadcast(StatesGroup):
 # ─── Ma'lumotlar bazasidan emaillarni olish ───────────────────────────────────
 
 def _get_student_emails() -> list[dict]:
+    """email ustuni to'ldirilgan barcha o'quvchilarni qaytaradi."""
     from database import get_connection, release_connection
     try:
         conn = get_connection()
@@ -64,6 +65,7 @@ def _get_student_emails() -> list[dict]:
 
 
 def _get_parent_emails() -> list[dict]:
+    """parent_email ustuni to'ldirilgan barcha o'quvchi yozuvlarini qaytaradi."""
     from database import get_connection, release_connection
     try:
         conn = get_connection()
@@ -77,7 +79,7 @@ def _get_parent_emails() -> list[dict]:
         cur.close()
         release_connection(conn)
         return [
-            {"name": f"{r[0] or 'Oquvchi'} ota-onasi", "email": r[1]}
+            {"name": f"{r[0] or 'O\'quvchi'} ota-onasi", "email": r[1]}
             for r in rows
         ]
     except Exception as e:
@@ -243,9 +245,12 @@ async def email_broadcast_tasdiq(callback: CallbackQuery, state: FSMContext):
         )
         return
 
-    # HTML bir marta quriladi — send_bulk_emails ichida qayta qurilmaydi
-    html = build_announcement_html(title=mavzu, body=matn)
-    ok, fail = await send_bulk_emails(recipients, subject=mavzu, html_content=html)
+    # send_bulk_emails har bir recipient uchun alohida HTML quradi (ism bilan)
+    ok, fail = await send_bulk_emails(
+        recipients=recipients,
+        subject=mavzu,
+        body=matn,
+    )
 
     kimga_labels = {
         "students": "🎓 O'quvchilar",
