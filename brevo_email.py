@@ -59,13 +59,31 @@ async def send_email(to_email: str, to_name: str, subject: str, html_content: st
         return False
 
 
-async def send_bulk_emails(recipients: list[dict], subject: str, html_content: str) -> tuple[int, int]:
-    """HTML tayyor holda keladi — har bir recipientga aynan shu HTML yuboriladi."""
+async def send_bulk_emails(
+    recipients: list[dict],
+    subject: str,
+    body: str,
+) -> tuple[int, int]:
+    """
+    Har bir recipient uchun HTML alohida quriladi —
+    shu tarzda "Hurmatli [Ism]," personalizatsiyasi ishlaydi.
+
+    recipients: [{"name": "Jasur Toshmatov", "email": "jasur@gmail.com"}, ...]
+    subject:    Email mavzusi
+    body:       Xabar matni (oddiy matn, HTML emas)
+    """
     ok = fail = 0
     for i, r in enumerate(recipients):
         if i > 0 and i % 50 == 0:
             await asyncio.sleep(1.0)
-        success = await send_email(r["email"], r.get("name", ""), subject, html_content)
+
+        # Har bir o'quvchi / ota-ona uchun alohida HTML
+        html = build_announcement_html(
+            title=subject,
+            body=body,
+            recipient_name=r.get("name", ""),
+        )
+        success = await send_email(r["email"], r.get("name", ""), subject, html)
         if success:
             ok += 1
         else:
@@ -73,12 +91,19 @@ async def send_bulk_emails(recipients: list[dict], subject: str, html_content: s
     return ok, fail
 
 
-def build_announcement_html(title: str, body: str, recipient_name: str = "", sender_name: str = None) -> str:
-    greeting = (
-        f"Hurmatli {recipient_name.strip()},"
-        if recipient_name and recipient_name.strip()
-        else "Assalomu alaykum,"
-    )
+def build_announcement_html(title: str, body: str, recipient_name: str = "") -> str:
+    """
+    Chiroyli HTML email shabloni.
+    recipient_name berilsa → "Hurmatli Jasur Toshmatov,"
+    berilmasa           → "Assalomu alaykum,"
+    """
+    name = recipient_name.strip()
+    if name:
+        # Faqat ismni olish (masalan "Jasur Toshmatov ota-onasi" → "Jasur Toshmatov ota-onasi")
+        greeting = f"Hurmatli {name},"
+    else:
+        greeting = "Assalomu alaykum,"
+
     body_html = body.replace("\n", "<br>")
 
     return f"""<!DOCTYPE html>
