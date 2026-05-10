@@ -80,7 +80,7 @@ async def send_bulk_emails(recipients: list[dict], subject: str, html_content: s
     return ok, fail
 
 
-def build_announcement_html(title: str, body: str, recipient_name: str = "") -> str:
+def build_announcement_html(title: str, body: str, recipient_name: str = "", sender_name: str = None) -> str:
     _, _, sender_name = _get_config()
     greeting = f"Hurmatli {recipient_name.strip()}," if recipient_name and recipient_name.strip() else "Assalomu alaykum,"
     body_html = body.replace("\n", "<br>")
