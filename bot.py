@@ -18,6 +18,13 @@ from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_ke
 import admin
 import student
 import email_broadcast
+import cert_admin
+import chatbot
+import group_commands
+import language_handlers
+import mini_test_handler
+import parent
+import practice_quiz
 
 # ── Discord notify moduli ─────────────────────────────────────
 from discord_notify import (
@@ -40,6 +47,13 @@ dp = Dispatcher(storage=MemoryStorage())
 # Routerlarni ulash
 dp.include_router(admin.router)
 dp.include_router(student.router)
+dp.include_router(cert_admin.router)
+dp.include_router(chatbot.router)
+dp.include_router(group_commands.router)
+dp.include_router(language_handlers.router)
+dp.include_router(mini_test_handler.router)
+dp.include_router(parent.router)
+dp.include_router(practice_quiz.router)
 dp.include_router(email_broadcast.router)
 
 
