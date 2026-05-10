@@ -79,7 +79,7 @@ def _get_parent_emails() -> list[dict]:
         cur.close()
         release_connection(conn)
         return [
-            {"name": f"{r[0] or 'O'quvchi'} ota-onasi", "email": r[1]}
+            {"name": f"{r[0] or 'Oquvchi'} ota-onasi", "email": r[1]}
             for r in rows
         ]
     except Exception as e:
