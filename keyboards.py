@@ -75,6 +75,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="🏆 Reyting Excel")],
             [KeyboardButton(text="🧹 Bazani tozalash")],
             [KeyboardButton(text="📢 Xabar yuborish")],
+            [KeyboardButton(text="📧 Email xabar yuborish")],
             [KeyboardButton(text="✉️ Shaxsiy xabar yuborish")],
             [KeyboardButton(text="🌐 Web Admin Panel")],
             [KeyboardButton(text="📦 Mini-test yuborish")],
