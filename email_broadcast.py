@@ -36,16 +36,15 @@ router = Router()
 # ─── FSM holatlari ────────────────────────────────────────────────────────────
 
 class EmailBroadcast(StatesGroup):
-    mavzu_kutish  = State()   # Mavzu (subject)
-    matn_kutish   = State()   # Xabar matni
-    kimga_tanlash = State()   # Recipient tanlash
-    tasdiq_kutish = State()   # Tasdiqlash
+    mavzu_kutish  = State()
+    matn_kutish   = State()
+    kimga_tanlash = State()
+    tasdiq_kutish = State()
 
 
 # ─── Ma'lumotlar bazasidan emaillarni olish ───────────────────────────────────
 
 def _get_student_emails() -> list[dict]:
-    """email ustuni to'ldirilgan barcha o'quvchilarni qaytaradi."""
     from database import get_connection, release_connection
     try:
         conn = get_connection()
@@ -65,7 +64,6 @@ def _get_student_emails() -> list[dict]:
 
 
 def _get_parent_emails() -> list[dict]:
-    """parent_email ustuni to'ldirilgan barcha o'quvchi yozuvlarini qaytaradi."""
     from database import get_connection, release_connection
     try:
         conn = get_connection()
@@ -99,17 +97,17 @@ async def _admin_tekshir(state: FSMContext, user_id: int) -> bool:
 
 def _kimga_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎓 O'quvchilar",      callback_data="ebcast:students")],
-        [InlineKeyboardButton(text="👨‍👩‍👦 Ota-onalar",       callback_data="ebcast:parents")],
-        [InlineKeyboardButton(text="👥 Hammasi",           callback_data="ebcast:all")],
-        [InlineKeyboardButton(text="❌ Bekor qilish",      callback_data="ebcast:cancel")],
+        [InlineKeyboardButton(text="🎓 O'quvchilar",   callback_data="ebcast:students")],
+        [InlineKeyboardButton(text="👨‍👩‍👦 Ota-onalar",    callback_data="ebcast:parents")],
+        [InlineKeyboardButton(text="👥 Hammasi",        callback_data="ebcast:all")],
+        [InlineKeyboardButton(text="❌ Bekor qilish",   callback_data="ebcast:cancel")],
     ])
 
 
 def _tasdiq_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Ha, yuborish",      callback_data="ebcast:confirm")],
-        [InlineKeyboardButton(text="❌ Bekor qilish",      callback_data="ebcast:cancel")],
+        [InlineKeyboardButton(text="✅ Ha, yuborish",   callback_data="ebcast:confirm")],
+        [InlineKeyboardButton(text="❌ Bekor qilish",   callback_data="ebcast:cancel")],
     ])
 
 
@@ -189,10 +187,9 @@ async def email_broadcast_kimga(callback: CallbackQuery, state: FSMContext):
     }
     kimga_label = kimga_map.get(action, action)
 
-    # Oldindan soni hisoblash
-    students = _get_student_emails()    if action in ("students", "all") else []
-    parents  = _get_parent_emails()     if action in ("parents",  "all") else []
-    recipients = {r["email"]: r for r in students + parents}  # dedupe by email
+    students   = _get_student_emails() if action in ("students", "all") else []
+    parents    = _get_parent_emails()  if action in ("parents",  "all") else []
+    recipients = {r["email"]: r for r in students + parents}
     jami = len(recipients)
 
     await state.update_data(kimga=action)
@@ -211,7 +208,7 @@ async def email_broadcast_kimga(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-# ─── 5-qadam: Tasdiqlash → Yuborish ─────────────────────────────────────────
+# ─── 5-qadam: Tasdiqlash → Yuborish ──────────────────────────────────────────
 
 @router.callback_query(EmailBroadcast.tasdiq_kutish, F.data.startswith("ebcast:"))
 async def email_broadcast_tasdiq(callback: CallbackQuery, state: FSMContext):
@@ -225,18 +222,18 @@ async def email_broadcast_tasdiq(callback: CallbackQuery, state: FSMContext):
     if action != "confirm":
         return
 
-    data = await state.get_data()
-    kimga  = data.get("kimga", "all")
-    mavzu  = data["mavzu"]
-    matn   = data["matn"]
+    data  = await state.get_data()
+    kimga = data.get("kimga", "all")
+    mavzu = data["mavzu"]
+    matn  = data["matn"]
 
     await state.clear()
     await callback.message.edit_text("⏳ Emaillar yuborilmoqda, iltimos kuting...")
 
     # Recipientlarni yig'ish
-    students = _get_student_emails()  if kimga in ("students", "all") else []
-    parents  = _get_parent_emails()   if kimga in ("parents",  "all") else []
-    all_dict = {r["email"]: r for r in students + parents}
+    students   = _get_student_emails() if kimga in ("students", "all") else []
+    parents    = _get_parent_emails()  if kimga in ("parents",  "all") else []
+    all_dict   = {r["email"]: r for r in students + parents}
     recipients = list(all_dict.values())
 
     if not recipients:
@@ -246,13 +243,8 @@ async def email_broadcast_tasdiq(callback: CallbackQuery, state: FSMContext):
         )
         return
 
-    from config import BREVO_SENDER_NAME
-    html = build_announcement_html(
-        title=mavzu,
-        body=matn,
-        sender_name=BREVO_SENDER_NAME,
-    )
-
+    # HTML bir marta quriladi — send_bulk_emails ichida qayta qurilmaydi
+    html = build_announcement_html(title=mavzu, body=matn)
     ok, fail = await send_bulk_emails(recipients, subject=mavzu, html_content=html)
 
     kimga_labels = {
