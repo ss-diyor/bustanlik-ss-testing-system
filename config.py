@@ -82,6 +82,15 @@ VERIFY_BASE_URL = _verify_raw.rstrip("/")
 GOOGLE_SHEETS_ID = _env("GOOGLE_SHEETS_ID", "")
 GOOGLE_CREDENTIALS_JSON = _env("GOOGLE_CREDENTIALS_JSON", "")
 
+# Brevo email sozlamalari
+# Railway Variables da quyidagilarni qo'shing:
+#   BREVO_API_KEY      — Brevo dashboard → SMTP & API → API Keys
+#   BREVO_SENDER_EMAIL — Brevo'da tasdiqlangan email manzil
+#   BREVO_SENDER_NAME  — Xatda ko'rinadigan jo'natuvchi ismi
+BREVO_API_KEY      = _env("BREVO_API_KEY", "")
+BREVO_SENDER_EMAIL = _env("BREVO_SENDER_EMAIL", "sultanovdiyorbek.im@gmail.com")
+BREVO_SENDER_NAME  = _env("BREVO_SENDER_NAME", "Bustanlik SS Testing System")
+
 # Mavjud yo'nalishlar (asosiy fan juftliklari)
 YONALISHLAR = [
     "Matematika + Fizika",
