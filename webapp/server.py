@@ -926,18 +926,16 @@ body {
 .score-num {
   font-size: 3.5em;
   font-weight: 900;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #1a2d6b;
   line-height: 1;
 }
-.score-max { font-size: .38em; color: #a0aec0; font-weight: 400; }
+.score-max { font-size: .38em; color: #1a2d6b; font-weight: 400; opacity: 0.6; }
 .score-pct {
-  color: var(--accent);
+  color: #1a2d6b;
   font-weight: 700;
   font-size: 1em;
   margin: 4px 0 14px;
+  opacity: 0.75;
 }
 .breakdown { text-align: left; }
 .brow {
