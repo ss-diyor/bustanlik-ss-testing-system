@@ -240,6 +240,48 @@ async def notify_error(context: str, error: str):
     )
 
 
+async def notify_class_stats(
+    maktab_nomi: str,
+    jami: int,
+    ortacha: float,
+    eng_yuqori: float,
+    eng_past: float,
+    sinf_breakdown: list = None,
+):
+    """
+    Statistika ko'rilganda Discord kanaliga yuboradi.
+    admin.py → stats_maktab_callback() ichidan chaqiriladi.
+
+    sinf_breakdown — ixtiyoriy, har bir sinf bo'yicha:
+        [{"sinf": "11A", "soni": 12, "ortacha": 145.3}, ...]
+    """
+    fields = [
+        {"name": "👥 Jami o'quvchilar", "value": f"**{jami} ta**",          "inline": True},
+        {"name": "📈 O'rtacha ball",     "value": f"**{ortacha}**",           "inline": True},
+        {"name": "🏆 Eng yuqori",        "value": f"**{eng_yuqori} ball**",   "inline": True},
+        {"name": "📉 Eng past",          "value": f"**{eng_past} ball**",     "inline": True},
+    ]
+
+    if sinf_breakdown:
+        breakdown_text = "\n".join(
+            f"`{s['sinf']}` — {s['soni']} ta · o'rtacha **{s['ortacha']}**"
+            for s in sinf_breakdown[:10]  # max 10 sinf
+        )
+        fields.append({
+            "name": "🏫 Sinflar bo'yicha",
+            "value": breakdown_text,
+            "inline": False,
+        })
+
+    await send_discord(
+        title=f"📊 Statistika — {maktab_nomi}",
+        description=f"**{maktab_nomi}** maktabi bo'yicha joriy statistika.",
+        color=COLOR_BLUE,
+        fields=fields,
+        webhook_url=WEBHOOK_ADMIN,
+    )
+
+
 async def notify_appeal_received(student_name: str, kod: str, message_preview: str):
     """
     Yangi murojaat (appeal) kelganda Discord kanaliga xabar yuboradi.
