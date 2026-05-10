@@ -1,3 +1,85 @@
+"""
+Brevo (Sendinblue) orqali email yuborish moduli.
+
+Foydalanish:
+    from brevo_email import send_email, send_bulk_emails
+
+Environment variables (.env yoki Railway Variables):
+    BREVO_API_KEY      — Brevo API kaliti (majburiy)
+    BREVO_SENDER_EMAIL — Jo'natuvchi email (masalan: noreply@maktab.uz)
+    BREVO_SENDER_NAME  — Jo'natuvchi ismi (masalan: Bo'stonliq SS Maktab)
+"""
+
+import logging
+import asyncio
+import aiohttp
+
+logger = logging.getLogger(__name__)
+
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+
+MAKTAB_LOGO_URL = (
+    "https://raw.githubusercontent.com/ss-diyor/"
+    "bustanlik-ss-testing-system/main/logo.png"
+)
+TELEGRAM_BOT_URL   = "https://t.me/BustanlikSStestingsystembot"
+TELEGRAM_KANAL_URL = "https://t.me/Bustanlikspecializedschool"
+
+
+def _get_config():
+    from config import BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME
+    return BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME
+
+
+async def send_email(to_email: str, to_name: str, subject: str, html_content: str) -> bool:
+    api_key, sender_email, sender_name = _get_config()
+    if not api_key:
+        logger.warning("BREVO_API_KEY sozlanmagan — email yuborilmadi.")
+        return False
+    payload = {
+        "sender": {"name": sender_name, "email": sender_email},
+        "to": [{"email": to_email, "name": to_name}],
+        "subject": subject,
+        "htmlContent": html_content,
+    }
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json",
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(BREVO_API_URL, json=payload, headers=headers) as resp:
+                if resp.status in (200, 201):
+                    logger.info(f"Email yuborildi: {to_email}")
+                    return True
+                else:
+                    body = await resp.text()
+                    logger.error(f"Brevo xato {resp.status}: {body}")
+                    return False
+    except Exception as e:
+        logger.error(f"Email yuborishda istisno: {e}")
+        return False
+
+
+async def send_bulk_emails(recipients: list[dict], subject: str, html_content: str) -> tuple[int, int]:
+    ok = fail = 0
+    for i, r in enumerate(recipients):
+        if i > 0 and i % 50 == 0:
+            await asyncio.sleep(1.0)
+        html = build_announcement_html(
+            title=subject,
+            body=html_content,
+            recipient_name=r.get("name", ""),
+        )
+        success = await send_email(r["email"], r.get("name", ""), subject, html)
+        if success:
+            ok += 1
+        else:
+            fail += 1
+    return ok, fail
+
+
 def build_announcement_html(title: str, body: str, recipient_name: str = "", sender_name: str = None) -> str:
     _, _, cfg_sender = _get_config()
     sender = sender_name or cfg_sender or "Maktab Administratsiyasi"
