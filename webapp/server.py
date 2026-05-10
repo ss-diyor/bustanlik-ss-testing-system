@@ -838,221 +838,178 @@ def _get_verify_config() -> tuple[str, str]:
 
 
 _VERIFY_CSS = """
-  :root {
-    --primary: #1a5276;
-    --primary-light: #2980b9;
-    --accent: #16a085;
-    --accent-light: #1abc9c;
-    --gold: #d4ac0d;
-    --bg: #0f2744;
-    --card-bg: #ffffff;
-    --text: #1a202c;
-    --muted: #5a6a7a;
-    --border: #e2e8f0;
-    --success: #1e8449;
-    --danger: #c0392b;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: linear-gradient(160deg, #0f2744 0%, #1a4a7a 50%, #0d3b5e 100%);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px 16px;
-  }
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(ellipse at 20% 30%, rgba(41,128,185,.15) 0%, transparent 60%),
-                radial-gradient(ellipse at 80% 70%, rgba(22,160,133,.12) 0%, transparent 60%);
-    pointer-events: none;
-  }
-  .wrapper { width: 100%; max-width: 460px; position: relative; }
-  .card {
-    background: #fff;
-    border-radius: 24px;
-    overflow: hidden;
-    box-shadow: 0 24px 80px rgba(0,0,0,.35), 0 4px 16px rgba(0,0,0,.15);
-    position: relative;
-  }
-  /* Header band */
-  .header-band {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-    padding: 28px 24px 22px;
-    text-align: center;
-    position: relative;
-  }
-  .school-logo {
-    width: 80px; height: 80px;
-    border-radius: 0;
-    border: none;
-    object-fit: contain;
-    margin-bottom: 10px;
-    background: transparent;
-  }
-  .logo-placeholder {
-    width: 72px; height: 72px;
-    background: rgba(255,255,255,.15);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2em;
-    margin-bottom: 10px;
-  }
-  .school-name {
-    color: rgba(255,255,255,.9);
-    font-size: .78em;
-    font-weight: 600;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-  }
-  /* Body */
-  .body { padding: 8px 28px 28px; text-align: center; }
-  /* Status badge */
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 16px;
-    border-radius: 100px;
-    font-size: .8em;
-    font-weight: 700;
-    letter-spacing: .04em;
-    margin-bottom: 16px;
-  }
-  .status-badge.valid {
-    background: #d5f5e3;
-    color: var(--success);
-    border: 1px solid #a9dfbf;
-  }
-  .status-badge.no-hash {
-    background: #fef9e7;
-    color: #b7950b;
-    border: 1px solid #f9e79f;
-  }
-  /* Name */
-  .student-name {
-    font-size: 1.55em;
-    font-weight: 800;
-    color: var(--text);
-    margin-bottom: 4px;
-    line-height: 1.2;
-  }
-  .student-meta {
-    color: var(--muted);
-    font-size: .85em;
-    margin-bottom: 22px;
-  }
-  .sep { margin: 0 6px; opacity: .4; }
-  /* Score */
-  .score-block {
-    background: linear-gradient(135deg, #eaf4fb 0%, #e8f8f5 100%);
-    border-radius: 16px;
-    padding: 20px 16px 16px;
-    margin-bottom: 16px;
-    border: 1px solid #d6eaf8;
-  }
-  .score-num {
-    font-size: 3.5em;
-    font-weight: 900;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1;
-  }
-  .score-max { font-size: .38em; color: #a0aec0; font-weight: 400; }
-  .score-pct {
-    color: var(--accent);
-    font-weight: 700;
-    font-size: 1em;
-    margin: 4px 0 14px;
-  }
-  /* Breakdown */
-  .breakdown { text-align: left; }
-  .brow {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 7px 0;
-    border-bottom: 1px solid rgba(0,0,0,.06);
-    font-size: .88em;
-    color: #4a5568;
-  }
-  .brow:last-child { border-bottom: none; }
-  .brow b { color: var(--text); }
-  /* Hash block */
-  .hash-block {
-    background: #f8f9fa;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
-    text-align: left;
-  }
-  .hash-label {
-    font-size: .72em;
-    font-weight: 700;
-    color: var(--muted);
-    letter-spacing: .07em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .hash-value {
-    font-family: 'Courier New', monospace;
-    font-size: .68em;
-    color: #4a5568;
-    word-break: break-all;
-    line-height: 1.5;
-  }
-  /* Kod */
-  .cert-kod {
-    display: inline-block;
-    background: #edf2f7;
-    color: #4a5568;
-    padding: 7px 18px;
-    border-radius: 100px;
-    font-family: monospace;
-    font-size: .9em;
-    margin-bottom: 20px;
-    border: 1px solid var(--border);
-  }
-  /* Footer */
-  .card-footer {
-    border-top: 1px solid var(--border);
-    padding: 18px 24px 22px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    background: #fafbfc;
-    text-align: center;
-  }
-  .footer-hint {
-    font-size: .75em;
-    color: var(--muted);
-  }
-  .tg-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #0088cc;
-    color: #fff;
-    text-decoration: none;
-    padding: 9px 20px;
-    border-radius: 100px;
-    font-size: .82em;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .tg-link svg { width: 15px; height: 15px; fill: #fff; }
-  .no-result { color: #a0aec0; font-style: italic; padding: 16px 0; }
+:root {
+  --primary: #1a5276;
+  --primary-light: #2980b9;
+  --accent: #16a085;
+  --text: #1a202c;
+  --muted: #5a6a7a;
+  --border: #e2e8f0;
+  --success: #1e8449;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f5f7fa;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+}
+.wrapper { width: 100%; max-width: 460px; }
+.card {
+  background: #fff;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+}
+.header-band {
+  background: #fff;
+  padding: 32px 24px 8px;
+  text-align: center;
+}
+.school-logo {
+  width: 130px; height: 130px;
+  object-fit: contain;
+}
+.logo-placeholder {
+  width: 100px; height: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3em;
+}
+.school-name { display: none; }
+.body { padding: 8px 28px 28px; text-align: center; }
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 100px;
+  font-size: .8em;
+  font-weight: 700;
+  letter-spacing: .04em;
+  margin-bottom: 16px;
+}
+.status-badge.valid {
+  background: #d5f5e3;
+  color: var(--success);
+  border: 1px solid #a9dfbf;
+}
+.status-badge.no-hash {
+  background: #fef9e7;
+  color: #b7950b;
+  border: 1px solid #f9e79f;
+}
+.student-name {
+  font-size: 1.55em;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+.student-meta {
+  color: var(--muted);
+  font-size: .85em;
+  margin-bottom: 22px;
+}
+.sep { margin: 0 6px; opacity: .4; }
+.score-block {
+  background: linear-gradient(135deg, #eaf4fb 0%, #e8f8f5 100%);
+  border-radius: 16px;
+  padding: 20px 16px 16px;
+  margin-bottom: 16px;
+  border: 1px solid #d6eaf8;
+}
+.score-num {
+  font-size: 3.5em;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+.score-max { font-size: .38em; color: #a0aec0; font-weight: 400; }
+.score-pct {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1em;
+  margin: 4px 0 14px;
+}
+.breakdown { text-align: left; }
+.brow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  font-size: .88em;
+  color: #4a5568;
+}
+.brow:last-child { border-bottom: none; }
+.brow b { color: var(--text); }
+.hash-block {
+  background: #f8f9fa;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+.hash-label {
+  font-size: .72em;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.hash-value {
+  font-family: 'Courier New', monospace;
+  font-size: .68em;
+  color: #4a5568;
+  word-break: break-all;
+  line-height: 1.5;
+}
+.cert-kod {
+  display: inline-block;
+  background: #edf2f7;
+  color: #4a5568;
+  padding: 7px 18px;
+  border-radius: 100px;
+  font-family: monospace;
+  font-size: .9em;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+.card-footer {
+  border-top: 1px solid var(--border);
+  padding: 18px 24px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: #fafbfc;
+  text-align: center;
+}
+.footer-hint { font-size: .75em; color: var(--muted); }
+.tg-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0088cc;
+  color: #fff;
+  text-decoration: none;
+  padding: 9px 20px;
+  border-radius: 100px;
+  font-size: .82em;
+  font-weight: 600;
+}
+.tg-link svg { width: 15px; height: 15px; fill: #fff; }
+.no-result { color: #a0aec0; font-style: italic; padding: 16px 0; }
 """
 
 _VERIFY_NOT_FOUND_CSS = """
