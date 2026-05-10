@@ -297,6 +297,10 @@ async def scheduler():
 # ──────────────────────────────────────────────────────────────
 async def main():
     """Botni ishga tushiradi."""
+    # Web serverni eng avval ishga tushirish (Railway health check uchun)
+    from webapp.server import start_web_server
+    await start_web_server(BOT_TOKEN)
+
     init_db()
     logging.info("Ma'lumotlar bazasi tayyor va indekslar tekshirildi.")
 
