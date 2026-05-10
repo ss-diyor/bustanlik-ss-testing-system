@@ -1,10 +1,7 @@
 """
 Brevo (Sendinblue) orqali email yuborish moduli.
 
-Foydalanish:
-    from brevo_email import send_email, send_bulk_emails
-
-Environment variables (.env yoki Railway Variables):
+Environment variables (Railway Variables):
     BREVO_API_KEY      — Brevo API kaliti (majburiy)
     BREVO_SENDER_EMAIL — Jo'natuvchi email (masalan: noreply@maktab.uz)
     BREVO_SENDER_NAME  — Jo'natuvchi ismi (masalan: Bo'stonliq SS Maktab)
@@ -63,16 +60,12 @@ async def send_email(to_email: str, to_name: str, subject: str, html_content: st
 
 
 async def send_bulk_emails(recipients: list[dict], subject: str, html_content: str) -> tuple[int, int]:
+    """HTML tayyor holda keladi — har bir recipientga aynan shu HTML yuboriladi."""
     ok = fail = 0
     for i, r in enumerate(recipients):
         if i > 0 and i % 50 == 0:
             await asyncio.sleep(1.0)
-        html = build_announcement_html(
-            title=subject,
-            body=html_content,
-            recipient_name=r.get("name", ""),
-        )
-        success = await send_email(r["email"], r.get("name", ""), subject, html)
+        success = await send_email(r["email"], r.get("name", ""), subject, html_content)
         if success:
             ok += 1
         else:
@@ -81,8 +74,6 @@ async def send_bulk_emails(recipients: list[dict], subject: str, html_content: s
 
 
 def build_announcement_html(title: str, body: str, recipient_name: str = "", sender_name: str = None) -> str:
-    _, _, cfg_sender = _get_config()
-    sender = sender_name or cfg_sender or "Maktab Administratsiyasi"
     greeting = (
         f"Hurmatli {recipient_name.strip()},"
         if recipient_name and recipient_name.strip()
@@ -98,31 +89,34 @@ def build_announcement_html(title: str, body: str, recipient_name: str = "", sen
   <title>{title}</title>
   <style>
     body {{ margin:0; padding:0; background:#f0f4f8; font-family:Arial,Helvetica,sans-serif; }}
-    .wrap {{ width:100%; background:#f0f4f8; padding:20px 0; }}
-    .card {{ background:#fff; border-radius:12px; overflow:hidden; max-width:560px;
-             margin:0 auto; box-shadow:0 4px 16px rgba(0,0,0,.10); }}
-    .logo-cell {{ text-align:center; padding:24px 24px 12px; background:#fff; }}
-    .logo-cell img {{ width:140px; max-width:60%; height:auto; display:block; margin:0 auto; }}
-    .divider {{ border:none; border-top:1px solid #e2e8f0; margin:0 24px; }}
-    .header {{ background:#1a3a8f; padding:20px 24px; }}
-    .header .label {{ margin:0 0 4px; font-size:11px; color:#a0b4e8; letter-spacing:1px; }}
-    .header h1 {{ margin:0; font-size:20px; color:#fff; line-height:1.35; font-weight:700; }}
-    .body-cell {{ padding:24px 24px 8px; }}
-    .body-cell .greet {{ margin:0 0 12px; font-size:15px; color:#374151; font-weight:600; }}
-    .body-cell .text  {{ margin:0; font-size:15px; color:#374151; line-height:1.75; }}
-    .btn-cell {{ padding:20px 24px 24px; }}
+    .wrap {{ width:100%; background:#f0f4f8; padding:24px 0; box-sizing:border-box; }}
+    .card {{ background:#fff; border-radius:12px; overflow:hidden; max-width:540px;
+             margin:0 auto; box-shadow:0 4px 20px rgba(0,0,0,.10); width:92%; }}
+    .logo-cell {{ text-align:center; padding:28px 24px 16px; }}
+    .logo-cell img {{ width:130px; max-width:55%; height:auto; display:block; margin:0 auto; }}
+    .divider {{ border:none; border-top:1px solid #e2e8f0; margin:0; }}
+    .header {{ background:#1a3a8f; padding:22px 28px; }}
+    .header .label {{ margin:0 0 6px; font-size:11px; color:#a0b4e8; letter-spacing:1.5px; }}
+    .header h1 {{ margin:0; font-size:20px; color:#fff; line-height:1.4; font-weight:700; }}
+    .content {{ padding:28px 28px 12px; }}
+    .greet {{ margin:0 0 14px; font-size:15px; color:#1a3a8f; font-weight:700; }}
+    .text {{ margin:0; font-size:15px; color:#374151; line-height:1.8; }}
+    .btn-wrap {{ padding:22px 28px 28px; }}
     .btn {{ display:inline-block; background:#1a3a8f; color:#fff !important;
             font-size:13px; font-weight:600; text-decoration:none;
-            padding:10px 18px; border-radius:8px; margin:4px 6px 4px 0; }}
-    .footer {{ background:#f8fafc; padding:16px 24px; border-top:1px solid #e2e8f0; }}
+            padding:11px 22px; border-radius:8px; margin:0 8px 8px 0; }}
+    .footer {{ background:#f1f5f9; padding:18px 28px; border-top:1px solid #e2e8f0; text-align:center; }}
     .footer p {{ margin:0 0 4px; font-size:12px; color:#6b7280; }}
-    .footer a {{ color:#1a3a8f; text-decoration:none; }}
-    .copy {{ margin:14px 0 0; font-size:11px; color:#9ca3af; text-align:center; }}
+    .footer a {{ color:#1a3a8f; text-decoration:none; font-weight:600; }}
+    .copy {{ margin:16px 0 0; font-size:11px; color:#9ca3af; text-align:center; }}
     @media (max-width:600px) {{
-      .card {{ border-radius:0 !important; }}
+      .card {{ width:96%; border-radius:8px; }}
+      .header {{ padding:18px 20px; }}
       .header h1 {{ font-size:17px; }}
-      .body-cell .text {{ font-size:14px; }}
-      .btn {{ display:block; text-align:center; margin:6px 0; }}
+      .content {{ padding:22px 20px 8px; }}
+      .btn-wrap {{ padding:16px 20px 22px; }}
+      .btn {{ display:block; text-align:center; margin:0 0 10px 0; }}
+      .footer {{ padding:16px 20px; }}
     }}
   </style>
 </head>
@@ -136,32 +130,32 @@ def build_announcement_html(title: str, body: str, recipient_name: str = "", sen
     </div>
     <hr class="divider">
 
-    <!-- Header -->
+    <!-- Sarlavha -->
     <div class="header">
       <p class="label">📢 E'LON</p>
       <h1>{title}</h1>
     </div>
 
     <!-- Matn -->
-    <div class="body-cell">
+    <div class="content">
       <p class="greet">{greeting}</p>
       <p class="text">{body_html}</p>
     </div>
 
     <!-- Tugmalar -->
-    <div class="btn-cell">
+    <div class="btn-wrap">
       <a class="btn" href="{TELEGRAM_BOT_URL}" target="_blank">🤖 Botga o'tish</a>
       <a class="btn" href="{TELEGRAM_KANAL_URL}" target="_blank">📢 Kanalga o'tish</a>
     </div>
 
     <!-- Footer -->
     <div class="footer">
-      <p>Bu xabar <strong style="color:#1a3a8f;">{sender}</strong> tomonidan yuborildi.</p>
-      <p>Savollar: <a href="{TELEGRAM_BOT_URL}">@BustanlikSStestingsystembot</a></p>
+      <p><a href="{TELEGRAM_KANAL_URL}">Bo'stonliq tuman ixtisoslashtirilgan maktabi</a></p>
+      <p>© 2026 Barcha huquqlar himoyalangan.</p>
     </div>
 
   </div>
-  <p class="copy">© 2026 Bo'stonliq tuman ixtisoslashtirilgan maktabi.</p>
+  <p class="copy">Bu xabar avtomatik tarzda yuborildi.</p>
 </div>
 </body>
 </html>"""
