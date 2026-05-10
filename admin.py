@@ -2,7 +2,10 @@ import asyncio
 import logging
 import os
 from aiogram import Router, F, Bot
-from discord_notify import notify_new_result, notify_new_student
+from discord_notify import (
+    notify_new_result, notify_new_student,
+    notify_backup_sent, notify_error, notify_class_stats,
+)
 from aiogram.filters import Command
 from aiogram.types import (
     Message,
@@ -824,6 +827,13 @@ async def bildirishnoma_yuborish(
 
         except Exception as e:
             logging.error(f"Sertifikat generatsiyasida xato ({talaba_kod}): {e}")
+            try:
+                await notify_error(
+                    context=f"Sertifikat generatsiyasi ({talaba_kod})",
+                    error=str(e),
+                )
+            except Exception:
+                pass
             try:
                 await bot.send_message(user_id, matn, parse_mode="HTML")
             except Exception:
@@ -2857,6 +2867,16 @@ async def stats_maktab_callback(callback: CallbackQuery, state: FSMContext):
             await callback.message.edit_text(
                 text, parse_mode="HTML", reply_markup=stats_keyboard()
             )
+            try:
+                await notify_class_stats(
+                    maktab_nomi = maktab['nomi'],
+                    jami        = res['jami'],
+                    ortacha     = res['ortacha'],
+                    eng_yuqori  = res['eng_yuqori'],
+                    eng_past    = res['eng_past'],
+                )
+            except Exception as _e:
+                logging.warning(f"Discord stats notify xatosi: {_e}")
         
     except (ValueError, IndexError):
         await callback.answer("❌ Noto'g'ri maktab tanlovi", show_alert=True)
@@ -4917,6 +4937,14 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
         finally:
             if os.path.exists(filename):
                 os.remove(filename)
+        try:
+            await notify_backup_sent(
+                student_count=len(data),
+                filename=filename,
+            )
+        except Exception as _e:
+            logging.warning(f"Discord backup notify xatosi: {_e}")
+
         await call.answer(
             f"✅ Backup {sent} ta guruhga yuborildi.", show_alert=True
         )
