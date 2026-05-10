@@ -1,6 +1,8 @@
 import asyncio
+import logging
 import os
 from aiogram import Router, F, Bot
+from discord_notify import notify_new_result, notify_new_student
 from aiogram.filters import Command
 from aiogram.types import (
     Message,
@@ -674,12 +676,9 @@ async def _ota_onalarga_bildirish(bot: Bot, talaba_kod: str, ball: float):
 async def guruhlarga_yangi_oquvchi_yuborish(
     bot: Bot, talaba: dict, natija: dict = None
 ):
-    """Guruhlarga yangi qo'shilgan o'quvchi ma'lumotlarini yuboradi."""
+    """Guruhlarga va Discord ga yangi qo'shilgan o'quvchi ma'lumotlarini yuboradi."""
     from database import guruhlar_ol
-
     guruhlar = guruhlar_ol()
-    if not guruhlar:
-        return
 
     text = (
         f"🆕 <b>Yangi o'quvchi qo'shildi!</b>\n\n"
@@ -691,11 +690,26 @@ async def guruhlarga_yangi_oquvchi_yuborish(
     if natija:
         text += f"\n📊 Birinchi natija: <b>{natija['umumiy_ball']} ball</b>"
 
+    # Telegram guruhlariga yuborish
     for g in guruhlar:
         try:
             await bot.send_message(g["chat_id"], text, parse_mode="HTML")
         except Exception:
             pass
+
+    # ── Discord bildirishnoma ─────────────────────────────────
+    try:
+        _sinf, _maktab = _parse_sinf_maktab(talaba.get("sinf", ""))
+        await notify_new_student(
+            student_name = talaba["ismlar"],
+            kod          = talaba["kod"],
+            sinf         = _sinf,
+            yonalish     = talaba.get("yonalish", ""),
+            maktab       = _maktab,
+        )
+    except Exception as e:
+        logging.warning(f"Discord yangi o'quvchi notify xatosi: {e}")
+    # ─────────────────────────────────────────────────────────
 
 
 async def bildirishnoma_yuborish(
@@ -704,20 +718,40 @@ async def bildirishnoma_yuborish(
     """
     Talabaning Telegram user_id si bo'lsa, yangi natija haqida xabar yuboradi.
     Sertifikat ham generatsiya qilinadi.
+    Discord ga ham avtomatik xabar ketadi.
     """
     user_id = talaba_user_id_ol(talaba_kod)
-    if not user_id:
-        return  # Talaba profilini ulamagan — bildirishnoma yo'q
 
-    from database import get_student_rank, get_score_difference
+    # ── Discord bildirishnoma (user_id bo'lmasa ham yuboriladi) ──
+    try:
+        from database import get_student_rank, get_score_difference
+        ranks = get_student_rank(talaba_kod)
+        diff  = get_score_difference(talaba_kod)
+    except Exception as e:
+        logging.warning(f"Rank/Diff olishda xato ({talaba_kod}): {e}")
+        ranks = {"class": None, "overall": None}
+        diff  = None
 
     try:
-        ranks = get_student_rank(talaba_kod)
-        diff = get_score_difference(talaba_kod)
+        await notify_new_result(
+            student_name = talaba.get("ismlar", "Noma'lum"),
+            kod          = talaba_kod,
+            sinf         = talaba.get("sinf", ""),
+            yonalish     = talaba.get("yonalish", ""),
+            majburiy     = natija.get("majburiy", 0),
+            asosiy_1     = natija.get("asosiy_1", 0),
+            asosiy_2     = natija.get("asosiy_2", 0),
+            umumiy_ball  = natija.get("umumiy_ball", 0),
+            class_rank   = ranks.get("class"),
+            overall_rank = ranks.get("overall"),
+            diff         = diff,
+        )
     except Exception as e:
-        print(f"Rank/Diff error: {e}")
-        ranks = {"class": None, "overall": None}
-        diff = None
+        logging.warning(f"Discord natija notify xatosi ({talaba_kod}): {e}")
+    # ─────────────────────────────────────────────────────────────
+
+    if not user_id:
+        return  # Talaba profilini ulamagan — Telegram bildirishnomasi yo'q
 
     foiz = round((natija["umumiy_ball"] / 189) * 100, 1)
 
@@ -750,13 +784,11 @@ async def bildirishnoma_yuborish(
     )
 
     if is_notification_enabled(user_id, "notify_results"):
-        # Sertifikat yaratish (Blocking bo'lgani uchun executor ishlatamiz)
         try:
-            cert_gen = CertificateGenerator.from_db()
-            sana = str(natija.get("test_sanasi", "Noaniq"))[:10]
+            cert_gen  = CertificateGenerator.from_db()
+            sana      = str(natija.get("test_sanasi", "Noaniq"))[:10]
             _sinf, _maktab = _parse_sinf_maktab(talaba.get("sinf", ""))
-
-            loop = asyncio.get_event_loop()
+            loop      = asyncio.get_event_loop()
             cert_path, cert_hash = await loop.run_in_executor(
                 None,
                 _generate_certificate_file,
@@ -769,11 +801,11 @@ async def bildirishnoma_yuborish(
                 _maktab,
             )
 
-            # Hash'ni database'ga saqlaymiz (blockchain tekshiruvi uchun)
+            # Hash'ni database'ga saqlaymiz
             try:
                 from database import get_connection, release_connection
                 _conn = get_connection()
-                _cur = _conn.cursor()
+                _cur  = _conn.cursor()
                 _cur.execute(
                     "UPDATE talabalar SET cert_hash = %s WHERE kod = %s",
                     (cert_hash, talaba["kod"]),
@@ -782,27 +814,27 @@ async def bildirishnoma_yuborish(
                 _cur.close()
                 release_connection(_conn)
             except Exception as _he:
-                print(f"cert_hash saqlashda xato: {_he}")
+                logging.warning(f"cert_hash saqlashda xato: {_he}")
 
             await bot.send_document(
                 user_id, FSInputFile(cert_path), caption=matn, parse_mode="HTML"
             )
-            # Sertifikatni yuborgandan keyin o'chirib tashlaymiz
             if os.path.exists(cert_path):
                 os.remove(cert_path)
+
         except Exception as e:
-            # Agar sertifikatda xato bo'lsa, faqat matnni yuboramiz
+            logging.error(f"Sertifikat generatsiyasida xato ({talaba_kod}): {e}")
             try:
                 await bot.send_message(user_id, matn, parse_mode="HTML")
             except Exception:
                 pass
-    
-    # Ota-onalarga ham xabar yuboramiz
+
+    # Ota-onalarga xabar
     try:
         from parent import ota_onalarga_xabar_yuborish
         await ota_onalarga_xabar_yuborish(bot, talaba_kod, natija["umumiy_ball"])
     except Exception as e:
-        print(f"Ota-onalarga xabar yuborishda xato: {e}")
+        logging.warning(f"Ota-onalarga xabar yuborishda xato: {e}")
 
 
 # ─────────────────────────────────────────
