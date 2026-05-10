@@ -104,15 +104,13 @@ async def start_handler(message: Message):
     mini_test_enabled = get_setting('mini_test_enabled', 'True')
 
     await message.answer(
-        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM Natijalar Botiga xush kelibsiz!</b>\n\n"
+        "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM imtihoni va mock natijalari botiga xush kelibsiz!</b>\n\n"
         "📌 <b>O'quvchilar uchun:</b>\n"
         "Shaxsiy kodingizni yuboring — natijangiz darhol taqdim etiladi.\n"
         "<i>Masalan: A-007 yoki 52B</i>\n\n"
         "🔗 <b>Profilingizni ulash:</b>\n"
         "Avtomatik xabarnoma olish uchun <code>ULASH_KODINGIZ</code> deb yozing.\n"
-        "<i>Masalan: ULASH_1001</i>\n\n"
-        "🔑 <b>Admin uchun:</b>\n"
-        "/admin buyrug'ini yozing.",
+        "<i>Masalan: ULASH_1001</i>\n\n",
         parse_mode="HTML",
         reply_markup=user_menu_keyboard(
             ranking_enabled,
