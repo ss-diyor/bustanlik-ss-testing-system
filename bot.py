@@ -18,6 +18,7 @@ from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_ke
 import admin
 import student
 import email_broadcast
+import email_import
 import cert_admin
 import chatbot
 import group_commands
@@ -55,6 +56,7 @@ dp.include_router(mini_test_handler.router)
 dp.include_router(parent.router)
 dp.include_router(practice_quiz.router)
 dp.include_router(email_broadcast.router)
+dp.include_router(email_import.router)
 
 
 @dp.message(CommandStart())
