@@ -17,6 +17,7 @@ from aiogram import F
 from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_keyboard, phone_number_keyboard
 import admin
 import student
+import email_broadcast
 
 # ── Discord notify moduli ─────────────────────────────────────
 from discord_notify import (
@@ -39,6 +40,7 @@ dp = Dispatcher(storage=MemoryStorage())
 # Routerlarni ulash
 dp.include_router(admin.router)
 dp.include_router(student.router)
+dp.include_router(email_broadcast.router)
 
 
 @dp.message(CommandStart())
