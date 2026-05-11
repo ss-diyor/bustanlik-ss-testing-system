@@ -12,6 +12,7 @@ from config import BOT_TOKEN
 from database import (
     init_db, add_user, talaba_topish, talaba_user_id_yangila,
     get_setting, guruh_qosh, get_user, update_user_phone,
+    guruhlar_ol,
 )
 from aiogram import F
 from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_keyboard, phone_number_keyboard
@@ -19,6 +20,9 @@ import admin
 import student
 import email_broadcast
 import email_import
+import mock_admin
+import mock_excel_import
+import result_email
 import cert_admin
 import chatbot
 import group_commands
@@ -57,6 +61,9 @@ dp.include_router(parent.router)
 dp.include_router(practice_quiz.router)
 dp.include_router(email_broadcast.router)
 dp.include_router(email_import.router)
+dp.include_router(mock_admin.router)
+dp.include_router(mock_excel_import.router)
+dp.include_router(result_email.router)
 
 
 @dp.message(CommandStart())
@@ -133,6 +140,24 @@ async def contact_handler(message: Message):
         phone_number = "+" + phone_number
     update_user_phone(message.from_user.id, phone_number)
     await message.answer("✅ Telefon raqamingiz muvaffaqiyatli saqlandi!", reply_markup=ReplyKeyboardRemove())
+
+    # ── Guruhga yangi ro'yxatdan o'tgan foydalanuvchi haqida xabar ──
+    user      = message.from_user
+    full_name = " ".join(filter(None, [user.first_name, user.last_name]))
+    username  = f"@{user.username}" if user.username else "username yo'q"
+    text = (
+        "🆕 <b>Yangi foydalanuvchi ro'yxatdan o'tdi!</b>\n\n"
+        f"👤 Ismi: <b>{full_name}</b>\n"
+        f"🔗 Username: {username}\n"
+        f"📱 Telefon: <code>{phone_number}</code>\n"
+        f"🆔 Telegram ID: <code>{user.id}</code>"
+    )
+    for g in guruhlar_ol():
+        try:
+            await bot.send_message(g["chat_id"], text, parse_mode="HTML")
+        except Exception:
+            pass
+
     await start_handler(message)
 
 
@@ -177,6 +202,24 @@ async def bind_user_to_kod(message: Message):
             f"Endi yangi natijalar haqida avtomatik xabar olasiz.",
             parse_mode="HTML",
         )
+        # ── Guruhga yangi o'quvchi profil ulandi haqida xabar ──
+        user      = message.from_user
+        full_name = " ".join(filter(None, [user.first_name, user.last_name]))
+        username  = f"@{user.username}" if user.username else "username yo'q"
+        text = (
+            "🔗 <b>O'quvchi profilini uladi!</b>\n\n"
+            f"👤 Ismi: <b>{talaba['ismlar']}</b>\n"
+            f"🏫 Sinf: {talaba.get('sinf') or '—'}\n"
+            f"📌 Yo'nalish: {talaba.get('yonalish') or '—'}\n"
+            f"🔑 Kod: <code>{kod}</code>\n"
+            f"🔗 Telegram: {username}\n"
+            f"🆔 Telegram ID: <code>{user.id}</code>"
+        )
+        for g in guruhlar_ol():
+            try:
+                await bot.send_message(g["chat_id"], text, parse_mode="HTML")
+            except Exception:
+                pass
     else:
         await message.answer("❌ Bunday kod topilmadi.")
 
