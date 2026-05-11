@@ -56,8 +56,8 @@ MAX_SAVOL = 30  # Har bir guruhda maksimal savol soni
 # Franchise to'lov tizimi sozlamalari
 # Railway'da KARTA_RAQAMI="8600 1234 5678 9012" shaklida bering
 KARTA_RAQAMI = _env("KARTA_RAQAMI", "")
-# Oylik to'lov miqdori (so'mda). Standart: 300 000 so'm
-OYLIK_NARX = _env_int("OYLIK_NARX", 300_000)
+# Oylik to'lov miqdori (so'mda). Standart: 35 000 so'm
+OYLIK_NARX = _env_int("OYLIK_NARX", 35_000)
 
 # AI tahlil uchun optional LLM sozlamalari
 AI_API_KEY = _env("AI_API_KEY", "")
