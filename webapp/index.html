@@ -30,6 +30,7 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('personal')">Shaxsiy Natijalar</button>
       <button class="tab-btn" onclick="switchTab('classmates')">Sinfdoshlar</button>
+      <button class="tab-btn" onclick="switchTab('mock')">🎯 Mock</button>
       <button class="tab-btn" onclick="switchTab('schedule')">Taqvim</button>
       <button class="tab-btn" onclick="switchTab('materials')">Materiallar</button>
     </div>
@@ -96,6 +97,15 @@
       <section class="history-section" style="padding-top: 20px;">
         <h2 class="section-title">👥 Sinfdoshlar ro'yxati</h2>
         <div class="table-wrapper" id="classmates-list"></div>
+      </section>
+    </div>
+
+    <!-- Mock Natijalar Tab -->
+    <div id="tab-mock" class="tab-content hidden">
+      <section class="history-section" style="padding-top: 20px;">
+        <h2 class="section-title">🎯 Mock Imtihon Natijalari</h2>
+        <div id="mock-filter" class="category-filters"></div>
+        <div id="mock-list"><div class="spinner-small"></div></div>
       </section>
     </div>
 
