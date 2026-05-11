@@ -36,6 +36,7 @@ from discord_notify import (
     notify_daily_ranking,
     notify_backup_sent,
     notify_error,
+    notify_new_student,
 )
 
 # Loglarni konsolga chiqaradi
@@ -156,6 +157,17 @@ async def contact_handler(message: Message):
         except Exception:
             pass
 
+    try:
+        await notify_new_student(
+            student_name=full_name,
+            kod="—",
+            sinf="—",
+            yonalish="Telefon orqali ro'yxat",
+            maktab=f"📱 {phone_number} | TG: {username}",
+        )
+    except Exception:
+        pass
+
     await start_handler(message)
 
 
@@ -218,6 +230,17 @@ async def bind_user_to_kod(message: Message):
                 await bot.send_message(g["chat_id"], text, parse_mode="HTML")
             except Exception:
                 pass
+
+        try:
+            await notify_new_student(
+                student_name=talaba['ismlar'],
+                kod=kod,
+                sinf=talaba.get('sinf') or '—',
+                yonalish=talaba.get('yonalish') or '—',
+                maktab=f"TG: {username}",
+            )
+        except Exception:
+            pass
     else:
         await message.answer("❌ Bunday kod topilmadi.")
 
