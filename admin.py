@@ -6,6 +6,7 @@ from discord_notify import (
     notify_new_result, notify_new_student,
     notify_backup_sent, notify_error, notify_class_stats,
 )
+from result_email import router as result_email_router
 from aiogram.filters import Command
 from aiogram.types import (
     Message,
@@ -399,6 +400,7 @@ from keyboards import (
 )
 
 router = Router()
+router.include_router(result_email_router)
 
 # ─────────────────────────────────────────
 # FSM holatlari
