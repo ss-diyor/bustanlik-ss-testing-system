@@ -770,6 +770,82 @@ async def admin_export_excel_api(request: web.Request) -> web.Response:
 
 
 
+async def student_mock_api(request: web.Request) -> web.Response:
+    """O'quvchining mock imtihon natijalarini qaytaradi."""
+    from database import get_connection, release_connection
+
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, err_msg = validate_telegram_init_data(init_data, bot_token)
+
+    if not user:
+        debug = os.getenv("WEBAPP_DEBUG", "")
+        if debug:
+            try:
+                user_id = int(request.rel_url.query.get("user_id", 0))
+            except ValueError:
+                return web.json_response({"error": "Invalid user_id"}, status=400)
+        else:
+            return web.json_response({"error": f"Unauthorized: {err_msg}"}, status=401)
+    else:
+        user_id = user.get("id", 0)
+
+    if not user_id:
+        return web.json_response({"error": "No user_id"}, status=400)
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Talaba kodini topish (demo sessiyani ham qo'llab-quvvatlash)
+        cur.execute("SELECT kod FROM talabalar WHERE user_id = %s", (user_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("""
+                SELECT t.kod FROM talabalar t
+                JOIN demo_sessions d ON d.kod = t.kod
+                WHERE d.user_id = %s AND t.is_demo = TRUE
+            """, (user_id,))
+            row = cur.fetchone()
+
+        if not row:
+            cur.close(); release_connection(conn)
+            return web.json_response({"error": "Student not found"}, status=404)
+
+        talaba_kod = row["kod"]
+
+        # Mock natijalarini olish (so'nggi 50 ta, barcha imtihon turlari)
+        cur.execute("""
+            SELECT id, exam_key, exam_label, sections, umumiy_ball,
+                   level_label, subject_name, notes, test_sanasi
+            FROM mock_natijalari
+            WHERE talaba_kod = %s
+            ORDER BY test_sanasi DESC
+            LIMIT 50
+        """, (talaba_kod,))
+        rows = cur.fetchall()
+
+        cur.close(); release_connection(conn)
+
+        import json as _json
+        natijalar = []
+        for r in rows:
+            d = dict(r)
+            if isinstance(d.get("sections"), str):
+                d["sections"] = _json.loads(d["sections"])
+            if d.get("test_sanasi"):
+                d["test_sanasi"] = d["test_sanasi"].strftime("%d.%m.%Y")
+            if d.get("umumiy_ball") is not None:
+                d["umumiy_ball"] = float(d["umumiy_ball"])
+            natijalar.append(d)
+
+        return safe_json_response({"mock_results": natijalar})
+
+    except Exception as e:
+        logging.error(f"Student Mock API error: {e}", exc_info=True)
+        return web.json_response({"error": "Server error"}, status=500)
+
+
 async def verify_handler(request: web.Request) -> web.Response:
     """Sertifikatni QR-kod orqali tekshirish sahifasi — hamma uchun ochiq."""
     from database import get_connection, release_connection
@@ -1204,6 +1280,7 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/health", health_handler)
     app.router.add_get("/verify/{kod}", verify_handler)
     app.router.add_get("/api/student", student_api)
+    app.router.add_get("/api/student/mock", student_mock_api)
     
     app.router.add_get("/admin", admin_handler)
     app.router.add_get("/api/admin_stats", admin_stats_api)
