@@ -544,6 +544,13 @@ def init_db():
     cur.close()
     release_connection(conn)
 
+    # Franchise to'lov tizimi jadvallarini yaratish
+    try:
+        from payment import create_payment_tables
+        create_payment_tables()
+    except Exception as _pay_err:
+        logging.getLogger(__name__).warning(f"payment tables init skip: {_pay_err}")
+
 
 def yonalish_ol():
     conn = get_connection()
