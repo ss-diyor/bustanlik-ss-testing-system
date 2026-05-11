@@ -449,12 +449,12 @@ async def show_school_admin_menu(message: Message, telegram_id: int):
         )
         await message.answer(text, parse_mode="HTML", reply_markup=kb)
     else:
-        # Obuna faol — oddiy admin menyusini ko'rsatish
-        from keyboards import admin_menu_keyboard
+        # Obuna faol — maktab admin menyusini ko'rsatish (cheklangan)
+        from keyboards import maktab_admin_menu_keyboard
         await message.answer(
             text + "\n👇 Quyidagi menyudan foydalaning:",
             parse_mode="HTML",
-            reply_markup=admin_menu_keyboard()
+            reply_markup=maktab_admin_menu_keyboard()
         )
 
 
