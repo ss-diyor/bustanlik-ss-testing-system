@@ -41,7 +41,8 @@ class PaymentFSM(StatesGroup):
 
 
 class MaktabAdminFSM(StatesGroup):
-    admin_qoshish = State()        # Super admin: yangi maktab admini TG ID kiritmoqda
+    admin_qoshish   = State()   # Super admin: yangi maktab admini TG ID kiritmoqda
+    narx_ozgartir   = State()   # Super admin: maktab oylik narxini o'zgartirmoqda
 
 
 # ── DB funksiyalari ─────────────────────────────────────────────────────────
@@ -224,7 +225,7 @@ def approve_payment(payment_id: int, super_admin_id: int) -> dict | None:
     # Mavjud tugash sanasini olish
     cur.execute("SELECT obuna_tugash_sana FROM maktablar WHERE id = %s", (maktab_id,))
     row = cur.fetchone()
-    tugash = row[0] if row and row[0] else None
+    tugash = row["obuna_tugash_sana"] if row else None
 
     # Agar obuna hali tugamagan bo'lsa — unga 30 kun qo'shiladi
     baza = tugash if (tugash and tugash >= date.today()) else date.today()
@@ -309,6 +310,26 @@ def set_maktab_admin(maktab_id: int, telegram_id: int | None) -> bool:
     except Exception as e:
         conn.rollback()
         logger.error(f"set_maktab_admin error: {e}")
+        return False
+    finally:
+        cur.close()
+        db.release_connection(conn)
+
+
+def set_maktab_narx(maktab_id: int, narx: int) -> bool:
+    """Maktab oylik to'lov narxini yangilaydi."""
+    conn = db.get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "UPDATE maktablar SET oylik_narx = %s WHERE id = %s",
+            (narx, maktab_id)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"set_maktab_narx error: {e}")
         return False
     finally:
         cur.close()
@@ -702,7 +723,7 @@ async def maktab_admin_edit(callback: CallbackQuery, state: FSMContext):
 
     conn = db.get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT nomi, admin_telegram_id FROM maktablar WHERE id = %s", (maktab_id,))
+    cur.execute("SELECT nomi, admin_telegram_id, oylik_narx FROM maktablar WHERE id = %s", (maktab_id,))
     row = cur.fetchone()
     cur.close()
     db.release_connection(conn)
@@ -711,17 +732,22 @@ async def maktab_admin_edit(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Maktab topilmadi", show_alert=True)
         return
 
-    nomi, admin_tg = row
+    nomi, admin_tg, narx = row
     mavjud = f"Hozirgi admin ID: <code>{admin_tg}</code>" if admin_tg else "Hozircha admin biriktirilmagan"
 
     await callback.message.edit_text(
         f"🏫 <b>{nomi}</b>\n\n"
-        f"{mavjud}\n\n"
+        f"{mavjud}\n"
+        f"💰 Oylik narx: <b>{(narx or OYLIK_NARX):,} so'm</b>\n\n"
         "Yangi admin Telegram ID sini kiriting:\n"
         "<i>(0 kiriting — adminni o'chirish uchun)</i>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="❌ Bekor", callback_data="manage_maktab_admins")]
+            [InlineKeyboardButton(
+                text=f"💰 Narxni o'zgartirish ({(narx or OYLIK_NARX):,} so'm)",
+                callback_data=f"maktab_narx_edit:{maktab_id}"
+            )],
+            [InlineKeyboardButton(text="❌ Bekor", callback_data="manage_maktab_admins")],
         ])
     )
     await callback.answer()
@@ -758,3 +784,65 @@ async def maktab_admin_id_qabul(message: Message, state: FSMContext):
         await message.answer(
             "❌ Xato: bu Telegram ID boshqa maktabga biriktirilgan bo'lishi mumkin."
         )
+
+
+@router.callback_query(F.data.startswith("maktab_narx_edit:"))
+async def maktab_narx_edit(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
+        return
+
+    maktab_id = int(callback.data.split(":")[1])
+    await state.set_state(MaktabAdminFSM.narx_ozgartir)
+    await state.update_data(edit_maktab_id=maktab_id)
+
+    conn = db.get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT nomi, oylik_narx FROM maktablar WHERE id = %s", (maktab_id,))
+    row = cur.fetchone()
+    cur.close()
+    db.release_connection(conn)
+
+    nomi = row[0] if row else "?"
+    narx = row[1] if row and row[1] else OYLIK_NARX
+
+    await callback.message.edit_text(
+        f"🏫 <b>{nomi}</b>\n\n"
+        f"💰 Hozirgi narx: <b>{narx:,} so'm</b>\n\n"
+        "Yangi oylik narxni kiriting (so'mda):\n"
+        "<i>Masalan: 35000 yoki 50000</i>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Bekor", callback_data=f"maktab_admin_edit:{maktab_id}")]
+        ])
+    )
+    await callback.answer()
+
+
+@router.message(MaktabAdminFSM.narx_ozgartir)
+async def maktab_narx_qabul(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    data = await state.get_data()
+    maktab_id = data.get("edit_maktab_id")
+
+    try:
+        narx = int(message.text.strip().replace(" ", "").replace(",", ""))
+        if narx < 1000:
+            await message.answer("⚠️ Narx kamida 1,000 so'm bo'lishi kerak.")
+            return
+    except ValueError:
+        await message.answer("⚠️ Faqat raqam kiriting. Masalan: 35000")
+        return
+
+    ok = set_maktab_narx(maktab_id, narx)
+    await state.clear()
+
+    if ok:
+        await message.answer(
+            f"✅ Oylik narx yangilandi: <b>{narx:,} so'm</b>",
+            parse_mode="HTML"
+        )
+    else:
+        await message.answer("❌ Xato yuz berdi. Qayta urinib ko'ring.")
