@@ -600,8 +600,15 @@ body {
   background: var(--card-bg);
   border-bottom: 1px solid var(--card-border);
   padding: 8px 14px 0;
-  gap: 16px;
-  justify-content: center;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-btn {
