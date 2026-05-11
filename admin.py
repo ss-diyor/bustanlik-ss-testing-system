@@ -552,14 +552,33 @@ async def is_admin(message: Message, state: FSMContext):
 async def admin_tekshir(state: FSMContext, user_id: int = None) -> bool:
     data = await state.get_data()
     if data.get("admin") is True:
+        # Agar maktab admin bo'lsa — obunani har doim qayta tekshir
+        if data.get("is_maktab_admin") and user_id:
+            try:
+                from payment import is_subscription_active
+                if not is_subscription_active(user_id):
+                    await state.update_data(admin=False)
+                    return False
+            except Exception:
+                pass
         return True
     if user_id:
         try:
             from config import ADMIN_IDS
-
             if int(user_id) in [int(i) for i in ADMIN_IDS]:
-                await state.update_data(admin=True)
+                await state.update_data(admin=True, is_maktab_admin=False)
                 return True
+        except Exception:
+            pass
+        # Maktab admin tekshiruvi
+        try:
+            from payment import is_maktab_admin, is_subscription_active
+            if is_maktab_admin(user_id):
+                if is_subscription_active(user_id):
+                    await state.update_data(admin=True, is_maktab_admin=True)
+                    return True
+                # Maktab admin lekin obuna tugagan
+                return False
         except Exception:
             pass
     return False
@@ -3080,6 +3099,7 @@ async def settings_start(message: Message, state: FSMContext):
     mock_enabled = get_setting("mock_enabled", "True")
     quiz_enabled = get_setting("quiz_enabled", "True")
     mini_test_enabled = get_setting("mini_test_enabled", "True")
+    payment_enabled = get_setting("payment_enabled", "False")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
@@ -3088,13 +3108,14 @@ async def settings_start(message: Message, state: FSMContext):
         f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📝 Mashq qilish (Quiz): <b>{'✅ Yoqilgan' if quiz_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await message.answer(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled),
     )
 
 
@@ -3113,6 +3134,7 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
     mock_enabled = get_setting("mock_enabled", "True")
     quiz_enabled = get_setting("quiz_enabled", "True")
     mini_test_enabled = get_setting("mini_test_enabled", "True")
+    payment_enabled = get_setting("payment_enabled", "False")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
@@ -3121,15 +3143,42 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
         f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📝 Mashq qilish (Quiz): <b>{'✅ Yoqilgan' if quiz_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled),
     )
     await callback.answer("✅ Sozlama yangilandi")
+
+
+@router.callback_query(F.data == "payment_settings_back")
+async def payment_settings_back(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    await open_cert_sozlama_cb.__wrapped__(callback, state) if hasattr(open_cert_sozlama_cb, '__wrapped__') else None
+    # Sozlamalar menyusiga qaytish
+    ranking_enabled = get_setting("ranking_enabled", "True")
+    stats_enabled = get_setting("stats_enabled", "True")
+    chatbot_enabled = get_setting("chatbot_enabled", "True")
+    mock_enabled = get_setting("mock_enabled", "True")
+    quiz_enabled = get_setting("quiz_enabled", "True")
+    mini_test_enabled = get_setting("mini_test_enabled", "True")
+    payment_enabled = get_setting("payment_enabled", "False")
+    text = (
+        "⚙️ <b>Bot sozlamalari:</b>\n\n"
+        f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        "O'zgartirish uchun tugmalarni bosing:"
+    )
+    await callback.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled),
+    )
+    await callback.answer()
 
 
 @router.callback_query(F.data == "open_cert_sozlama")
@@ -3150,6 +3199,35 @@ async def open_cert_sozlama_cb(callback: CallbackQuery, state: FSMContext):
 async def requests_list(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
+
+    # Kutayotgan to'lovlarni ko'rsatish (faqat super adminga)
+    from admin import is_admin_id
+    if is_admin_id(message.from_user.id):
+        try:
+            from payment import get_pending_payments, payment_review_keyboard
+            pending_payments = get_pending_payments()
+            if pending_payments:
+                await message.answer(
+                    f"💳 <b>{len(pending_payments)} ta kutayotgan to'lov so'rovi:</b>",
+                    parse_mode="HTML"
+                )
+                for p in pending_payments:
+                    sana = p["yaratilgan"].strftime("%d.%m.%Y %H:%M")
+                    await message.answer_photo(
+                        photo=p["chek_foto_id"],
+                        caption=(
+                            f"💳 <b>To'lov so'rovi #{p['id']}</b>\n\n"
+                            f"🏫 Maktab: <b>{p['maktab_nomi']}</b>\n"
+                            f"👤 Admin ID: <code>{p['admin_telegram_id']}</code>\n"
+                            f"💰 Summa: <b>{p['summa']:,} so'm</b>\n"
+                            f"📅 Yuborilgan: {sana}"
+                        ),
+                        parse_mode="HTML",
+                        reply_markup=payment_review_keyboard(p["id"])
+                    )
+        except Exception as e:
+            logging.getLogger(__name__).error(f"pending payments error: {e}")
+
     requests = get_pending_requests()
     if not requests:
         await message.answer("✅ Hozircha yangi so'rovlar yo'q.")
