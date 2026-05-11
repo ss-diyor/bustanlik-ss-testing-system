@@ -384,6 +384,13 @@ def mock_natija_qosh(
     et = exam_type_ol(exam_key) or {}
     exam_label = et.get("label", exam_key)
 
+    # MILLIY_SERT uchun alohida: total_max yo'q, lekin o'rtacha hisoblanadi
+    if umumiy_ball is None and exam_key == "MILLIY_SERT":
+        vals = [_num(v) for v in sections.values()]
+        vals = [v for v in vals if v is not None]
+        if vals:
+            umumiy_ball = round(sum(vals) / len(vals), 1)
+
     if umumiy_ball is None and et.get("total_max"):
         if exam_key == "DTM_MOCK":
             try:
