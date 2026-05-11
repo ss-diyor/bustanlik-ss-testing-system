@@ -939,3 +939,34 @@ input:checked + .slider:before { transform: translateX(18px); }
   color: var(--tg-theme-hint-color, rgba(255,255,255,0.4));
   font-style: italic;
 }
+
+/* ─── Milliy Sertifikat maxsus ───────────── */
+.milliy-score-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.mock-score.milliy-inline {
+  margin-bottom: 0;
+  font-size: 2.2em;
+}
+.milliy-daraja {
+  padding: 4px 14px;
+  border-radius: 100px;
+  font-size: .85em;
+  font-weight: 800;
+  letter-spacing: .03em;
+}
+.milliy-daraja--Aplus  { background: #1e6e43; color: #6effa8; }
+.milliy-daraja--A      { background: #155e34; color: #5ddf90; }
+.milliy-daraja--Bplus  { background: #2d5a8e; color: #7ec8f7; }
+.milliy-daraja--B      { background: #1e4070; color: #6ab3f0; }
+.milliy-daraja--Cplus  { background: #6b4700; color: #ffc966; }
+.milliy-daraja--C      { background: #5a3800; color: #f5b84a; }
+.milliy-foiz {
+  font-size: 1.3em;
+  font-weight: 800;
+  color: rgba(255,255,255,0.55);
+}
