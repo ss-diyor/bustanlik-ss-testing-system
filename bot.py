@@ -21,6 +21,7 @@ import student
 import email_broadcast
 import email_import
 import mock_admin
+import mock_student
 import mock_excel_import
 import cert_admin
 import chatbot
@@ -63,6 +64,7 @@ dp.include_router(practice_quiz.router)
 dp.include_router(email_broadcast.router)
 dp.include_router(email_import.router)
 dp.include_router(mock_admin.router)
+dp.include_router(mock_student.router)
 dp.include_router(mock_excel_import.router)
 
 
