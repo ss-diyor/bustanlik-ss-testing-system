@@ -160,8 +160,8 @@ async def _show_mock_types(
             latest = latest_results[0]
             latest_exam_key = latest.get("exam_key")
             latest_text = (
-                f"рџ‘¤ <b>{talaba['ismlar']}</b>\n"
-                f"рџ†” Kod: <code>{kod}</code>\n\n"
+                f"👤 <b>{talaba['ismlar']}</b>\n"
+                f"🆔 Kod: <code>{kod}</code>\n\n"
                 + format_mock_natija_matn(latest)
             )
             await message.answer(
