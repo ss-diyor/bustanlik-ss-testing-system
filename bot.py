@@ -37,6 +37,7 @@ from discord_notify import (
     notify_backup_sent,
     notify_error,
     notify_new_student,
+    send_discord,
 )
 
 # Loglarni konsolga chiqaradi
@@ -232,12 +233,17 @@ async def bind_user_to_kod(message: Message):
                 pass
 
         try:
-            await notify_new_student(
-                student_name=talaba['ismlar'],
-                kod=kod,
-                sinf=talaba.get('sinf') or '—',
-                yonalish=talaba.get('yonalish') or '—',
-                maktab=f"TG: {username}",
+            await send_discord(
+                title="🔗 O'quvchi profilini uladi!",
+                description=(
+                    f"👤 Ismi: **{talaba['ismlar']}**\n"
+                    f"🏫 Sinf: {talaba.get('sinf') or '—'}\n"
+                    f"📌 Yo'nalish: {talaba.get('yonalish') or '—'}\n"
+                    f"🔑 Kod: `{kod}`\n"
+                    f"🔗 Telegram: {username}\n"
+                    f"🆔 Telegram ID: `{user.id}`"
+                ),
+                color=0x1abc9c,
             )
         except Exception:
             pass
