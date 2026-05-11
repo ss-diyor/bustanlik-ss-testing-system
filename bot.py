@@ -30,6 +30,7 @@ import language_handlers
 import mini_test_handler
 import parent
 import practice_quiz
+import payment
 
 # ── Discord notify moduli ─────────────────────────────────────
 from discord_notify import (
@@ -53,6 +54,7 @@ dp = Dispatcher(storage=MemoryStorage())
 
 # Routerlarni ulash
 dp.include_router(admin.router)
+dp.include_router(payment.router)
 dp.include_router(student.router)
 dp.include_router(cert_admin.router)
 dp.include_router(chatbot.router)
@@ -97,6 +99,15 @@ async def start_handler(message: Message):
     if is_admin_id(message.from_user.id):
         await message.answer(f"👋 Xush kelibsiz, Admin!", reply_markup=admin_menu_keyboard())
         return
+
+    # Maktab admin tekshiruvi
+    try:
+        from payment import is_maktab_admin, show_school_admin_menu
+        if is_maktab_admin(message.from_user.id):
+            await show_school_admin_menu(message, message.from_user.id)
+            return
+    except Exception:
+        pass
 
     # O'qituvchi tekshiruvi
     teacher = oqituvchi_ol(message.from_user.id)
