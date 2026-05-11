@@ -422,6 +422,31 @@ function showError(msg) {
 let allMockResults = [];
 let mockLoaded = false;
 
+// Milliy sertifikat foiz jadvali (2-rasm)
+const MILLIY_FOIZ = {
+  75: 100, 74: 100, 73: 100, 72: 100, 71: 100, 70: 100,
+  69: 100, 68: 100, 67: 100, 66: 100, 65: 100,
+  64: 98.46, 63: 96.92, 62: 95.38, 61: 93.85, 60: 92.31,
+  59: 90.77, 58: 89.23, 57: 87.69, 56: 86.15, 55: 84.62,
+  54: 83.08, 53: 81.54, 52: 80.00, 51: 78.46, 50: 76.92,
+  49: 75.38, 48: 73.85, 47: 72.31, 46: 70.77,
+};
+
+function milliyDaraja(ball) {
+  if (ball >= 70) return 'A+';
+  if (ball >= 65) return 'A';
+  if (ball >= 60) return 'B+';
+  if (ball >= 55) return 'B';
+  if (ball >= 50) return 'C+';
+  if (ball >= 46) return 'C';
+  return null;
+}
+
+function milliyFoiz(ball) {
+  const key = Math.floor(ball);
+  return MILLIY_FOIZ[key] ?? null;
+}
+
 async function loadMockResults() {
   if (mockLoaded) return;
   const wrap = document.getElementById("mock-list");
@@ -483,19 +508,48 @@ function renderMockResults(list) {
 
   wrap.innerHTML = list.map(r => {
     const sections = r.sections || {};
+
+    // MILLIY_SERT uchun: agar umumiy_ball null bo'lsa, o'rtacha hisoblaymiz
+    let computedBall = r.umumiy_ball;
+    if (r.exam_key === 'MILLIY_SERT' && computedBall == null) {
+      const vals = Object.values(sections)
+        .map(v => typeof v === 'object' ? (v.value ?? null) : v)
+        .filter(v => v != null);
+      if (vals.length) computedBall = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10;
+    }
+
     const sectionRows = Object.entries(sections).map(([key, val]) => {
       const score = typeof val === 'object' ? (val.value ?? val.score ?? val.ball ?? '—') : val;
       const label = typeof val === 'object' ? (val.label || key) : key;
       return `<div class="mock-brow"><span>${label}</span><b>${score}</b></div>`;
     }).join('');
 
-    const ball = r.umumiy_ball != null ? r.umumiy_ball : '—';
+    const ball = computedBall != null ? computedBall : '—';
     const levelBadge = r.level_label
       ? `<span class="mock-level-badge">${r.level_label}</span>` : '';
     const noteHtml = r.notes
       ? `<p class="mock-notes">📝 ${r.notes}</p>` : '';
     const subjectHtml = r.subject_name
       ? `<span class="mock-subject">${r.subject_name}</span>` : '';
+
+    // MILLIY_SERT uchun ball + foiz bloki
+    let scoreHtml;
+    if (r.exam_key === 'MILLIY_SERT' && computedBall != null) {
+      const daraja = milliyDaraja(computedBall);
+      const foiz = milliyFoiz(computedBall);
+      const darajaHtml = daraja
+        ? `<span class="milliy-daraja milliy-daraja--${daraja.replace('+','plus')}">${daraja}</span>` : '';
+      const foizHtml = foiz != null
+        ? `<span class="milliy-foiz">${foiz}%</span>` : '';
+      scoreHtml = `
+        <div class="milliy-score-row">
+          <span class="mock-score milliy-inline">${computedBall}</span>
+          ${darajaHtml}
+          ${foizHtml}
+        </div>`;
+    } else {
+      scoreHtml = `<div class="mock-score">${ball}</div>`;
+    }
 
     return `
       <div class="mock-card">
@@ -507,7 +561,7 @@ function renderMockResults(list) {
           </div>
           <span class="mock-date">${r.test_sanasi || '—'}</span>
         </div>
-        <div class="mock-score">${ball}</div>
+        ${scoreHtml}
         ${sectionRows ? `<div class="mock-breakdown">${sectionRows}</div>` : ''}
         ${noteHtml}
       </div>
