@@ -76,6 +76,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="🧹 Bazani tozalash")],
             [KeyboardButton(text="📢 Xabar yuborish")],
             [KeyboardButton(text="📧 Email xabar yuborish")],
+            [KeyboardButton(text="📊 Natija emaili")],
             [KeyboardButton(text="📧 Email import (Excel)")],
             [KeyboardButton(text="✉️ Shaxsiy xabar yuborish")],
             [KeyboardButton(text="🌐 Web Admin Panel")],
