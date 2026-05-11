@@ -396,6 +396,13 @@ async def main():
     except Exception as e:
         logging.error(f"Admin jadvallarini yaratishda xato: {e}")
 
+    from mock_database import create_mock_tables
+    try:
+        create_mock_tables()
+        logging.info("Mock imtihon jadvallari yaratildi yoki allaqachon mavjud.")
+    except Exception as e:
+        logging.error(f"Mock jadvallarini yaratishda xato: {e}")
+
     # Schedulerlarni ishga tushirish
     asyncio.create_task(scheduler())
     asyncio.create_task(reminder_scheduler())
