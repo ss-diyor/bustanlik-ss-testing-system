@@ -118,6 +118,47 @@ def oqituvchi_menu_keyboard():
     )
 
 
+def maktab_admin_menu_keyboard():
+    """Maktab admin (franchise) uchun cheklangan menyu.
+
+    Super admin tugmalari (bazani tozalash, adminlarni boshqarish va
+    boshqalar) ko'rsatilmaydi — faqat o'z maktabiga tegishli
+    operatsiyalar mavjud.
+    """
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="➕ O'quvchi qo'shish")],
+            [KeyboardButton(text="📥 Exceldan import")],
+            [
+                KeyboardButton(text="✏️ O'quvchi ma'lumotlarini tahrirlash"),
+                KeyboardButton(text="🗑️ Bitta natijani o'chirish"),
+            ],
+            [KeyboardButton(text="🔑 Test kalitlarini boshqarish")],
+            [
+                KeyboardButton(text="⚙️ Yo'nalishlarni boshqarish"),
+                KeyboardButton(text="🏫 Sinflarni boshqarish"),
+            ],
+            [KeyboardButton(text="🔄 Sinf transferi")],
+            [
+                KeyboardButton(text="📊 Statistika"),
+                KeyboardButton(text="🏆 Reyting"),
+            ],
+            [
+                KeyboardButton(text="📄 PDF Hisobot"),
+                KeyboardButton(text="📊 Excel Hisobot"),
+            ],
+            [KeyboardButton(text="📋 O'quvchilar ro'yxati")],
+            [KeyboardButton(text="📢 Xabar yuborish")],
+            [KeyboardButton(text="🔔 So'rovlar")],
+            [KeyboardButton(text="💳 Obuna holati")],
+            [KeyboardButton(text="🌐 Web Admin Panel")],
+            [KeyboardButton(text="🚪 Chiqish")],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False,
+    )
+
+
 def yonalish_keyboard(prefix="yonalish_idx"):
     """Yo'nalishlarni inline tugmalar sifatida chiqaradi (dinamik, safe callback)."""
     buttons = []
