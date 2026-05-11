@@ -136,6 +136,7 @@ function switchTab(tabId) {
   // Load tab-specific data
   if (tabId === 'schedule') loadSchedule();
   if (tabId === 'materials') loadMaterials();
+  if (tabId === 'mock') loadMockResults();
 }
 
 // ─── Load Schedule ────────────────────────
@@ -415,4 +416,101 @@ function showError(msg) {
   document.getElementById("loading").classList.add("hidden");
   document.getElementById("error-msg").textContent = msg;
   document.getElementById("error-screen").classList.remove("hidden");
+}
+
+// ─── Mock Natijalar ───────────────────────
+let allMockResults = [];
+let mockLoaded = false;
+
+async function loadMockResults() {
+  if (mockLoaded) return;
+  const wrap = document.getElementById("mock-list");
+  const filterWrap = document.getElementById("mock-filter");
+  wrap.innerHTML = '<div class="spinner-small"></div>';
+
+  try {
+    const headers = { "Content-Type": "application/json" };
+    if (tg?.initData) headers["X-Telegram-Init-Data"] = tg.initData;
+
+    const res = await fetch("/api/student/mock", { headers });
+    const data = await res.json();
+
+    if (!data.mock_results || !data.mock_results.length) {
+      wrap.innerHTML = '<p class="empty-msg">Hali mock imtihon natijalari yo\'q.</p>';
+      filterWrap.innerHTML = '';
+      return;
+    }
+
+    allMockResults = data.mock_results;
+    mockLoaded = true;
+
+    // Har bir imtihon turi uchun filter tugmalari
+    const seen = new Map();
+    allMockResults.forEach(r => {
+      if (!seen.has(r.exam_key)) seen.set(r.exam_key, r.exam_label || r.exam_key);
+    });
+
+    let filterHtml = '<button class="filter-btn active" onclick="filterMock(\'all\')">Barchasi</button>';
+    seen.forEach((label, key) => {
+      filterHtml += `<button class="filter-btn" onclick="filterMock('${key}')">${label}</button>`;
+    });
+    filterWrap.innerHTML = filterHtml;
+
+    renderMockResults(allMockResults);
+  } catch (e) {
+    wrap.innerHTML = '<p class="empty-msg">Xatolik yuz berdi. Qayta urinib ko\'ring.</p>';
+  }
+}
+
+function filterMock(examKey) {
+  document.querySelectorAll('#mock-filter .filter-btn').forEach(btn => {
+    const isAll = examKey === 'all' && btn.textContent.trim() === 'Barchasi';
+    const isMatch = btn.getAttribute('onclick') === `filterMock('${examKey}')`;
+    btn.classList.toggle('active', isAll || isMatch);
+  });
+  const filtered = examKey === 'all'
+    ? allMockResults
+    : allMockResults.filter(r => r.exam_key === examKey);
+  renderMockResults(filtered);
+}
+
+function renderMockResults(list) {
+  const wrap = document.getElementById("mock-list");
+  if (!list.length) {
+    wrap.innerHTML = '<p class="empty-msg">Bu tur bo\'yicha natijalar yo\'q.</p>';
+    return;
+  }
+
+  wrap.innerHTML = list.map(r => {
+    const sections = r.sections || {};
+    const sectionRows = Object.entries(sections).map(([key, val]) => {
+      const score = typeof val === 'object' ? (val.score ?? val.ball ?? '—') : val;
+      const label = typeof val === 'object' ? (val.label || key) : key;
+      return `<div class="mock-brow"><span>${label}</span><b>${score}</b></div>`;
+    }).join('');
+
+    const ball = r.umumiy_ball != null ? r.umumiy_ball : '—';
+    const levelBadge = r.level_label
+      ? `<span class="mock-level-badge">${r.level_label}</span>` : '';
+    const noteHtml = r.notes
+      ? `<p class="mock-notes">📝 ${r.notes}</p>` : '';
+    const subjectHtml = r.subject_name
+      ? `<span class="mock-subject">${r.subject_name}</span>` : '';
+
+    return `
+      <div class="mock-card">
+        <div class="mock-card-header">
+          <div class="mock-header-left">
+            <span class="mock-exam-label">${r.exam_label || r.exam_key}</span>
+            ${levelBadge}
+            ${subjectHtml}
+          </div>
+          <span class="mock-date">${r.test_sanasi || '—'}</span>
+        </div>
+        <div class="mock-score">${ball}</div>
+        ${sectionRows ? `<div class="mock-breakdown">${sectionRows}</div>` : ''}
+        ${noteHtml}
+      </div>
+    `;
+  }).join('');
 }
