@@ -22,7 +22,6 @@ import email_broadcast
 import email_import
 import mock_admin
 import mock_excel_import
-import result_email
 import cert_admin
 import chatbot
 import group_commands
@@ -63,7 +62,6 @@ dp.include_router(email_broadcast.router)
 dp.include_router(email_import.router)
 dp.include_router(mock_admin.router)
 dp.include_router(mock_excel_import.router)
-dp.include_router(result_email.router)
 
 
 @dp.message(CommandStart())
