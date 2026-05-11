@@ -1531,6 +1531,7 @@ def settings_keyboard(
     mock_enabled="True",
     quiz_enabled="True",
     mini_test_enabled="True",
+    payment_enabled="False",
 ):
     """Bot sozlamalari klaviaturasi."""
     ranking_text = (
@@ -1562,6 +1563,11 @@ def settings_keyboard(
         "✅ Mini-testlar: Yoqilgan"
         if mini_test_enabled == "True"
         else "❌ Mini-testlar: O'chirilgan"
+    )
+    payment_text = (
+        "✅ 💳 Obuna to'lov: Yoqilgan"
+        if payment_enabled == "True"
+        else "❌ 💳 Obuna to'lov: O'chirilgan"
     )
 
     return InlineKeyboardMarkup(
@@ -1600,6 +1606,18 @@ def settings_keyboard(
                 InlineKeyboardButton(
                     text=mini_test_text,
                     callback_data="toggle_setting:mini_test_enabled",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=payment_text,
+                    callback_data="toggle_setting:payment_enabled",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏫 Maktab adminlari",
+                    callback_data="manage_maktab_admins",
                 )
             ],
             [
