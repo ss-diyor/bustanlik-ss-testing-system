@@ -853,3 +853,82 @@ input:checked + .slider:before { transform: translateX(18px); }
   min-height: 60px;
   font-family: inherit;
 }
+
+/* ─── Mock Natijalar ─────────────────────── */
+.mock-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.mock-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mock-header-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mock-exam-label {
+  font-weight: 700;
+  font-size: .95em;
+  color: var(--tg-theme-text-color, #fff);
+}
+.mock-level-badge {
+  background: #5865f2;
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 100px;
+  font-size: .72em;
+  font-weight: 700;
+}
+.mock-subject {
+  background: rgba(67,181,129,0.18);
+  color: #43b581;
+  padding: 2px 10px;
+  border-radius: 100px;
+  font-size: .72em;
+  font-weight: 600;
+}
+.mock-date {
+  font-size: .78em;
+  color: var(--tg-theme-hint-color, rgba(255,255,255,0.45));
+  white-space: nowrap;
+}
+.mock-score {
+  font-size: 2.2em;
+  font-weight: 900;
+  color: #43b581;
+  margin-bottom: 10px;
+  line-height: 1;
+}
+.mock-breakdown {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 8px;
+}
+.mock-brow {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: .85em;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: var(--tg-theme-hint-color, rgba(255,255,255,0.55));
+}
+.mock-brow:last-child { border-bottom: none; }
+.mock-brow b {
+  color: var(--tg-theme-text-color, #fff);
+  font-weight: 600;
+}
+.mock-notes {
+  margin-top: 10px;
+  font-size: .8em;
+  color: var(--tg-theme-hint-color, rgba(255,255,255,0.4));
+  font-style: italic;
+}
