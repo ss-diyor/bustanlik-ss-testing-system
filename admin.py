@@ -590,6 +590,34 @@ def is_admin_id(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
 
+async def is_super_admin(state: FSMContext, user_id: int) -> bool:
+    """Foydalanuvchi super admin (ADMIN_IDS dan) ekanligini tekshiradi.
+
+    Maktab admin (franchise) uchun False qaytaradi — ular faqat
+    o'z maktablariga tegishli operatsiyalarni bajarishi mumkin.
+    """
+    data = await state.get_data()
+    if data.get("is_maktab_admin"):
+        return False
+    return is_admin_id(user_id)
+
+
+async def get_maktab_id_for_admin(state: FSMContext, user_id: int) -> int | None:
+    """Maktab admin bo'lsa, uning maktab ID sini qaytaradi.
+
+    Super admin bo'lsa None qaytaradi (ular barcha maktablarni ko'ra oladi).
+    """
+    data = await state.get_data()
+    if not data.get("is_maktab_admin"):
+        return None
+    try:
+        from payment import get_maktab_by_admin
+        maktab = get_maktab_by_admin(user_id)
+        return maktab["id"] if maktab else None
+    except Exception:
+        return None
+
+
 def _son_tekshir(text: str):
     try:
         son = int(text)
@@ -886,14 +914,22 @@ async def admin_panel_cmd(message: Message, state: FSMContext):
 @router.message(F.text == "/admin")
 async def admin_start(message: Message, state: FSMContext):
     if await admin_tekshir(state, message.from_user.id):
-        await message.answer(
-            "✅ Siz allaqachon admin rejimidasiz.",
-            reply_markup=admin_menu_keyboard(),
-        )
-        await message.answer(
-            "📊 Admin Web Panel:",
-            reply_markup=admin_inline_menu()
-        )
+        data = await state.get_data()
+        if data.get("is_maktab_admin"):
+            from keyboards import maktab_admin_menu_keyboard
+            await message.answer(
+                "✅ Siz maktab admin rejimidasiz.",
+                reply_markup=maktab_admin_menu_keyboard(),
+            )
+        else:
+            await message.answer(
+                "✅ Siz allaqachon admin rejimidasiz.",
+                reply_markup=admin_menu_keyboard(),
+            )
+            await message.answer(
+                "📊 Admin Web Panel:",
+                reply_markup=admin_inline_menu()
+            )
         return
     await state.set_state(AdminLogin.parol_kutish)
     await message.answer("🔐 Admin paroli kiriting:")
@@ -956,6 +992,58 @@ async def chiqish(message: Message, state: FSMContext):
 async def web_admin_panel_msg(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id): return
     await message.answer("📊 Admin Web Panel:", reply_markup=admin_inline_menu())
+
+@router.message(F.text == "💳 Obuna holati")
+async def obuna_holati_handler(message: Message, state: FSMContext):
+    """Maktab admin o'z obuna holatini ko'rishi uchun."""
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    if not await get_maktab_id_for_admin(state, message.from_user.id):
+        await message.answer("ℹ️ Bu tugma faqat maktab adminlari uchun.")
+        return
+    try:
+        from payment import (
+            get_maktab_by_admin,
+            is_subscription_active,
+            subscription_days_left,
+        )
+        import database as db
+        maktab = get_maktab_by_admin(message.from_user.id)
+        if not maktab:
+            await message.answer("⚠️ Maktab topilmadi.")
+            return
+        payment_enabled = db.get_setting("payment_enabled", "False") == "True"
+        active = is_subscription_active(message.from_user.id)
+        days = subscription_days_left(message.from_user.id)
+
+        if not payment_enabled:
+            status = "🔓 To'lov rejimi o'chirilgan — bepul foydalanish"
+        elif active:
+            status = f"✅ Obuna faol — <b>{days} kun</b> qoldi"
+            if days <= 5:
+                status += " ⚠️ (tez tugaydi)"
+        else:
+            status = "❌ Obuna tugagan yoki hali faollashtirilmagan"
+
+        from config import OYLIK_NARX
+        narx = maktab.get("oylik_narx") or OYLIK_NARX
+        text = (
+            f"💳 <b>Obuna holati</b>\n\n"
+            f"🏫 Maktab: <b>{maktab['nomi']}</b>\n"
+            f"📌 Holat: {status}\n"
+            f"💰 Oylik to'lov: <b>{narx:,} so'm</b>\n"
+        )
+        if payment_enabled and not active:
+            from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+            kb = ReplyKeyboardMarkup(
+                keyboard=[[KeyboardButton(text="💳 Obuna to'lash")]],
+                resize_keyboard=True,
+            )
+            await message.answer(text, parse_mode="HTML", reply_markup=kb)
+        else:
+            await message.answer(text, parse_mode="HTML")
+    except Exception as e:
+        await message.answer(f"⚠️ Xatolik: {e}")
 
 @router.message(F.text == "📝 Mashq Quiz (Web)")
 async def web_quiz_panel_msg(message: Message, state: FSMContext):
@@ -1099,6 +1187,9 @@ async def run_broadcast_simple(bot, user_ids, text, kb=None):
 @router.message(F.text == "👥 Adminlarni boshqarish")
 async def admin_management_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
+        return
+    if not await is_super_admin(state, message.from_user.id):
+        await message.answer("⛔ Bu funksiya faqat super admin uchun mavjud.")
         return
     await message.answer(
         "Adminlarni boshqarish menyusi:",
@@ -2300,6 +2391,24 @@ async def talaba_yonalish(callback: CallbackQuery, state: FSMContext):
         await state.set_state(None)
         await callback.answer()
         return
+
+    # Maktab admin bo'lsa — maktab tanlash bosqichini o'tkazib yuborish
+    maktab_id_auto = await get_maktab_id_for_admin(state, callback.from_user.id)
+    if maktab_id_auto is not None:
+        maktab = next((m for m in maktablar if int(m["id"]) == maktab_id_auto), None)
+        if maktab:
+            await state.update_data(maktab_id=maktab_id_auto, maktab_nomi=maktab["nomi"])
+            await state.set_state(TalabaQosh.sinf_kutish)
+            await callback.message.edit_text(
+                f"🎯 Yo'nalish: <b>{yonalish}</b>\n"
+                f"🏫 Maktab: <b>{maktab['nomi']}</b>\n\n"
+                "📚 Sinfni tanlang:",
+                reply_markup=sinf_keyboard(),
+                parse_mode="HTML",
+            )
+            await callback.answer()
+            return
+
     await callback.message.edit_text(
         f"🎯 Yo'nalish: <b>{yonalish}</b>\n\n🏫 Maktabni tanlang:",
         reply_markup=maktab_tanlash_keyboard(maktablar, "talaba_maktab"),
@@ -2836,13 +2945,39 @@ async def run_excel_import_task(message: Message, df, header_mode, resolved_cols
 async def stats_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
-    
-    # Get all schools for selection
+
+    # Maktab admin bo'lsa — faqat o'z maktabining statistikasini ko'rsatish
+    maktab_id = await get_maktab_id_for_admin(state, message.from_user.id)
+    if maktab_id is not None:
+        from database import statistika_by_maktab
+        from payment import get_maktab_by_admin
+        maktab = get_maktab_by_admin(message.from_user.id)
+        maktab_nomi = maktab["nomi"] if maktab else "Maktabingiz"
+        await state.update_data(selected_maktab_id=maktab_id, selected_maktab_nomi=maktab_nomi)
+        res = statistika_by_maktab(maktab_id)
+        if not res:
+            await message.answer(f"📊 <b>{maktab_nomi} statistikasi:</b>\n\n⚠️ Ma'lumotlar yo'q.", parse_mode="HTML")
+        else:
+            text = (
+                f"📊 <b>{maktab_nomi} statistikasi:</b>\n\n"
+                f"👥 Jami o'quvchilar: <b>{res['jami']} ta</b>\n"
+                f"📈 O'rtacha ball: <b>{res['ortacha']} ball</b>\n"
+                f"🏆 Eng yuqori ball: <b>{res['eng_yuqori']} ball</b>\n"
+                f"📉 Eng past ball: <b>{res['eng_past']} ball</b>\n"
+            )
+            from keyboards import maktab_stat_keyboard
+            try:
+                await message.answer(text, parse_mode="HTML", reply_markup=maktab_stat_keyboard())
+            except Exception:
+                await message.answer(text, parse_mode="HTML")
+        return
+
+    # Super admin — barcha maktablardan tanlash
     maktablar = maktablar_ol()
     if not maktablar:
         await message.answer("⚠️ Hozircha maktablar mavjud emas.")
         return
-    
+
     await message.answer(
         "📊 <b>Statistika uchun maktabni tanlang:</b>\n\n"
         "Qaysi maktabning statistikasini ko'rmoqchisiz?",
@@ -3318,13 +3453,30 @@ async def request_action_handler(callback: CallbackQuery, state: FSMContext):
 async def students_list(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
-    
-    # Get all schools for selection
+
+    # Maktab admin bo'lsa — faqat o'z maktabi o'quvchilarini ko'rsatish
+    maktab_id = await get_maktab_id_for_admin(state, message.from_user.id)
+    if maktab_id is not None:
+        from payment import get_maktab_by_admin
+        maktab = get_maktab_by_admin(message.from_user.id)
+        maktab_nomi = maktab["nomi"] if maktab else "Maktabingiz"
+        await state.update_data(
+            students_selected_maktab_id=maktab_id,
+            students_selected_maktab_nomi=maktab_nomi,
+        )
+        await message.answer(
+            f"📋 <b>{maktab_nomi} - O'quvchilar ro'yxatini ko'rish usulini tanlang:</b>",
+            parse_mode="HTML",
+            reply_markup=oquvchilar_filtrlash_keyboard(),
+        )
+        return
+
+    # Super admin — barcha maktablardan tanlash
     maktablar = maktablar_ol()
     if not maktablar:
         await message.answer("⚠️ Hozircha maktablar mavjud emas.")
         return
-    
+
     await message.answer(
         "📋 <b>O'quvchilar ro'yxati uchun maktabni tanlang:</b>\n\n"
         "Qaysi maktabning o'quvchilar ro'yxatini ko'rmoqchisiz?",
@@ -3925,7 +4077,7 @@ async def ranking_start(message: Message, state: FSMContext):
 
 
 @router.callback_query(
-    F.data.startswith("ranking:"), F.from_user.id.in_(ADMIN_IDS)
+    F.data.startswith("ranking:"),
 )
 async def ranking_admin_callback(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id):
@@ -3991,6 +4143,25 @@ async def ranking_admin_callback(callback: CallbackQuery, state: FSMContext):
 async def broadcast_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
+
+    # Maktab admin bo'lsa — faqat o'z maktabiga yuborish mumkin
+    maktab_id = await get_maktab_id_for_admin(state, message.from_user.id)
+    if maktab_id is not None:
+        from payment import get_maktab_by_admin
+        maktab = get_maktab_by_admin(message.from_user.id)
+        maktab_nomi = maktab["nomi"] if maktab else "maktabingiz"
+        await state.set_state(Broadcast.maktab_tanlash)
+        await state.update_data(broadcast_target="school", broadcast_maktab_id=maktab_id)
+        await state.set_state(Broadcast.xabar_kutish)
+        await message.answer(
+            f"📢 <b>Xabar yuborish</b>\n\n"
+            f"Xabar <b>{maktab_nomi}</b> o'quvchilariga yuboriladi.\n\n"
+            "📝 Xabaringizni yozing:",
+            parse_mode="HTML",
+            reply_markup=broadcast_cancel_keyboard(),
+        )
+        return
+
     await state.set_state(Broadcast.maktab_tanlash)
     await message.answer(
         "📢 <b>Xabar yuborish</b>\n\nKimga yubormoqchisiz?",
@@ -4604,6 +4775,9 @@ async def appeal_list_back(callback: CallbackQuery, state: FSMContext):
 @router.message(F.text == "🧹 Bazani tozalash")
 async def clear_db_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
+        return
+    if not await is_super_admin(state, message.from_user.id):
+        await message.answer("⛔ Bu funksiya faqat super admin uchun mavjud.")
         return
     await message.answer(
         "⚠️ <b>DIQQAT!</b> Barcha o'quvchilar va natijalar o'chib ketadi. Tasdiqlaysizmi?",
@@ -5445,6 +5619,17 @@ async def pdf_hisobot_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
 
+    # Maktab admin bo'lsa — maktab_id ni oldindan saqlab qo'yamiz
+    maktab_id = await get_maktab_id_for_admin(state, message.from_user.id)
+    if maktab_id is not None:
+        from payment import get_maktab_by_admin
+        maktab = get_maktab_by_admin(message.from_user.id)
+        if maktab:
+            await state.update_data(
+                selected_maktab_id=maktab_id,
+                selected_maktab_nomi=maktab["nomi"],
+            )
+
     await message.answer(
         "📄 <b>PDF Hisobot</b>\n\nQanday hisobot yaratmoqchisiz?",
         parse_mode="HTML",
@@ -6107,10 +6292,30 @@ async def pdf_export_callback(callback: CallbackQuery, state: FSMContext):
         )
 
     elif action == "maktab_stat":
-        await callback.message.edit_text(
-            "🏫 Maktab statistikasi uchun maktabni tanlang:",
-            reply_markup=maktab_tanlash_keyboard(maktablar_ol(), "pdf_maktab"),
-        )
+        # Maktab admin bo'lsa — to'g'ridan-to'g'ri o'z maktabining PDF ini yaratish
+        maktab_id_auto = await get_maktab_id_for_admin(state, callback.from_user.id)
+        if maktab_id_auto is not None:
+            wait_msg = await callback.message.answer("⏳ PDF yaratilmoqda...")
+            try:
+                from pdf_export import PDFExporter
+                exporter = PDFExporter()
+                pdf_path = exporter.create_maktab_statistika_pdf(maktab_id_auto)
+                if pdf_path and os.path.exists(pdf_path):
+                    await callback.bot.send_document(
+                        callback.from_user.id,
+                        FSInputFile(pdf_path),
+                        caption="📄 Maktab statistikasi PDF hisoboti",
+                    )
+                    await wait_msg.delete()
+                else:
+                    await wait_msg.edit_text("❌ PDF yaratishda xatolik.")
+            except Exception as e:
+                await callback.message.answer(f"❌ Xatolik: {e}")
+        else:
+            await callback.message.edit_text(
+                "🏫 Maktab statistikasi uchun maktabni tanlang:",
+                reply_markup=maktab_tanlash_keyboard(maktablar_ol(), "pdf_maktab"),
+            )
 
     elif action == "sinf_reyting":
         await callback.message.edit_text(
@@ -6434,6 +6639,18 @@ async def excel_hisobot_start(message: Message, state: FSMContext):
     """Excel Hisobot — asosiy menyu."""
     if not await admin_tekshir(state, message.from_user.id):
         return
+
+    # Maktab admin bo'lsa — maktab_id ni oldindan saqlab qo'yamiz
+    maktab_id = await get_maktab_id_for_admin(state, message.from_user.id)
+    if maktab_id is not None:
+        from payment import get_maktab_by_admin
+        maktab = get_maktab_by_admin(message.from_user.id)
+        if maktab:
+            await state.update_data(
+                selected_maktab_id=maktab_id,
+                selected_maktab_nomi=maktab["nomi"],
+            )
+
     await message.answer(
         "📊 <b>Excel Hisobot</b>\n\nQanday hisobot yaratmoqchisiz?",
         parse_mode="HTML",
@@ -6455,10 +6672,30 @@ async def excel_export_callback(callback: CallbackQuery, state: FSMContext):
         )
 
     elif action == "maktab_stat":
-        await callback.message.edit_text(
-            "🏫 Maktab statistikasi uchun maktabni tanlang:",
-            reply_markup=maktab_tanlash_keyboard(maktablar_ol(), "excel_maktab"),
-        )
+        # Maktab admin bo'lsa — to'g'ridan-to'g'ri o'z maktabining Excelini yaratish
+        maktab_id_auto = await get_maktab_id_for_admin(state, callback.from_user.id)
+        if maktab_id_auto is not None:
+            wait_msg = await callback.message.answer("⏳ Excel yaratilmoqda...")
+            try:
+                from excel_export import ExcelExporter
+                exporter = ExcelExporter()
+                xlsx_path = exporter.create_maktab_statistika_excel(maktab_id_auto)
+                if xlsx_path and os.path.exists(xlsx_path):
+                    await callback.bot.send_document(
+                        callback.from_user.id,
+                        FSInputFile(xlsx_path),
+                        caption="📊 Maktab statistikasi Excel hisoboti",
+                    )
+                    await wait_msg.delete()
+                else:
+                    await wait_msg.edit_text("❌ Excel yaratishda xatolik.")
+            except Exception as e:
+                await callback.message.answer(f"❌ Xatolik: {e}")
+        else:
+            await callback.message.edit_text(
+                "🏫 Maktab statistikasi uchun maktabni tanlang:",
+                reply_markup=maktab_tanlash_keyboard(maktablar_ol(), "excel_maktab"),
+            )
 
     elif action == "sinf_reyting":
         await callback.message.edit_text(
