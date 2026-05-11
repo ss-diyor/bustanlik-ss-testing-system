@@ -484,7 +484,7 @@ function renderMockResults(list) {
   wrap.innerHTML = list.map(r => {
     const sections = r.sections || {};
     const sectionRows = Object.entries(sections).map(([key, val]) => {
-      const score = typeof val === 'object' ? (val.score ?? val.ball ?? '—') : val;
+      const score = typeof val === 'object' ? (val.value ?? val.score ?? val.ball ?? '—') : val;
       const label = typeof val === 'object' ? (val.label || key) : key;
       return `<div class="mock-brow"><span>${label}</span><b>${score}</b></div>`;
     }).join('');
