@@ -2850,7 +2850,6 @@ async def excel_import_process(message: Message, state: FSMContext):
 
 async def run_excel_import_task(message: Message, df, header_mode, resolved_cols, download_path, state):
     from database import talaba_qosh, natija_qosh, maktablar_ol, ball_hisobla
-    from parent import _ota_onalarga_bildirish
     
     try:
         maktablar = maktablar_ol()
