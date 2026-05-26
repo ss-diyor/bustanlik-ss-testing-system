@@ -2760,7 +2760,19 @@ async def excel_import_process(message: Message, state: FSMContext):
     await message.bot.download_file(file_path, download_path)
 
     try:
-        df = pd.read_excel(download_path)
+        df = pd.read_excel(download_path, engine='openpyxl')
+    except Exception as xlsx_err:
+        try:
+            import openpyxl as _opx
+            _wb = _opx.load_workbook(download_path, read_only=True, data_only=True)
+            _ws = _wb.active
+            _rows = list(_ws.values)
+            _wb.close()
+            if not _rows or len(_rows) < 2:
+                raise ValueError("Excel fayl bo'sh yoki faqat sarlavha bor")
+            df = pd.DataFrame(_rows[1:], columns=_rows[0])
+        except Exception:
+            raise xlsx_err
         normalized_columns = {
             str(col)
             .strip()
