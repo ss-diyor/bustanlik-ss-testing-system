@@ -2760,26 +2760,29 @@ async def excel_import_process(message: Message, state: FSMContext):
     await message.bot.download_file(file_path, download_path)
 
     try:
-        df = pd.read_excel(download_path, engine='openpyxl')
-    except Exception as xlsx_err:
         try:
-            import openpyxl as _opx
-            _wb = _opx.load_workbook(download_path, read_only=True, data_only=True)
-            _ws = _wb.active
-            _rows = list(_ws.values)
-            _wb.close()
-            if not _rows or len(_rows) < 2:
-                raise ValueError("Excel fayl bo'sh yoki faqat sarlavha bor")
-            df = pd.DataFrame(_rows[1:], columns=_rows[0])
-        except Exception:
-            raise xlsx_err
+            df = pd.read_excel(download_path, engine='openpyxl')
+        except Exception as xlsx_err:
+            try:
+                import openpyxl as _opx
+                _wb = _opx.load_workbook(download_path, read_only=True, data_only=True)
+                _ws = _wb.active
+                _rows = list(_ws.values)
+                _wb.close()
+                if not _rows or len(_rows) < 2:
+                    raise ValueError("Excel fayl bo'sh yoki faqat sarlavha bor")
+                df = pd.DataFrame(_rows[1:], columns=_rows[0])
+            except Exception:
+                raise xlsx_err
+
+        # ← BU BLOK OLDIN except ICHIDA EDI, ENDI TO'G'RI JOYDA
         normalized_columns = {
             str(col)
             .strip()
             .lower()
             .replace("'", "")
             .replace("`", "")
-            .replace("’", "")
+            .replace("'", "")
             .replace("ʻ", "")
             .replace("-", "")
             .replace("_", "")
@@ -2814,10 +2817,11 @@ async def excel_import_process(message: Message, state: FSMContext):
                 if alias in normalized_columns:
                     found = normalized_columns[alias]
                     break
-            if found is None:
+            if found is None and key != "maktab":
                 header_mode = False
                 break
-            resolved_cols[key] = found
+            if found is not None:
+                resolved_cols[key] = found
 
         maktablar = maktablar_ol()
         if not maktablar:
@@ -2837,6 +2841,7 @@ async def excel_import_process(message: Message, state: FSMContext):
             )
             await state.set_state(None)
             return
+
         if not header_mode and len(df.columns) < 8:
             await message.answer(
                 "❌ Excel format noto'g'ri. Header bo'lmasa kamida 8 ta ustun bo'lishi kerak:\n"
@@ -2847,12 +2852,12 @@ async def excel_import_process(message: Message, state: FSMContext):
             return
 
         await message.answer(
-            "⏳ <b>Import boshlandi...</b>\n\nKatta hajmdagi ma'lumotlar qayta ishlanmoqda. Tugagach sizga xabar beriladi.",
+            f"⏳ <b>Import boshlandi...</b>\n\n"
+            f"📊 Jami {len(df)} ta qator topildi. Qayta ishlanmoqda...",
             parse_mode="HTML"
         )
-        
+
         asyncio.create_task(run_excel_import_task(message, df, header_mode, resolved_cols, download_path, state))
-        return
 
     except Exception as e:
         await message.answer(f"❌ Xatolik: {e}")
