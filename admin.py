@@ -2867,12 +2867,12 @@ async def excel_import_process(message: Message, state: FSMContext):
 
 async def run_excel_import_task(message: Message, df, header_mode, resolved_cols, download_path, state):
     from database import talaba_qosh, natija_qosh, maktablar_ol, ball_hisobla
-    
+
     try:
         maktablar = maktablar_ol()
         count = 0
         skipped = 0
-        
+
         for _, row in df.iterrows():
             try:
                 if header_mode:
@@ -2910,27 +2910,12 @@ async def run_excel_import_task(message: Message, df, header_mode, resolved_cols
                 talaba_qosh(kod, yonalish, sinf, ismlar, maktab["id"])
                 natija_qosh(kod, majburiy, asosiy1, asosiy2)
 
-                talaba = {
-                    "kod": kod,
-                    "ismlar": ismlar,
-                    "yonalish": yonalish,
-                    "sinf": sinf,
-                    "maktab": maktab["nomi"],
-                }
-                natija = {
-                    "majburiy": majburiy,
-                    "asosiy_1": asosiy1,
-                    "asosiy_2": asosiy2,
-                    "umumiy_ball": ball,
-                }
-                
-                asyncio.create_task(bildirishnoma_yuborish(message.bot, kod, natija, talaba))
-                asyncio.create_task(_ota_onalarga_bildirish(message.bot, kod, ball))
-
                 count += 1
+
+                # Har 20 ta dan keyin biroz kutish — DB ni ortiqcha yuklamaslik uchun
                 if count % 20 == 0:
-                    await asyncio.sleep(0.01)
-                    
+                    await asyncio.sleep(0.1)
+
             except Exception as e:
                 logging.error(f"Import row error: {e}")
                 skipped += 1
