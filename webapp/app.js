@@ -69,7 +69,7 @@ function renderPage(data) {
   document.getElementById("avatar-initials").textContent   = initials;
   document.getElementById("student-name").textContent      = student.ismlar || "—";
   document.getElementById("student-meta").textContent      =
-    `${student.sinf || "—"} · ${student.yonalish || "—"} · Kod: ${student.kod || "—"}`;
+    `${student.maktab || "—"} | ${student.sinf || "—"} · ${student.yonalish || "—"} · Kod: ${student.kod || "—"}`;
 
   // Stats
   document.getElementById("stat-last").textContent  = stats.last  ?? "—";

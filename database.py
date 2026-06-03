@@ -451,11 +451,7 @@ def init_db():
     )
 
     # Mavjud talabalarning sinf nomini yangilash (agar formatga tushmasa)
-    _optional_exec("""
-            UPDATE talabalar 
-            SET sinf = sinf || ' - Bo''stonliq ITMA' 
-            WHERE sinf IS NOT NULL AND sinf NOT LIKE '% - %'
-        """)
+    # OLIB TASHLANDI: Sinf va maktab endi alohida saqlanadi
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS reminders (
@@ -842,6 +838,19 @@ def talaba_qosh(
     try:
         conn = get_connection()
         cur = conn.cursor()
+        # Sinf nomidan maktab nomini ajratib olish (agar ' - ' bo'lsa)
+        # Masalan: '11-B - 3-maktab' -> sinf='11-B', maktab='3-maktab'
+        if sinf and ' - ' in sinf:
+            parts = sinf.split(' - ', 1)
+            clean_sinf = parts[0].strip()
+            maktab_nomi = parts[1].strip()
+            # Maktab ID sini topish
+            cur.execute("SELECT id FROM maktablar WHERE nomi = %s", (maktab_nomi,))
+            maktab_row = cur.fetchone()
+            if maktab_row:
+                maktab_id = maktab_row[0]
+            sinf = clean_sinf
+        
         cur.execute(
             """
             INSERT INTO talabalar (kod, yonalish, sinf, ismlar, maktab_id)

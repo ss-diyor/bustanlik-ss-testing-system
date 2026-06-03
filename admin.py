@@ -2902,8 +2902,8 @@ async def run_excel_import_task(message: Message, df, header_mode, resolved_cols
                     skipped += 1
                     continue
 
-                if " - " not in sinf:
-                    sinf = f"{sinf} - {maktab['nomi']}"
+                # Sinf va maktab alohida saqlanadi (birlashtirmaslik)
+                # talaba_qosh funksiyasi avtomatik ravishda ajratib oladi
 
                 ball = ball_hisobla(majburiy, asosiy1, asosiy2)
 

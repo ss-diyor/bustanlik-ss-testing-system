@@ -233,7 +233,8 @@ async def bind_user_to_kod(message: Message):
         text = (
             "🔗 <b>O'quvchi profilini uladi!</b>\n\n"
             f"👤 Ismi: <b>{talaba['ismlar']}</b>\n"
-            f"🏫 Sinf: {talaba.get('sinf') or '—'}\n"
+            f"🏫 Maktab: {talaba.get('maktab', '—')}\n"
+            f"📚 Sinf: {talaba.get('sinf') or '—'}\n"
             f"📌 Yo'nalish: {talaba.get('yonalish') or '—'}\n"
             f"🔑 Kod: <code>{kod}</code>\n"
             f"🔗 Telegram: {username}\n"
@@ -248,14 +249,15 @@ async def bind_user_to_kod(message: Message):
         try:
             await send_discord(
                 title="🔗 O'quvchi profilini uladi!",
-                description=(
-                    f"👤 Ismi: **{talaba['ismlar']}**\n"
-                    f"🏫 Sinf: {talaba.get('sinf') or '—'}\n"
-                    f"📌 Yo'nalish: {talaba.get('yonalish') or '—'}\n"
-                    f"🔑 Kod: `{kod}`\n"
-                    f"🔗 Telegram: {username}\n"
-                    f"🆔 Telegram ID: `{user.id}`"
-                ),
+            description=(
+                f"👤 Ismi: **{talaba['ismlar']}**\n"
+                f"🏫 Maktab: {talaba.get('maktab', '—')}\n"
+                f"📚 Sinf: {talaba.get('sinf') or '—'}\n"
+                f"📌 Yo'nalish: {talaba.get('yonalish') or '—'}\n"
+                f"🔑 Kod: `{kod}`\n"
+                f"🔗 Telegram: {username}\n"
+                f"🆔 Telegram ID: `{user.id}`"
+            ),
                 color=0x1abc9c,
             )
         except Exception:

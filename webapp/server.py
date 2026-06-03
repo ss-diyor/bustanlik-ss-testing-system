@@ -115,7 +115,12 @@ async def student_api(request: web.Request) -> web.Response:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         # O'quvchi ma'lumotlari (real yoki demo sessiya orqali)
-        cur.execute("SELECT * FROM talabalar WHERE user_id = %s", (user_id,))
+        cur.execute("""
+            SELECT t.*, COALESCE(m.nomi, 'Noma\'lum maktab') as maktab_nomi
+            FROM talabalar t
+            LEFT JOIN maktablar m ON t.maktab_id = m.id
+            WHERE t.user_id = %s
+        """, (user_id,))
         talaba = cur.fetchone()
 
         # Demo sessiyadan qidirish
@@ -206,6 +211,7 @@ async def student_api(request: web.Request) -> web.Response:
                     "kod": talaba["kod"],
                     "ismlar": talaba["ismlar"],
                     "sinf": talaba["sinf"],
+                    "maktab": talaba.get("maktab_nomi", "Noma'lum maktab"),
                     "yonalish": talaba["yonalish"],
                 },
                 "stats": {
@@ -395,10 +401,10 @@ async def admin_stats_api(request: web.Request) -> web.Response:
         }
         # 5. Top 30 (Filtered for teacher)
         if role == "admin":
-            cur.execute("SELECT t.kod, t.ismlar, t.sinf, t.yonalish, MAX(tn.umumiy_ball) as ball FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish ORDER BY ball DESC LIMIT 30")
+            cur.execute("SELECT t.kod, t.ismlar, t.sinf, t.yonalish, COALESCE(m.nomi, 'Noma\'lum maktab') as maktab_nomi, MAX(tn.umumiy_ball) as ball FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod LEFT JOIN maktablar m ON t.maktab_id = m.id GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish, m.nomi ORDER BY ball DESC LIMIT 30")
         else:
-            cur.execute("SELECT t.kod, t.ismlar, t.sinf, t.yonalish, MAX(tn.umumiy_ball) as ball FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish ORDER BY ball DESC LIMIT 30", [teacher_sinf])
-        top_students = [{"kod": r["kod"], "ismlar": r["ismlar"], "sinf": r["sinf"], "yonalish": r["yonalish"], "umumiy_ball": float(r["ball"] or 0)} for r in cur.fetchall()]
+            cur.execute("SELECT t.kod, t.ismlar, t.sinf, t.yonalish, COALESCE(m.nomi, 'Noma\'lum maktab') as maktab_nomi, MAX(tn.umumiy_ball) as ball FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod LEFT JOIN maktablar m ON t.maktab_id = m.id WHERE t.sinf = %s GROUP BY t.kod, t.ismlar, t.sinf, t.yonalish, m.nomi ORDER BY ball DESC LIMIT 30", [teacher_sinf])
+        top_students = [{"kod": r["kod"], "ismlar": r["ismlar"], "sinf": r["sinf"], "maktab": r.get("maktab_nomi", "Noma'lum maktab"), "yonalish": r["yonalish"], "umumiy_ball": float(r["ball"] or 0)} for r in cur.fetchall()]
 
         cur.close()
         release_connection(conn)

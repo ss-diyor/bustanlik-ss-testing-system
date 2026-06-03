@@ -337,9 +337,9 @@ async function handleSearch(query) {
       resultsDiv.innerHTML = results.map(r => `
         <div class="search-item" onclick="openStudentDetails('${r.kod}')">
           <span class="name">${r.ismlar}</span>
-          <span class="meta">${r.sinf} | ${r.kod}</span>
+          <span class="meta">${r.maktab || "—"} | ${r.sinf} | ${r.kod}</span>
         </div>
-      `).join("");
+      `).join("");}
     }
     resultsDiv.classList.remove("hidden");
   } catch (e) {
@@ -360,7 +360,7 @@ async function openStudentDetails(kod) {
     const { student, natijalar } = await res.json();
 
     document.getElementById("modal-student-name").textContent = student.ismlar;
-    document.getElementById("modal-student-class").textContent = student.sinf;
+    document.getElementById("modal-student-class").textContent = `${student.maktab || "—"} | ${student.sinf}`;
     document.getElementById("modal-student-dir").textContent = student.yonalish || "Umumiy";
     document.getElementById("modal-student-kod").textContent = student.kod;
 
