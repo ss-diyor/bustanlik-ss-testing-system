@@ -55,13 +55,13 @@ dp = Dispatcher(storage=MemoryStorage())
 # Routerlarni ulash
 dp.include_router(admin.router)
 dp.include_router(payment.router)
+dp.include_router(parent.router)       # ← student.router dan OLDIN bo'lishi shart
 dp.include_router(student.router)
 dp.include_router(cert_admin.router)
 dp.include_router(chatbot.router)
 dp.include_router(group_commands.router)
 dp.include_router(language_handlers.router)
 dp.include_router(mini_test_handler.router)
-dp.include_router(parent.router)
 dp.include_router(practice_quiz.router)
 dp.include_router(email_broadcast.router)
 dp.include_router(email_import.router)
@@ -249,15 +249,15 @@ async def bind_user_to_kod(message: Message):
         try:
             await send_discord(
                 title="🔗 O'quvchi profilini uladi!",
-            description=(
-                f"👤 Ismi: **{talaba['ismlar']}**\n"
-                f"🏫 Maktab: {talaba.get('maktab', '—')}\n"
-                f"📚 Sinf: {talaba.get('sinf') or '—'}\n"
-                f"📌 Yo'nalish: {talaba.get('yonalish') or '—'}\n"
-                f"🔑 Kod: `{kod}`\n"
-                f"🔗 Telegram: {username}\n"
-                f"🆔 Telegram ID: `{user.id}`"
-            ),
+                description=(
+                    f"👤 Ismi: **{talaba['ismlar']}**\n"
+                    f"🏫 Maktab: {talaba.get('maktab', '—')}\n"
+                    f"📚 Sinf: {talaba.get('sinf') or '—'}\n"
+                    f"📌 Yo'nalish: {talaba.get('yonalish') or '—'}\n"
+                    f"🔑 Kod: `{kod}`\n"
+                    f"🔗 Telegram: {username}\n"
+                    f"🆔 Telegram ID: `{user.id}`"
+                ),
                 color=0x1abc9c,
             )
         except Exception:
@@ -334,9 +334,12 @@ async def reminder_scheduler():
 async def group_ranking_scheduler():
     """Guruhlarga va Discordga har kuni soat 20:00 da Top-10 reyting yuborish."""
     from database import guruhlar_ol, sinf_ol, get_all_in_class
+    last_sent_date = None  # Bir kunda bir marta yuborilishini kafolatlaydi
     while True:
         now = datetime.now()
-        if now.hour == 20 and now.minute == 0:
+        today = now.date()
+        if now.hour == 20 and now.minute < 5 and last_sent_date != today:
+            last_sent_date = today
             guruhlar = guruhlar_ol()
             sinflar  = sinf_ol()
 
@@ -374,7 +377,6 @@ async def group_ranking_scheduler():
                     logging.warning(f"Discord ranking notify xatosi: {e}")
                 # ─────────────────────────────────────────────────
 
-            await asyncio.sleep(61)
         await asyncio.sleep(30)
 
 
@@ -383,11 +385,13 @@ async def group_ranking_scheduler():
 # ──────────────────────────────────────────────────────────────
 async def scheduler():
     """Har kuni soat 23:00 da backup yuborish."""
+    last_backup_date = None  # Bir kunda bir marta yuborilishini kafolatlaydi
     while True:
         now = datetime.now()
-        if now.hour == 23 and now.minute == 0:
+        today = now.date()
+        if now.hour == 23 and now.minute < 5 and last_backup_date != today:
+            last_backup_date = today
             await send_backup()
-            await asyncio.sleep(61)
         await asyncio.sleep(30)
 
 
