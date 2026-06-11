@@ -122,7 +122,9 @@ def get_connection():
     try:
         conn = _get_pool().getconn()
         # Ulanish hali ham tirik ekanligini tekshiramiz
-        conn.cursor().execute("SELECT 1")
+        _cur = conn.cursor()
+        _cur.execute("SELECT 1")
+        _cur.close()
         return conn
     except Exception:
         # Pool buzilgan bo'lsa, yangisini yaratamiz
@@ -333,6 +335,15 @@ def init_db():
     create_mini_test_tables()
     cur.execute(
         "INSERT INTO settings (key, value) VALUES ('mock_enabled', 'True') ON CONFLICT DO NOTHING"
+    )
+    cur.execute(
+        "INSERT INTO settings (key, value) VALUES ('quiz_enabled', 'True') ON CONFLICT DO NOTHING"
+    )
+    cur.execute(
+        "INSERT INTO settings (key, value) VALUES ('mini_test_enabled', 'True') ON CONFLICT DO NOTHING"
+    )
+    cur.execute(
+        "INSERT INTO settings (key, value) VALUES ('payment_enabled', 'False') ON CONFLICT DO NOTHING"
     )
 
     # ── Sertifikat sozlamalari (default) ─────────────────────────────────────
