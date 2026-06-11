@@ -287,19 +287,21 @@ async def get_user_role(user_id, conn):
     from config import ADMIN_IDS
     if user_id in ADMIN_IDS:
         return "admin", None
-        
+
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     # admins jadvalini tekshirish
     cur.execute("SELECT user_id FROM admins WHERE user_id = %s", (user_id,))
     if cur.fetchone():
+        cur.close()
         return "admin", None
-        
+
     # oqituvchilar jadvalini tekshirish
     cur.execute("SELECT sinf FROM oqituvchilar WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
+    cur.close()
     if row:
         return "teacher", row["sinf"]
-        
+
     return None, None
     
 async def check_admin_role(request: web.Request):
@@ -411,6 +413,7 @@ async def admin_stats_api(request: web.Request) -> web.Response:
 
         return web.json_response({
             "role": role,
+            "teacher_sinf": teacher_sinf,
             "kpi": {"total_students": total_students, "total_tests": total_tests, "school_avg": float(school_avg)},
             "class_stats": class_stats,
             "direction_stats": direction_stats,
