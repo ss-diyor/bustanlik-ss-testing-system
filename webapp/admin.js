@@ -78,10 +78,10 @@ async function loadAdminData() {
 }
 
 // ─── Render ──────────────────────────────
-function renderPage({ role, kpi, class_stats, direction_stats, subject_stats, top_students }) {
+function renderPage({ role, teacher_sinf, kpi, class_stats, direction_stats, subject_stats, top_students }) {
     window.adminRole = role;
     
-    document.getElementById('admin-title-suffix').innerText = role === 'admin' ? '(Super Admin)' : `(O'qituvchi - ${role.sinf || ''})`;
+    document.getElementById('admin-title-suffix').innerText = role === 'admin' ? '(Super Admin)' : `(O'qituvchi - ${teacher_sinf || ''})`;
 
     if (role === 'admin') {
       document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
@@ -201,11 +201,11 @@ async function addMaterial() {
   }
 
   try {
-    const resp = await fetch('/api/admin/materials', {
+    const res = await fetch('/api/admin/materials', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Telegram-Init-Data': tg.initData
+        'X-Telegram-Init-Data': tg?.initData || ''
       },
       body: JSON.stringify({ nomi, turi, link, fanni_nomi, sinf })
     });
