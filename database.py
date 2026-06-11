@@ -1264,12 +1264,42 @@ def delete_all_data():
     conn = get_connection()
     cur = conn.cursor()
     # Tashqi kalitlar (Foreign Keys) sababli o'chirish tartibi muhim
+
+    # Har doim mavjud jadvallar
     cur.execute("DELETE FROM access_requests")
     cur.execute("DELETE FROM test_natijalari")
     cur.execute("DELETE FROM appeals")
-    cur.execute("DELETE FROM mock_natijalari")
+
+    # mock_natijalari — mock_database.py tomonidan lazy yaratiladi
+    cur.execute("""
+        DO $$ BEGIN
+            IF to_regclass('public.mock_natijalari') IS NOT NULL THEN
+                DELETE FROM mock_natijalari;
+            END IF;
+        END $$;
+    """)
+
+    # ota_ona_bog — parent.py tomonidan lazy yaratiladi (birinchi ota-ona kirganda)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ota_ona_bog (
+            id SERIAL PRIMARY KEY,
+            parent_user_id BIGINT NOT NULL,
+            talaba_kod VARCHAR(20) NOT NULL,
+            bog_vaqti TIMESTAMP DEFAULT NOW(),
+            UNIQUE (parent_user_id, talaba_kod)
+        )
+    """)
     cur.execute("DELETE FROM ota_ona_bog")
-    cur.execute("DELETE FROM chatbot_logs")
+
+    # chatbot_logs — create_chatbot_logs_table() chaqirilganda yaratiladi
+    cur.execute("""
+        DO $$ BEGIN
+            IF to_regclass('public.chatbot_logs') IS NOT NULL THEN
+                DELETE FROM chatbot_logs;
+            END IF;
+        END $$;
+    """)
+
     cur.execute("DELETE FROM talabalar")
     cur.execute("DELETE FROM test_kalitlari")
     # Ixtiyoriy: Yo'nalishlar va sinflarni ham tozalash mumkin,
