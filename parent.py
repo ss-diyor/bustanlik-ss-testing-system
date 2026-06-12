@@ -136,6 +136,15 @@ def parent_farzandlar(parent_user_id: int) -> list:
         return []
 
 
+def _is_parent_user(message: Message) -> bool:
+    """Faqat farzandi ulangan ota-onalar uchun handlerlarni faollashtiradi.
+
+    Bu o'quvchilarning ota-ona handlerlariga tushib qolishining oldini oladi
+    (masalan, "Admin bilan bog'lanish" tugmasi har ikkala panelda ham bor).
+    """
+    return bool(message.from_user and parent_farzandlar(message.from_user.id))
+
+
 def parent_bog_ochir(parent_user_id: int, talaba_kod: str) -> bool:
     try:
         conn = get_connection()
@@ -457,7 +466,7 @@ async def _reyting_matn_yuborish(message: Message, kod: str):
 
 # ─── Admin bilan bog'lanish ───────────────────────────────────────────────────
 
-@router.message(F.text == "✍️ Admin bilan bog'lanish")
+@router.message(F.text == "✍️ Admin bilan bog'lanish", _is_parent_user)
 async def ota_ona_murojaat_start(message: Message, state: FSMContext):
     await state.set_state(ParentStates.murojaat_kutish)
     await message.answer(
