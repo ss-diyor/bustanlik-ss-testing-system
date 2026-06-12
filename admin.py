@@ -2742,8 +2742,9 @@ async def excel_import_start(message: Message, state: FSMContext):
     await message.answer(
         "📥 <b>Excel faylini yuboring.</b>\n\n"
         "Fayl ustunlari tartibi:\n"
-        "Kod | Ism | Sinf | Yo'nalish | Maktab | [Majburiy | Asosiy1 | Asosiy2]\n\n"
-        "ℹ️ Majburiy, Asosiy1, Asosiy2 ustunlari <b>ixtiyoriy</b> — bo'sh yoki yo'q bo'lsa faqat o'quvchi ma'lumotlari saqlanadi.\n"
+        "Kod | Ism | Sinf | [Yo'nalish] | Maktab | [Majburiy | Asosiy1 | Asosiy2]\n\n"
+        "ℹ️ Yo'nalish, Majburiy, Asosiy1, Asosiy2 ustunlari <b>ixtiyoriy</b>.\n"
+        "Faqat o'quvchi ma'lumotlari (kod, ism, sinf, maktab) bo'lsa ham saqlanadi.\n"
         "⚠️ Maktab ustuni majburiy.",
         parse_mode="HTML",
     )
@@ -2812,8 +2813,8 @@ async def excel_import_process(message: Message, state: FSMContext):
 
         header_mode = True
         resolved_cols = {}
-        # majburiy/asosiy1/asosiy2 ixtiyoriy — yo'q bo'lsa header_mode buzilmaydi
-        OPTIONAL_KEYS = {"maktab", "majburiy", "asosiy1", "asosiy2"}
+        # majburiy/asosiy1/asosiy2/yonalish ixtiyoriy — yo'q bo'lsa header_mode buzilmaydi
+        OPTIONAL_KEYS = {"maktab", "yonalish", "majburiy", "asosiy1", "asosiy2"}
         for key, aliases in alias_map.items():
             found = None
             for alias in aliases:
@@ -2845,10 +2846,11 @@ async def excel_import_process(message: Message, state: FSMContext):
             await state.set_state(None)
             return
 
-        if not header_mode and len(df.columns) < 5:
+        if not header_mode and len(df.columns) < 4:
             await message.answer(
-                "❌ Excel format noto'g'ri. Header bo'lmasa kamida 5 ta ustun bo'lishi kerak:\n"
-                "Kod | Ism | Sinf | Yo'nalish | Maktab | [Majburiy | Asosiy1 | Asosiy2]",
+                "❌ Excel format noto'g'ri. Header bo'lmasa kamida 4 ta ustun bo'lishi kerak:\n"
+                "Kod | Ism | Sinf | Maktab\n"
+                "yoki: Kod | Ism | Sinf | Yo'nalish | Maktab | [Majburiy | Asosiy1 | Asosiy2]",
                 reply_markup=admin_menu_keyboard(),
             )
             await state.set_state(None)
@@ -2895,7 +2897,13 @@ async def run_excel_import_task(message: Message, df, header_mode, resolved_cols
                     kod = str(row[resolved_cols["kod"]]).strip().upper()
                     ismlar = str(row[resolved_cols["ismlar"]]).strip()
                     sinf = str(row[resolved_cols["sinf"]]).strip()
-                    yonalish = str(row[resolved_cols["yonalish"]]).strip()
+                    # Yo'nalish ixtiyoriy — yo'q yoki bo'sh bo'lsa "-"
+                    if "yonalish" in resolved_cols:
+                        yonalish = str(row[resolved_cols["yonalish"]]).strip()
+                        if not yonalish or yonalish.lower() == "nan":
+                            yonalish = "-"
+                    else:
+                        yonalish = "-"
                     maktab_raw = row[resolved_cols["maktab"]]
                     # Ball ustunlari ixtiyoriy — yo'q yoki bo'sh bo'lsa None
                     majburiy = safe_int(row[resolved_cols["majburiy"]]) if "majburiy" in resolved_cols else None
@@ -2905,8 +2913,15 @@ async def run_excel_import_task(message: Message, df, header_mode, resolved_cols
                     kod       = str(row.iloc[0]).strip().upper()
                     ismlar    = str(row.iloc[1]).strip()
                     sinf      = str(row.iloc[2]).strip()
-                    yonalish  = str(row.iloc[3]).strip()
-                    maktab_raw = row.iloc[4]
+                    # Positional: 4-ustun yonalish yoki maktab bo'lishi mumkin
+                    # 4 ta ustun bo'lsa: Kod | Ism | Sinf | Maktab (yonalish yo'q)
+                    # 5+ ustun bo'lsa: Kod | Ism | Sinf | Yo'nalish | Maktab
+                    if len(row) == 4:
+                        yonalish  = "-"
+                        maktab_raw = row.iloc[3]
+                    else:
+                        yonalish  = str(row.iloc[3]).strip() or "-"
+                        maktab_raw = row.iloc[4]
                     majburiy  = safe_int(row.iloc[5]) if len(row) > 5 else None
                     asosiy1   = safe_int(row.iloc[6]) if len(row) > 6 else None
                     asosiy2   = safe_int(row.iloc[7]) if len(row) > 7 else None
