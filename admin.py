@@ -2742,7 +2742,8 @@ async def excel_import_start(message: Message, state: FSMContext):
     await message.answer(
         "📥 <b>Excel faylini yuboring.</b>\n\n"
         "Fayl ustunlari tartibi:\n"
-        "Kod | Ism | Sinf | Yo'nalish | Maktab(raqam yoki nom) | Majburiy | Asosiy1 | Asosiy2\n\n"
+        "Kod | Ism | Sinf | Yo'nalish | Maktab | [Majburiy | Asosiy1 | Asosiy2]\n\n"
+        "ℹ️ Majburiy, Asosiy1, Asosiy2 ustunlari <b>ixtiyoriy</b> — bo'sh yoki yo'q bo'lsa faqat o'quvchi ma'lumotlari saqlanadi.\n"
         "⚠️ Maktab ustuni majburiy.",
         parse_mode="HTML",
     )
@@ -2811,13 +2812,15 @@ async def excel_import_process(message: Message, state: FSMContext):
 
         header_mode = True
         resolved_cols = {}
+        # majburiy/asosiy1/asosiy2 ixtiyoriy — yo'q bo'lsa header_mode buzilmaydi
+        OPTIONAL_KEYS = {"maktab", "majburiy", "asosiy1", "asosiy2"}
         for key, aliases in alias_map.items():
             found = None
             for alias in aliases:
                 if alias in normalized_columns:
                     found = normalized_columns[alias]
                     break
-            if found is None and key != "maktab":
+            if found is None and key not in OPTIONAL_KEYS:
                 header_mode = False
                 break
             if found is not None:
@@ -2842,10 +2845,10 @@ async def excel_import_process(message: Message, state: FSMContext):
             await state.set_state(None)
             return
 
-        if not header_mode and len(df.columns) < 8:
+        if not header_mode and len(df.columns) < 5:
             await message.answer(
-                "❌ Excel format noto'g'ri. Header bo'lmasa kamida 8 ta ustun bo'lishi kerak:\n"
-                "Kod | Ism | Sinf | Yo'nalish | Maktab | Majburiy | Asosiy1 | Asosiy2",
+                "❌ Excel format noto'g'ri. Header bo'lmasa kamida 5 ta ustun bo'lishi kerak:\n"
+                "Kod | Ism | Sinf | Yo'nalish | Maktab | [Majburiy | Asosiy1 | Asosiy2]",
                 reply_markup=admin_menu_keyboard(),
             )
             await state.set_state(None)
@@ -2867,6 +2870,19 @@ async def excel_import_process(message: Message, state: FSMContext):
 
 async def run_excel_import_task(message: Message, df, header_mode, resolved_cols, download_path, state):
     from database import talaba_qosh, natija_qosh, maktablar_ol, ball_hisobla
+    import math
+
+    def safe_int(val):
+        """NaN yoki bo'sh qiymatda None qaytaradi, aks holda int."""
+        try:
+            if val is None:
+                return None
+            if isinstance(val, float) and math.isnan(val):
+                return None
+            v = int(val)
+            return v
+        except (ValueError, TypeError):
+            return None
 
     try:
         maktablar = maktablar_ol()
@@ -2881,18 +2897,19 @@ async def run_excel_import_task(message: Message, df, header_mode, resolved_cols
                     sinf = str(row[resolved_cols["sinf"]]).strip()
                     yonalish = str(row[resolved_cols["yonalish"]]).strip()
                     maktab_raw = row[resolved_cols["maktab"]]
-                    majburiy = int(row[resolved_cols["majburiy"]])
-                    asosiy1 = int(row[resolved_cols["asosiy1"]])
-                    asosiy2 = int(row[resolved_cols["asosiy2"]])
+                    # Ball ustunlari ixtiyoriy — yo'q yoki bo'sh bo'lsa None
+                    majburiy = safe_int(row[resolved_cols["majburiy"]]) if "majburiy" in resolved_cols else None
+                    asosiy1  = safe_int(row[resolved_cols["asosiy1"]])  if "asosiy1"  in resolved_cols else None
+                    asosiy2  = safe_int(row[resolved_cols["asosiy2"]])  if "asosiy2"  in resolved_cols else None
                 else:
-                    kod = str(row.iloc[0]).strip().upper()
-                    ismlar = str(row.iloc[1]).strip()
-                    sinf = str(row.iloc[2]).strip()
-                    yonalish = str(row.iloc[3]).strip()
+                    kod       = str(row.iloc[0]).strip().upper()
+                    ismlar    = str(row.iloc[1]).strip()
+                    sinf      = str(row.iloc[2]).strip()
+                    yonalish  = str(row.iloc[3]).strip()
                     maktab_raw = row.iloc[4]
-                    majburiy = int(row.iloc[5])
-                    asosiy1 = int(row.iloc[6])
-                    asosiy2 = int(row.iloc[7])
+                    majburiy  = safe_int(row.iloc[5]) if len(row) > 5 else None
+                    asosiy1   = safe_int(row.iloc[6]) if len(row) > 6 else None
+                    asosiy2   = safe_int(row.iloc[7]) if len(row) > 7 else None
 
                 if not kod or kod.lower() == "nan":
                     continue
@@ -2902,13 +2919,12 @@ async def run_excel_import_task(message: Message, df, header_mode, resolved_cols
                     skipped += 1
                     continue
 
-                # Sinf va maktab alohida saqlanadi (birlashtirmaslik)
-                # talaba_qosh funksiyasi avtomatik ravishda ajratib oladi
-
-                ball = ball_hisobla(majburiy, asosiy1, asosiy2)
-
+                # O'quvchini saqlash (ball bo'lmasa ham)
                 talaba_qosh(kod, yonalish, sinf, ismlar, maktab["id"])
-                natija_qosh(kod, majburiy, asosiy1, asosiy2)
+
+                # Ball ustunlari to'liq bo'lsa natijani ham saqlash
+                if majburiy is not None and asosiy1 is not None and asosiy2 is not None:
+                    natija_qosh(kod, majburiy, asosiy1, asosiy2)
 
                 count += 1
 
