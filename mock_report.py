@@ -159,14 +159,14 @@ def _progress_bar(pdf: FPDF, x, y, w, h, value, max_value, bar_color):
             pdf.rect(x, y, fill_w, h, style="F")
 
 
-# ─── Sahifa bloklari ───────────────────────────────────────────────────────────
+# ─── Sahifa bloklari ──────────────────────────────────────────────────────────區
 
 def _draw_header(pdf: FPDF, exam_label: str):
     """Logo + maktab nomi + ko'k sarlavha bloki."""
     PW = pdf.w   # 210mm
 
     # ── Logo ──────────────────────────────────────────────────
-    logo_w = 26
+    logo_w = 38
     logo_x = (PW - logo_w) / 2
     logo_y = 10
     logo_exists = False
@@ -182,17 +182,8 @@ def _draw_header(pdf: FPDF, exam_label: str):
 
     logo_bottom = logo_y + (logo_w if logo_exists else 0) + 2
 
-    # ── Maktab sarlavhasi ──────────────────────────────────────
-    pdf.set_xy(0, logo_bottom)
-    pdf.set_font("DV", "B", 8)
-    pdf.set_text_color(*C_NAVY)
-    pdf.cell(PW, 5, "BO'STONLIQ TUMAN IXTISOSLASHTIRILGAN", align="C", ln=True)
-    pdf.set_font("DV", "B", 13)
-    pdf.cell(PW, 6, "MAKTABI", align="C", ln=True)
-    pdf.ln(3)
-
     # ── Ko'k sarlavha paneli ──────────────────────────────────
-    bar_y  = pdf.get_y()
+    bar_y  = logo_bottom + 2
     bar_h  = 20
     _fill(pdf, 0, bar_y, PW, bar_h, C_NAVY_DARK)
 
@@ -371,7 +362,7 @@ def _footer(pdf: FPDF, sana: str, notes: str = None):
     pdf.set_font("DV", "", 7.5)
     pdf.cell(
         0, 5,
-        f"Hisobot: {tz_now().strftime('%d.%m.%Y %H:%M')}  |  Bo'stonliq Tuman Ixtisoslashtirilgan Maktabi",
+        f"Hisobot: {tz_now().strftime('%d.%m.%Y %H:%M')}  | @BustanlikSStestingsystembot",
         ln=True,
     )
     pdf.set_text_color(*C_BLACK)
