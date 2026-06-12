@@ -1,6 +1,7 @@
 import os
 import re
 import asyncio
+from html import escape
 import matplotlib
 
 matplotlib.use("Agg")  # GUI yo'q muhitda xatolikni oldini oladi
@@ -45,6 +46,7 @@ from database import (
     ai_usage_log,
     get_notification_settings,
     update_notification_setting,
+    maktablar_ol,
 )
 from keyboards import (
     user_menu_keyboard,
@@ -68,6 +70,31 @@ def _talaba_ol(user_id: int) -> dict | None:
     Avval real talaba, topilmasa demo sessiyadan qidiradi.
     """
     return talaba_topish_demo(user_id)
+
+
+def _murojaat_talaba_info(user_id: int) -> str:
+    """Adminlarga yuboriladigan murojaatda o'quvchini aniq ko'rsatadi."""
+    talaba = _talaba_ol(user_id)
+    if not talaba:
+        return "O'quvchi ma'lumoti topilmadi"
+
+    maktab = talaba.get("maktab") or talaba.get("maktab_nomi")
+    if not maktab and talaba.get("maktab_id"):
+        try:
+            maktab_id = int(talaba["maktab_id"])
+            maktab = next(
+                (m.get("nomi") for m in maktablar_ol() if m.get("id") == maktab_id),
+                None,
+            )
+        except Exception:
+            maktab = None
+
+    return (
+        f"🔐 <b>Kod:</b> <code>{escape(str(talaba.get('kod') or '—'))}</code>\n"
+        f"👨‍🎓 <b>O'quvchi:</b> {escape(str(talaba.get('ismlar') or '—'))}\n"
+        f"🏫 <b>Sinf:</b> {escape(str(talaba.get('sinf') or '—'))}\n"
+        f"🏢 <b>Maktab:</b> {escape(str(maktab or '—'))}"
+    )
 
 # ─────────────────────────────────────────
 # FSM holatlari
@@ -319,11 +346,15 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
         )
         return
 
+    talaba_info = _murojaat_talaba_info(message.from_user.id)
+    username = f"@{message.from_user.username}" if message.from_user.username else "yoq"
+
     murojaat_matni = (
         f"📩 <b>Yangi murojaat keldi!</b>\n\n"
-        f"👤 <b>Foydalanuvchi:</b> {message.from_user.full_name}\n"
+        f"{talaba_info}\n\n"
+        f"👤 <b>Foydalanuvchi:</b> {escape(message.from_user.full_name)}\n"
         f"🆔 <b>ID:</b> <code>{message.from_user.id}</code>\n"
-        f"🔗 <b>Username:</b> @{message.from_user.username if message.from_user.username else 'yoq'}\n\n"
+        f"🔗 <b>Username:</b> {escape(username)}\n\n"
         f"📝 <b>Murojaat matni:</b>\n{message.html_text}"
     )
 
