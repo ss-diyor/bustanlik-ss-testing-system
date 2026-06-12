@@ -187,6 +187,13 @@ def init_db():
     cur.execute(
         "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS cert_hash TEXT DEFAULT NULL"
     )
+    # Migration: email ustunlari (email_import.py uchun)
+    cur.execute(
+        "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS email TEXT DEFAULT NULL"
+    )
+    cur.execute(
+        "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS parent_email TEXT DEFAULT NULL"
+    )
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS test_natijalari (
