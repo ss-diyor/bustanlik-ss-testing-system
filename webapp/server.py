@@ -110,6 +110,7 @@ async def student_api(request: web.Request) -> web.Response:
     if not user_id:
         return web.json_response({"error": "No user_id"}, status=400)
 
+    conn = None
     try:
         conn = get_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -186,7 +187,6 @@ async def student_api(request: web.Request) -> web.Response:
         classmates = cur.fetchall()
 
         cur.close()
-        release_connection(conn)
 
         results_list = [
             {
@@ -241,6 +241,9 @@ async def student_api(request: web.Request) -> web.Response:
     except Exception as e:
         logging.error(f"Student API error: {e}")
         return web.json_response({"error": "Server error"}, status=500)
+    finally:
+        if conn:
+            release_connection(conn)
 
 
 async def get_schedule_api(request: web.Request) -> web.Response:
@@ -324,8 +327,10 @@ async def check_admin_role(request: web.Request):
         user_id = user.get("id", 0)
 
     conn = get_connection()
-    role, teacher_sinf = await get_user_role(user_id, conn)
-    release_connection(conn)
+    try:
+        role, teacher_sinf = await get_user_role(user_id, conn)
+    finally:
+        release_connection(conn)
     
     if not role:
         return None, None, web.json_response({"error": "Sizda admin yoki o'qituvchi huquqi yo'q!"}, status=403)
@@ -344,6 +349,7 @@ async def admin_stats_api(request: web.Request) -> web.Response:
     user, _ = validate_telegram_init_data(init_data, bot_token)
     user_id = user.get("id", 0) if user else int(request.rel_url.query.get("user_id", 0))
 
+    conn = None
     try:
         from database import get_connection, release_connection
         conn = get_connection()
@@ -381,14 +387,14 @@ async def admin_stats_api(request: web.Request) -> web.Response:
             cur.execute("SELECT sinf, AVG(umumiy_ball) as avg_score FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod GROUP BY t.sinf ORDER BY t.sinf ASC")
         else:
             cur.execute("SELECT sinf, AVG(umumiy_ball) as avg_score FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s GROUP BY t.sinf", [teacher_sinf])
-        class_stats = [{"sinf": r["sinf"], "avg_score": float(r["avg_score"])} for r in cur.fetchall() if r["sinf"]]
+        class_stats = [{"sinf": r["sinf"], "avg_score": float(r["avg_score"] or 0)} for r in cur.fetchall() if r["sinf"]]
 
         # 3. Direction Stats (Filtered for teacher)
         if role == "admin":
             cur.execute("SELECT yonalish, AVG(umumiy_ball) as avg_score FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod GROUP BY t.yonalish ORDER BY avg_score DESC")
         else:
             cur.execute("SELECT yonalish, AVG(umumiy_ball) as avg_score FROM test_natijalari tn JOIN talabalar t ON tn.talaba_kod = t.kod WHERE t.sinf = %s GROUP BY t.yonalish ORDER BY avg_score DESC", [teacher_sinf])
-        direction_stats = [{"yonalish": r["yonalish"], "avg_score": float(r["avg_score"])} for r in cur.fetchall()]
+        direction_stats = [{"yonalish": r["yonalish"], "avg_score": float(r["avg_score"] or 0)} for r in cur.fetchall()]
 
         # 4. Subject Averages
         if role == "admin":
@@ -409,7 +415,6 @@ async def admin_stats_api(request: web.Request) -> web.Response:
         top_students = [{"kod": r["kod"], "ismlar": r["ismlar"], "sinf": r["sinf"], "maktab": r.get("maktab_nomi", "Noma'lum maktab"), "yonalish": r["yonalish"], "umumiy_ball": float(r["ball"] or 0)} for r in cur.fetchall()]
 
         cur.close()
-        release_connection(conn)
 
         return web.json_response({
             "role": role,
@@ -423,6 +428,9 @@ async def admin_stats_api(request: web.Request) -> web.Response:
     except Exception as e:
         logging.error(f"Admin API error details: {e}", exc_info=True)
         return web.json_response({"error": f"Server xatosi: {str(e)}"}, status=500)
+    finally:
+        if conn:
+            release_connection(conn)
 
 async def admin_get_schedule_api(request: web.Request) -> web.Response:
     """Testlar taqvimi."""
@@ -692,7 +700,7 @@ async def admin_broadcast_api(request: web.Request) -> web.Response:
             return web.json_response({"error": "O'quvchilar topilmadi"}, status=404)
             
         # Background task as broadcast can take time
-        asyncio.create_task(run_broadcast(bot_token, users, message_text))
+        asyncio.create_task(run_broadcast(request.app["bot_token"], users, message_text))
         
         return web.json_response({"success": True, "count": len(users)})
     except Exception as e:
