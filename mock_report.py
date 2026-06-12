@@ -31,7 +31,7 @@ from tz_utils import now as tz_now
 _BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 _FONT_REG  = os.path.join(_BASE_DIR, "DejaVuSans.ttf")
 _FONT_BOLD = os.path.join(_BASE_DIR, "DejaVuSans-Bold.ttf")
-_LOGO_JPG  = os.path.join(_BASE_DIR, "BSSTS-logo.jpg")
+_LOGO_PNG  = os.path.join(_BASE_DIR, "logo.png")
 _LOGO_PNG  = os.path.join(_BASE_DIR, "logo.png")
 _OUT_DIR   = "mock_reports"
 
