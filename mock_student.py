@@ -1,14 +1,18 @@
+import asyncio
+import os
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
+    FSInputFile,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
 )
 
-from database import talaba_topish, talaba_topish_user_id
+from database import talaba_topish, talaba_topish_user_id, get_setting
 from mock_database import (
     exam_type_ol,
     format_mock_natija_matn,
@@ -16,7 +20,6 @@ from mock_database import (
     mock_natijalari_ol,
 )
 from keyboards import user_menu_keyboard
-from database import get_setting
 
 router = Router()
 
@@ -65,11 +68,15 @@ def _mock_turlar_keyboard(kod: str, turlari: list):
 
 
 def _mock_history_keyboard(kod: str, exam_type: str):
-    """Natijalar tarixi ko'rsatish tugmasi."""
+    """Natijalar tarixi + hisobot + orqaga tugmalari."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text="📅 Barcha natijalar (tarixi)",
             callback_data=f"student_mock_history:{kod}:{exam_type}"
+        )],
+        [InlineKeyboardButton(
+            text="📄 Hisobot olish (PDF + PNG)",
+            callback_data=f"student_mock_report:{kod}:{exam_type}"
         )],
         [InlineKeyboardButton(
             text="⬅️ Orqaga",
@@ -344,3 +351,61 @@ async def student_mock_back(callback: CallbackQuery, state: FSMContext):
         reply_markup=_mock_turlar_keyboard(kod, turlari),
     )
     await callback.answer()
+
+
+# ─────────────────────────────────────────────────────────────
+# HISOBOT OLISH (PDF + PNG)
+# ─────────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("student_mock_report:"))
+async def student_mock_report_handler(callback: CallbackQuery):
+    """O\u2019quvchi Hisobot olish tugmasini bosadi."""
+    parts    = callback.data.split(":")
+    kod      = parts[1]
+    exam_key = parts[2]
+
+    await callback.answer()
+    loading = await callback.message.answer("\u23f3 Hisobot tayyorlanmoqda, biroz kuting...")
+
+    pdf_path = png_path = None
+    try:
+        from mock_report import generate_mock_report
+
+        pdf_path, png_path = await asyncio.to_thread(
+            generate_mock_report, kod, exam_key
+        )
+
+        if not pdf_path:
+            await loading.edit_text("\u274c Hisobot yaratishda xatolik. Natijalar topilmadimi?")
+            return
+
+        talaba = talaba_topish(kod)
+        ismlar = talaba["ismlar"] if talaba else kod
+        caption = f"\U0001f4c4 <b>{ismlar}</b>\n\U0001f4ca {exam_key} \u2014 Mock imtihon natijalari hisoboti"
+
+        if png_path and os.path.exists(png_path):
+            await callback.message.answer_photo(
+                FSInputFile(png_path),
+                caption=caption,
+                parse_mode="HTML",
+            )
+
+        await callback.message.answer_document(
+            FSInputFile(pdf_path),
+            caption="\U0001f4ce PDF hisobot \u2014 yuklab olish uchun",
+        )
+
+        await loading.delete()
+
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        await loading.edit_text("\u274c Xatolik yuz berdi. Keyinroq qayta urinib ko\u2019ring.")
+
+    finally:
+        for path in [pdf_path, png_path]:
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
