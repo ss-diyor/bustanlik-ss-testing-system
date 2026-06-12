@@ -998,3 +998,34 @@ input:checked + .slider:before { transform: translateX(18px); }
   font-weight: 800;
   color: var(--tg-theme-hint-color);
 }
+
+/* ─── Mock: Statistika va Grafik ─────────── */
+
+/* Eng yuqori ball stat kartasidagi qiymat */
+.mock-best-stat {
+  color: #43b581;
+}
+
+/* Eng yaxshi natija kartasi — oltin chegara */
+.mock-card-best {
+  border-color: rgba(250, 166, 26, 0.48);
+  background: rgba(250, 166, 26, 0.05);
+}
+body.light .mock-card-best {
+  border-color: rgba(185, 120, 10, 0.45);
+  background: rgba(250, 166, 26, 0.06);
+}
+
+/* "🏆 Eng yaxshi" badge */
+.mock-best-badge {
+  background: rgba(250, 166, 26, 0.18);
+  color: #faa61a;
+  padding: 2px 9px;
+  border-radius: 100px;
+  font-size: .68em;
+  font-weight: 700;
+}
+body.light .mock-best-badge {
+  background: rgba(185, 120, 10, 0.14);
+  color: #a06008;
+}
