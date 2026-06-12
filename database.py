@@ -305,6 +305,14 @@ def init_db():
         "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'aktiv'"
     )
 
+    # yonalish NOT NULL edi — DTM topshirmagan o'quvchilar uchun nullable qilamiz
+    _optional_exec(
+        "ALTER TABLE talabalar ALTER COLUMN yonalish DROP NOT NULL"
+    )
+    _optional_exec(
+        "ALTER TABLE talabalar ALTER COLUMN yonalish SET DEFAULT '-'"
+    )
+
     # ── Demo rejim ────────────────────────────────────────────────────────────
     _optional_exec(
         "ALTER TABLE talabalar ADD COLUMN IF NOT EXISTS is_demo BOOLEAN DEFAULT FALSE"
@@ -841,7 +849,7 @@ def ball_hisobla(majburiy: int, asosiy_1: int, asosiy_2: int) -> float:
 
 def talaba_qosh(
     kod: str,
-    yonalish: str,
+    yonalish: str = "-",
     sinf: str = None,
     ismlar: str = None,
     maktab_id: int = None,
