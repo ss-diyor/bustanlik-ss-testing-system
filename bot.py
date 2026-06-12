@@ -12,7 +12,7 @@ from config import BOT_TOKEN
 from database import (
     init_db, add_user, talaba_topish, talaba_user_id_yangila,
     get_setting, guruh_qosh, get_user, update_user_phone,
-    guruhlar_ol,
+    guruhlar_ol, create_chatbot_logs_table,
 )
 from aiogram import F
 from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_keyboard, phone_number_keyboard
@@ -414,6 +414,12 @@ async def main():
         logging.info("Admin jadvallari yaratildi yoki allaqachon mavjud.")
     except Exception as e:
         logging.error(f"Admin jadvallarini yaratishda xato: {e}")
+
+    try:
+        create_chatbot_logs_table()
+        logging.info("Chatbot log jadvali yaratildi yoki allaqachon mavjud.")
+    except Exception as e:
+        logging.error(f"Chatbot log jadvalini yaratishda xato: {e}")
 
     from mock_database import create_mock_tables
     try:
