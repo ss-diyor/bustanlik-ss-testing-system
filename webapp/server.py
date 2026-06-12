@@ -117,7 +117,7 @@ async def student_api(request: web.Request) -> web.Response:
 
         # O'quvchi ma'lumotlari (real yoki demo sessiya orqali)
         cur.execute("""
-            SELECT t.*, COALESCE(m.nomi, 'Noma\'lum maktab') as maktab_nomi
+            SELECT t.*, COALESCE(m.nomi, 'Noaniq maktab') as maktab_nomi
             FROM talabalar t
             LEFT JOIN maktablar m ON t.maktab_id = m.id
             WHERE t.user_id = %s
