@@ -254,7 +254,7 @@ async function sendBroadcast() {
       tg.showAlert(`Xabar ${data.count} ta o'quvchiga muvaffaqiyatli yuborildi!`);
       document.getElementById("broadcast-text").value = "";
     } else {
-      tg.showAlert("Xatolik: " + (data.error || "Noma'lum xato"));
+      tg.showAlert("Xatolik: " + (data.error || "Noaniq xato"));
     }
   } catch (e) {
     tg.showAlert("Serverga ulanishda xatolik!");
