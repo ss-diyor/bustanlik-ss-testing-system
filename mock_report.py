@@ -171,7 +171,7 @@ def _draw_header(pdf: FPDF, exam_label: str):
     logo_y = 10
     logo_exists = False
 
-    for logo_path in (_LOGO_JPG, _LOGO_PNG):
+    for logo_path in (_LOGO_PNG, _LOGO_PNG):
         if os.path.exists(logo_path):
             try:
                 pdf.image(logo_path, x=logo_x, y=logo_y, w=logo_w)
