@@ -72,6 +72,23 @@ def _talaba_ol(user_id: int) -> dict | None:
     return talaba_topish_demo(user_id)
 
 
+def _talaba_maktab_nomi(talaba: dict) -> str:
+    maktab = talaba.get("maktab") or talaba.get("maktab_nomi")
+    if maktab or not talaba.get("maktab_id"):
+        return str(maktab or "—")
+
+    try:
+        maktab_id = int(talaba["maktab_id"])
+        maktab = next(
+            (m.get("nomi") for m in maktablar_ol() if m.get("id") == maktab_id),
+            None,
+        )
+    except Exception:
+        maktab = None
+
+    return str(maktab or "—")
+
+
 def _murojaat_talaba_info(user_id: int) -> str:
     """Adminlarga yuboriladigan murojaatda o'quvchini aniq ko'rsatadi."""
     talaba = _talaba_ol(user_id)
@@ -1056,12 +1073,14 @@ async def student_profile(message: Message):
     natijalar = talaba_natijalari(talaba["kod"], limit=5)
     oxirgi_ball = natijalar[0]["umumiy_ball"] if natijalar else 0
     jami_test = len(talaba_natijalari(talaba["kod"], limit=1000))
+    maktab = _talaba_maktab_nomi(talaba)
 
     text = (
         f"👤 <b>Shaxsiy kabinet</b>\n\n"
         f"🆔 Kod: <code>{talaba['kod']}</code>\n"
         f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
         f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"🏢 Maktab: <b>{escape(maktab)}</b>\n"
         f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n\n"
         f"📊 Statistika:\n"
         f"✅ Jami topshirilgan testlar: <b>{jami_test} ta</b>\n"
