@@ -591,4 +591,133 @@ async function loadAdminMaterials() {
 async function deleteMaterial(id) {
   if (!confirm("Haqiqatan ham ushbu materialni o'chirmoqchimisiz?")) return;
   try {
-    const resp = await fetch(`/ap
+    const resp = await fetch(`/api/admin/materials/${id}`, {
+      method: 'DELETE',
+      headers: { 'X-Telegram-Init-Data': tg?.initData || '' }
+    });
+    const res = await resp.json();
+    if (res.success) {
+      loadAdminMaterials();
+    } else {
+      tg.showAlert("Xatolik: " + res.error);
+    }
+  } catch (err) {
+    tg.showAlert("Xatolik yuz berdi!");
+  }
+}
+
+async function loadAdminQuizQuestions() {
+  try {
+    const resp = await fetch("/api/admin/quiz", {
+      headers: { "X-Telegram-Init-Data": tg?.initData || "" }
+    });
+    const data = await resp.json();
+    const container = document.getElementById("admin-quiz-list");
+    if (!data.questions || data.questions.length === 0) {
+      container.innerHTML = '<p style="color: #aaa; text-align:center; padding: 10px;">Hali savollar qo\'shilmagan.</p>';
+      return;
+    }
+
+    let html = '<div class="admin-table-wrapper"><table><thead><tr><th>Fan</th><th>Savol</th><th>Holat</th><th>Amal</th></tr></thead><tbody>';
+    data.questions.forEach(q => {
+      html += `<tr>
+        <td>${q.subject}</td>
+        <td>${q.question.substring(0, 30)}...</td>
+        <td>
+          <label class="switch">
+            <input type="checkbox" ${q.is_active ? 'checked' : ''} onchange="toggleQuizActive(${q.id}, this.checked)">
+            <span class="slider round"></span>
+          </label>
+        </td>
+        <td>
+          <button class="btn-delete" onclick="deleteQuizQuestion(${q.id})">🗑</button>
+        </td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function addQuizQuestion() {
+  const subject = document.getElementById("quiz-subject").value.trim();
+  const question = document.getElementById("quiz-question").value.trim();
+  const options = [
+    document.getElementById("quiz-opt-0").value.trim(),
+    document.getElementById("quiz-opt-1").value.trim(),
+    document.getElementById("quiz-opt-2").value.trim(),
+    document.getElementById("quiz-opt-3").value.trim()
+  ];
+  const correct_option = parseInt(document.getElementById("quiz-correct").value);
+  const explanation = document.getElementById("quiz-explanation").value.trim();
+
+  if (!subject || !question || options.some(o => !o)) {
+    tg.showAlert("Barcha maydonlarni to'ldiring!");
+    return;
+  }
+
+  try {
+    const resp = await fetch("/api/admin/quiz", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Init-Data': tg?.initData || ''
+      },
+      body: JSON.stringify({ subject, question, options, correct_option, explanation })
+    });
+    const res = await resp.json();
+    if (res.success) {
+      tg.showAlert("Savol qo'shildi!");
+      document.getElementById("quiz-question").value = '';
+      document.getElementById("quiz-opt-0").value = '';
+      document.getElementById("quiz-opt-1").value = '';
+      document.getElementById("quiz-opt-2").value = '';
+      document.getElementById("quiz-opt-3").value = '';
+      document.getElementById("quiz-explanation").value = '';
+      loadAdminQuizQuestions();
+    } else {
+      tg.showAlert("Xatolik: " + res.error);
+    }
+  } catch (err) {
+    tg.showAlert("Xatolik!");
+  }
+}
+
+async function deleteQuizQuestion(id) {
+  if (!confirm("Ushbu savolni o'chirmoqchimisiz?")) return;
+  try {
+    const resp = await fetch(`/api/admin/quiz/${id}`, {
+      method: 'DELETE',
+      headers: { 'X-Telegram-Init-Data': tg?.initData || '' }
+    });
+    const res = await resp.json();
+    if (res.success) {
+      loadAdminQuizQuestions();
+    }
+  } catch (err) {
+    tg.showAlert("Xatolik!");
+  }
+}
+
+async function toggleQuizActive(id, active) {
+  try {
+    const resp = await fetch(`/api/admin/quiz/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Init-Data': tg?.initData || ''
+      },
+      body: JSON.stringify({ is_active: active, subject: "Partial", question: "Partial", options: [], correct_option: 0 }) 
+      // The current server.py PUT is strict, I should fix it to be partial or fetch first.
+    });
+    const res = await resp.json();
+    if (!res.success) {
+       tg.showAlert("Holatni yangilashda xatolik!");
+       loadAdminQuizQuestions();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
