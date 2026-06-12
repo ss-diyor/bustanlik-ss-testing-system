@@ -152,7 +152,7 @@ async def student_api(request: web.Request) -> web.Response:
         )
         natijalar = cur.fetchall()
 
-        # Sinf reytingi
+        # Sinf reytingi (faqat shu maktab va shu sinf ichida)
         cur.execute(
             """
             SELECT COUNT(*) + 1 AS sinf_rank
@@ -161,6 +161,7 @@ async def student_api(request: web.Request) -> web.Response:
                 FROM test_natijalari tn
                 JOIN talabalar t ON tn.talaba_kod = t.kod
                 WHERE t.sinf = %s AND t.status = 'aktiv'
+                  AND t.maktab_id IS NOT DISTINCT FROM %s
                   AND t.kod != %s
                 ORDER BY tn.talaba_kod, tn.test_sanasi DESC
             ) sub
@@ -169,20 +170,22 @@ async def student_api(request: web.Request) -> web.Response:
                  WHERE talaba_kod = %s ORDER BY test_sanasi DESC LIMIT 1), 0
             )
             """,
-            (talaba["sinf"], talaba["kod"], talaba["kod"]),
+            (talaba["sinf"], talaba.get("maktab_id"), talaba["kod"], talaba["kod"]),
         )
         rank_row = cur.fetchone()
         sinf_rank = rank_row["sinf_rank"] if rank_row else "—"
 
         # Sinfdoshlar ro'yxati (Faqat ismlar, maxfiylik uchun)
+        # Faqat shu o'quvchining maktabi va sinfidagilar ko'rsatiladi.
         cur.execute(
             """
             SELECT ismlar
             FROM talabalar
             WHERE sinf = %s AND status = 'aktiv'
+              AND maktab_id IS NOT DISTINCT FROM %s
             ORDER BY ismlar ASC
             """,
-            (talaba["sinf"],)
+            (talaba["sinf"], talaba.get("maktab_id"))
         )
         classmates = cur.fetchall()
 
