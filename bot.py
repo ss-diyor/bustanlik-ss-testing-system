@@ -55,7 +55,7 @@ dp = Dispatcher(storage=MemoryStorage())
 # Routerlarni ulash
 dp.include_router(admin.router)
 dp.include_router(payment.router)
-dp.include_router(parent.router)       # ← student.router dan OLDIN bo'lishi shart
+dp.include_router(parent.router)       # student.router dan oldin; umumiy tugmalar (mas. "Admin bilan bog'lanish") faqat ota-onalar uchun filtrlanadi
 dp.include_router(student.router)
 dp.include_router(cert_admin.router)
 dp.include_router(chatbot.router)
