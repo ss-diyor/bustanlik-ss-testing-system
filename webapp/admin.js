@@ -42,17 +42,49 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // ─── Theme ──────────────────────────────
 function applyTelegramTheme() {
-  if (!tg?.themeParams) return;
-  const p = tg.themeParams;
-  const r = document.documentElement.style;
-  if (p.bg_color)              r.setProperty("--tg-theme-bg-color",           p.bg_color);
-  if (p.text_color)            r.setProperty("--tg-theme-text-color",         p.text_color);
-  if (p.hint_color)            r.setProperty("--tg-theme-hint-color",         p.hint_color);
-  if (p.link_color)            r.setProperty("--tg-theme-link-color",         p.link_color);
-  if (p.button_color)          r.setProperty("--tg-theme-button-color",       p.button_color);
-  if (p.button_text_color)     r.setProperty("--tg-theme-button-text-color",  p.button_text_color);
-  if (p.secondary_bg_color)    r.setProperty("--tg-theme-secondary-bg-color", p.secondary_bg_color);
-  document.body.style.background = p.bg_color || "";
+  const p = tg?.themeParams;
+  if (p) {
+    const r = document.documentElement.style;
+    if (p.bg_color)              r.setProperty("--tg-theme-bg-color",           p.bg_color);
+    if (p.text_color)            r.setProperty("--tg-theme-text-color",         p.text_color);
+    if (p.hint_color)            r.setProperty("--tg-theme-hint-color",         p.hint_color);
+    if (p.link_color)            r.setProperty("--tg-theme-link-color",         p.link_color);
+    if (p.button_color)          r.setProperty("--tg-theme-button-color",       p.button_color);
+    if (p.button_text_color)     r.setProperty("--tg-theme-button-text-color",  p.button_text_color);
+    if (p.secondary_bg_color)    r.setProperty("--tg-theme-secondary-bg-color", p.secondary_bg_color);
+    document.body.style.background = p.bg_color || "";
+  }
+  syncColorScheme();
+}
+
+// Toggle the `light` class so the CSS light palette kicks in.
+function syncColorScheme() {
+  let isLight;
+  if (tg?.colorScheme) {
+    isLight = tg.colorScheme === "light";
+  } else if (tg?.themeParams?.bg_color) {
+    isLight = isLightColor(tg.themeParams.bg_color);
+  } else {
+    isLight = window.matchMedia?.("(prefers-color-scheme: light)").matches ?? false;
+  }
+  document.body.classList.toggle("light", isLight);
+}
+
+// Perceived luminance check for a #rrggbb / #rgb color.
+function isLightColor(hex) {
+  const m = String(hex).trim().replace("#", "");
+  const full = m.length === 3 ? m.split("").map(c => c + c).join("") : m;
+  if (full.length < 6) return false;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 150;
+}
+
+// Read a CSS custom property from the live theme.
+function cssVar(name, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return v || fallback;
 }
 
 // ─── Fetch data ──────────────────────────
@@ -316,8 +348,8 @@ function renderSubjectsChart(stats) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#8e9297" } },
-        x: { grid: { display: false }, ticks: { color: "#8e9297" } }
+        y: { beginAtZero: true, grid: { color: cssVar("--chart-grid", "rgba(255,255,255,0.06)") }, ticks: { color: cssVar("--chart-tick", "#8e9297") } },
+        x: { grid: { display: false }, ticks: { color: cssVar("--chart-tick", "#8e9297") } }
       }
     }
   });
@@ -398,8 +430,8 @@ function renderStudentDetailChart(natijalar) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#8e9297" } },
-        x: { grid: { display: false }, ticks: { color: "#8e9297" } }
+        y: { beginAtZero: true, grid: { color: cssVar("--chart-grid", "rgba(255,255,255,0.06)") }, ticks: { color: cssVar("--chart-tick", "#8e9297") } },
+        x: { grid: { display: false }, ticks: { color: cssVar("--chart-tick", "#8e9297") } }
       }
     }
   });
@@ -466,8 +498,8 @@ function renderClassesChart(class_stats) {
         },
       },
       scales: {
-        x: { ticks: { color: "rgba(255,255,255,0.5)", font: { size: 10 } }, grid: { display: false } },
-        y: { ticks: { color: "rgba(255,255,255,0.45)", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.06)" }, beginAtZero: true },
+        x: { ticks: { color: cssVar("--chart-tick", "rgba(255,255,255,0.5)"), font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: cssVar("--chart-tick", "rgba(255,255,255,0.45)"), font: { size: 10 } }, grid: { color: cssVar("--chart-grid", "rgba(255,255,255,0.06)") }, beginAtZero: true },
       },
     },
   });
@@ -507,8 +539,8 @@ function renderDirectionsChart(direction_stats) {
         },
       },
       scales: {
-        x: { ticks: { color: "rgba(255,255,255,0.5)", font: { size: 10 } }, grid: { display: false } },
-        y: { ticks: { color: "rgba(255,255,255,0.45)", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.06)" }, beginAtZero: true },
+        x: { ticks: { color: cssVar("--chart-tick", "rgba(255,255,255,0.5)"), font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: cssVar("--chart-tick", "rgba(255,255,255,0.45)"), font: { size: 10 } }, grid: { color: cssVar("--chart-grid", "rgba(255,255,255,0.06)") }, beginAtZero: true },
       },
     },
   });
