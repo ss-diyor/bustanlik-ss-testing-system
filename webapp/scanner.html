@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR-kod Skaner - Davomat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 30px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .scanner-section {
+            margin-bottom: 30px;
+        }
+
+        #scanner-container {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 3px solid #667eea;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #000;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        #scanner-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            margin: 10%;
+            box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff5252;
+        }
+
+        .result-section {
+            display: none;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .result-section.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .student-info {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .status-present {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-absent {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            color: #721c24;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .attendance-count {
+            text-align: center;
+            padding: 20px;
+            background: #e7f3ff;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .attendance-count .number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .attendance-count .label {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 QR-kod Skaner</h1>
+            <p>O'quvchining QR-kodini skanerlab davomatni oling</p>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="scanner-section">
+            <div id="scanner-container">
+                <video id="scanner-video"></video>
+                <div class="scanner-overlay"></div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" id="startBtn" onclick="startScanner()">▶️ Skanerni boshlash</button>
+                <button class="btn-secondary" id="stopBtn" onclick="stopScanner()" style="display:none;">⏹️ To'xtatish</button>
+            </div>
+
+            <button class="btn-secondary" style="width: 100%;" onclick="toggleCamera()">🔄 Kamera almashtirish</button>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div id="resultContent"></div>
+        </div>
+
+        <div class="attendance-count" id="attendanceCount" style="display:none;">
+            <div class="label">Bugungi davomat:</div>
+            <div class="number" id="attendanceNumber">0</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script>
+        let video = document.getElementById('scanner-video');
+        let stream = null;
+        let isScanning = false;
+        let facingMode = 'environment';
+        let scannedCodes = new Set();
+
+        async function startScanner() {
+            try {
+                document.getElementById('errorMessage').classList.remove('show');
+                
+                const constraints = {
+                    video: {
+                        facingMode: facingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'block';
+                isScanning = true;
+
+                scanQRCode();
+            } catch (error) {
+                showError('Kamera xatosi: ' + error.message);
+            }
+        }
+
+        function stopScanner() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            isScanning = false;
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('stopBtn').style.display = 'none';
+        }
+
+        function toggleCamera() {
+            facingMode = facingMode === 'environment' ? 'user' : 'environment';
+            stopScanner();
+            setTimeout(startScanner, 500);
+        }
+
+        function scanQRCode() {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            function scan() {
+                if (!isScanning) return;
+
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                    if (code && code.data) {
+                        handleQRCode(code.data);
+                    }
+                }
+
+                requestAnimationFrame(scan);
+            }
+
+            scan();
+        }
+
+        async function handleQRCode(qrData) {
+            // QR-kod URL formatida bo'ladi: /scan/{kod}
+            const match = qrData.match(/\/scan\/([A-Z0-9\-]+)$/);
+            if (!match) return;
+
+            const kod = match[1];
+            
+            // Bir xil kodni qayta skanerlab bo'lmasligi uchun
+            if (scannedCodes.has(kod)) return;
+            scannedCodes.add(kod);
+
+            // 3 soniyadan keyin qayta skanerlash imkoni
+            setTimeout(() => scannedCodes.delete(kod), 3000);
+
+            await recordAttendance(kod);
+        }
+
+        async function recordAttendance(kod) {
+            try {
+                const response = await fetch('/api/attendance/record', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || ''
+                    },
+                    body: JSON.stringify({ kod: kod })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess(data);
+                    updateAttendanceCount();
+                } else {
+                    showError(data.error || 'Xatolik yuz berdi');
+                }
+            } catch (error) {
+                showError('Serverga bog\'lanishda xatolik: ' + error.message);
+            }
+        }
+
+        function showSuccess(data) {
+            const result = document.getElementById('resultSection');
+            const content = document.getElementById('resultContent');
+
+            content.innerHTML = `
+                <div class="result-success">
+                    <h3 style="margin-bottom: 15px;">✅ Davomat qabul qilindi!</h3>
+                    <div class="student-info">
+                        <div class="info-row">
+                            <span class="info-label">👤 O'quvchi:</span>
+                            <span class="info-value">${data.student.ismlar}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">🔑 Kod:</span>
+                            <span class="info-value">${data.student.kod}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">📚 Sinf:</span>
+                            <span class="info-value">${data.student.sinf}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">🏫 Maktab:</span>
+                            <span class="info-value">${data.student.maktab || '—'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">📌 Yo'nalish:</span>
+                            <span class="info-value">${data.student.yonalish || '—'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">🕐 Vaqt:</span>
+                            <span class="info-value">${new Date(data.timestamp).toLocaleTimeString('uz-UZ')}</span>
+                        </div>
+                    </div>
+                    <div class="status-badge status-present">✓ Davomatchida</div>
+                </div>
+            `;
+
+            result.classList.add('show');
+            setTimeout(() => result.classList.remove('show'), 4000);
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.classList.add('show');
+            setTimeout(() => errorDiv.classList.remove('show'), 5000);
+        }
+
+        async function updateAttendanceCount() {
+            try {
+                const response = await fetch('/api/attendance/today-count', {
+                    headers: {
+                        'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || ''
+                    }
+                });
+                const data = await response.json();
+                if (data.count !== undefined) {
+                    document.getElementById('attendanceNumber').textContent = data.count;
+                    document.getElementById('attendanceCount').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Davomat sonini yangilashda xatolik:', error);
+            }
+        }
+
+        // Sahifa yuklanganda davomat sonini yangilash
+        window.addEventListener('load', updateAttendanceCount);
+
+        // Telegram WebApp initialization
+        if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+            window.Telegram.WebApp.setHeaderColor('#667eea');
+        }
+    </script>
+</body>
+</html>

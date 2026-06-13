@@ -165,6 +165,7 @@ ADMIN_TUGMALAR = {
     "✍️ Admin bilan bog'lanish",
     "🚪 Chiqish",
     "🎭 Demo kodlar",
+    "🆔 Mening QR-kodim",
 }
 
 # ─────────────────────────────────────────
@@ -1423,7 +1424,30 @@ async def inline_search_handler(inline_query: InlineQuery):
 
 
 @router.message(F.text == "/cancel")
-async def cancel_handler(message: Message, state: FSMContext):
+@router.message(F.text == "🆔 Mening QR-kodim")
+async def student_qr_handler(message: Message):
+    """O'quvchiga uning shaxsiy QR-kodini yuboradi."""
+    talaba = _talaba_ol(message.from_user.id)
+    if not talaba:
+        await message.answer("❌ O'quvchi ma'lumoti topilmadi. Avval profilingizni ulang.")
+        return
+
+    from certificate import CertificateGenerator
+    gen = CertificateGenerator.from_db()
+    qr_buf = gen.generate_id_qr(talaba["kod"])
+    
+    await message.answer_photo(
+        FSInputFile(qr_buf, filename=f"qr_{talaba['kod']}.png"),
+        caption=(
+            f"🆔 <b>Sizning shaxsiy QR-kodingiz</b>\n\n"
+            f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
+            f"🔑 Kod: <code>{talaba['kod']}</code>\n\n"
+            f"Ushbu QR-kodni admin yoki nazoratchiga ko'rsatib, davomatdan o'tishingiz mumkin."
+        ),
+        parse_mode="HTML"
+    )
+
+async def logout_handler(message: Message, state: FSMContext):
     """Barcha faol FSM holatlarini bekor qilish"""
     current_state = await state.get_state()
 

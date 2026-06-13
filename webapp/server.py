@@ -1303,6 +1303,9 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/api/student/mock", student_mock_api)
     
     app.router.add_get("/admin", admin_handler)
+    app.router.add_get("/scanner", scanner_handler)
+    app.router.add_post("/api/attendance/record", attendance_record_api)
+    app.router.add_get("/api/attendance/today-count", attendance_today_count_api)
     app.router.add_get("/api/admin_stats", admin_stats_api)
     app.router.add_get("/api/admin/search", admin_search_api)
     app.router.add_get("/api/admin/student_details", admin_student_details_api)

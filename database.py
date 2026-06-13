@@ -28,6 +28,24 @@ def create_admin_sessions_table():
     cur.close()
     release_connection(conn)
 
+def create_attendance_table():
+    """Davomat jadvalini yaratish"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS attendance (
+            id SERIAL PRIMARY KEY,
+            student_kod TEXT NOT NULL REFERENCES talabalar(kod) ON DELETE CASCADE,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            admin_id BIGINT,
+            status TEXT DEFAULT 'present',
+            type TEXT DEFAULT 'qr_scan'
+        )
+    """)
+    conn.commit()
+    cur.close()
+    release_connection(conn)
+
 def create_mini_test_tables():
     """Mini-testlar uchun jadvallarni yaratish"""
     conn = get_connection()
@@ -347,6 +365,7 @@ def init_db():
     )
     
     # Mini-testlar
+    create_attendance_table()
     create_mini_test_tables()
     cur.execute(
         "INSERT INTO settings (key, value) VALUES ('mock_enabled', 'True') ON CONFLICT DO NOTHING"

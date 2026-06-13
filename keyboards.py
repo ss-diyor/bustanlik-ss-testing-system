@@ -53,6 +53,7 @@ def admin_menu_keyboard():
             ],
             [KeyboardButton(text="📊 Excel Hisobot")],
             [KeyboardButton(text="📗 Google Sheets Eksport")],
+            [KeyboardButton(text="📱 QR Davomat Skaneri")],
             [
                 KeyboardButton(text="⚖️ Sinf taqqoslash"),
                 KeyboardButton(text="📋 O'quvchilar ro'yxati"),
@@ -711,8 +712,11 @@ def user_menu_keyboard(
     if mini_test_enabled == "True":
         keyboard.append([KeyboardButton(text="📦 Mini-testlar")])
 
-    # Admin bilan bog'lanish — alohida, to'liq qatorda
-    keyboard.append([KeyboardButton(text="✍️ Admin bilan bog'lanish")])
+    # QR-kod va Admin bilan bog'lanish
+    keyboard.append([
+        KeyboardButton(text="🆔 Mening QR-kodim"),
+        KeyboardButton(text="✍️ Admin bilan bog'lanish")
+    ])
 
     # Oxirgi qator: Chiqish
     keyboard.append([KeyboardButton(text="🚪 Chiqish")])

@@ -292,23 +292,29 @@ class CertificateGenerator:
 
     def _add_qr(self, pdf: FPDF, kod: str, page_w: int, page_h: int) -> None:
         try:
-            import qrcode as qrlib
-            from config import VERIFY_BASE_URL
-            url = f"{VERIFY_BASE_URL}/verify/{kod}"
-            qr = qrlib.QRCode(version=2,
-                               error_correction=qrlib.constants.ERROR_CORRECT_M,
-                               box_size=6, border=2)
-            qr.add_data(url)
-            qr.make(fit=True)
-            img = qr.make_image(fill_color="black", back_color="white")
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            buf.seek(0)
+            buf = self.generate_id_qr(kod)
             qr_size = 22
             pdf.image(buf, x=page_w - qr_size - 14, y=page_h - qr_size - 13,
                       w=qr_size, h=qr_size)
         except Exception:
             pass
+
+    def generate_id_qr(self, kod: str) -> io.BytesIO:
+        """O'quvchi identifikatsiyasi uchun QR-kod generatsiya qiladi (PNG byte stream)."""
+        import qrcode as qrlib
+        from config import VERIFY_BASE_URL
+        # Identifikatsiya uchun maxsus URL (web-skaner uchun)
+        url = f"{VERIFY_BASE_URL}/scan/{kod}"
+        qr = qrlib.QRCode(version=2,
+                           error_correction=qrlib.constants.ERROR_CORRECT_M,
+                           box_size=10, border=2)
+        qr.add_data(url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return buf
 
     # ── Preview ───────────────────────────────────────────────────────────────
 

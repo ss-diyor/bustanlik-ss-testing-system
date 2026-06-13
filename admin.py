@@ -7054,6 +7054,35 @@ def _create_comparison_chart(a: dict, b: dict) -> str | None:
         return None
 
 
+@router.message(F.text == "📱 QR Davomat Skaneri")
+async def admin_qr_scanner_handler(message: Message, state: FSMContext):
+    """Admin uchun QR skaner WebApp'ni ochish tugmasini yuboradi."""
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+        
+    from config import WEBAPP_URL
+    if not WEBAPP_URL:
+        await message.answer("⚠️ WEBAPP_URL sozlanmagan. Iltimos, administrator bilan bog'laning.")
+        return
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📸 Skanerni ochish",
+                    web_app=WebAppInfo(url=f"{WEBAPP_URL}/scanner")
+                )
+            ]
+        ]
+    )
+    
+    await message.answer(
+        "📱 <b>QR Davomat Skaneri</b>\n\n"
+        "Quyidagi tugmani bosib skanerni oching va o'quvchilarning QR-kodini skanerlang.",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
+
 @router.message(F.text == "⚖️ Sinf taqqoslash")
 async def sinf_taqq_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
