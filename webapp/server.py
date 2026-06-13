@@ -288,6 +288,12 @@ async def admin_handler(request: web.Request) -> web.Response:
     html_path = os.path.join(STATIC_DIR, "admin.html")
     return web.FileResponse(html_path)
 
+
+async def scanner_handler(request: web.Request) -> web.Response:
+    """QR-kod skaner sahifasini qaytaradi."""
+    html_path = os.path.join(STATIC_DIR, "scanner.html")
+    return web.FileResponse(html_path)
+
 async def get_user_role(user_id, conn):
     """Foydalanuvchi rolini aniqlaydi (admin yoki oqituvchi)."""
     from config import ADMIN_IDS
