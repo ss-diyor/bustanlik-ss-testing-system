@@ -1,0 +1,1043 @@
+{
+  "fan1_list": [
+    "",
+    "Biologiya",
+    "Chet tili",
+    "Fizika",
+    "Geografiya",
+    "Huquqshunoslik fanlari",
+    "Ingliz tili",
+    "Kasbiy (ijodiy) imtihon",
+    "Kimyo",
+    "Matematika",
+    "Ona tili va adabiyoti",
+    "Oʻzbek tili va adabiyoti",
+    "Qirgʻiz tili va adabiyoti",
+    "Qozoq tili va adabiyoti",
+    "Rus tili va adabiyoti",
+    "Tarix",
+    "Tojik tili va adabiyoti"
+  ],
+  "data": {
+    "Tarix": {
+      "Ona tili va adabiyoti": [
+        {
+          "code": "60110100",
+          "name": "Pedagogika"
+        },
+        {
+          "code": "60111100",
+          "name": "Milliy gʻoya, maʼnaviyat asoslari va huquq taʼlimi"
+        },
+        {
+          "code": "60210300",
+          "name": "Muzeyshunoslik: muzey menejmenti va madaniy turizm"
+        },
+        {
+          "code": "60211800",
+          "name": "Madaniyatshunoslik"
+        },
+        {
+          "code": "60220500",
+          "name": "Falsafa"
+        }
+      ],
+      "Kasbiy (ijodiy) imtihon": [
+        {
+          "code": "60220100",
+          "name": "Dinshunoslik"
+        },
+        {
+          "code": "60220200",
+          "name": "Islomshunoslik"
+        }
+      ],
+      "Geografiya": [
+        {
+          "code": "60220300",
+          "name": "Tarix"
+        },
+        {
+          "code": "60220400",
+          "name": "Arxeologiya"
+        },
+        {
+          "code": "60220600",
+          "name": "Antropologiya va etnologiya"
+        }
+      ],
+      "Chet tili": [
+        {
+          "code": "60310100",
+          "name": "Siyosatshunoslik"
+        },
+        {
+          "code": "60310200",
+          "name": "Xalqaro munosabatlar"
+        },
+        {
+          "code": "60420200",
+          "name": "Davlat va jamiyat boshqaruvi"
+        },
+        {
+          "code": "61010100",
+          "name": "Turizm va mehmondoʻstlik"
+        }
+      ],
+      "Matematika": [
+        {
+          "code": "60320300",
+          "name": "Arxivshunoslik"
+        }
+      ]
+    },
+    "Biologiya": {
+      "Ona tili va adabiyoti": [
+        {
+          "code": "60110200",
+          "name": "Maktabgacha taʼlim"
+        },
+        {
+          "code": "60110300",
+          "name": "Maxsus pedagogika: logopediya"
+        },
+        {
+          "code": "60110300",
+          "name": "Maxsus pedagogika: olegofrenopedagogika"
+        },
+        {
+          "code": "60110300",
+          "name": "Maxsus pedagogika: surdopedagogika"
+        },
+        {
+          "code": "60110300",
+          "name": "Maxsus pedagogika: tiflopedagogika"
+        },
+        {
+          "code": "60310300",
+          "name": "Psixologiya"
+        },
+        {
+          "code": "60920100",
+          "name": "Ijtimoiy ish"
+        }
+      ],
+      "Kimyo": [
+        {
+          "code": "60510100",
+          "name": "Biologiya"
+        },
+        {
+          "code": "60710200",
+          "name": "Biotexnologiya"
+        },
+        {
+          "code": "60810200",
+          "name": "Agrokimyo va tuproqshunoslik"
+        },
+        {
+          "code": "60810300",
+          "name": "Tuproq bonitirovkasi va yer degradatsiyasi"
+        },
+        {
+          "code": "60810400",
+          "name": "Agronomiya"
+        },
+        {
+          "code": "60810600",
+          "name": "Qishloq xoʻjaligi ekinlari seleksiyasi va urugʻchiligi"
+        },
+        {
+          "code": "60810800",
+          "name": "Zooinjeneriya"
+        },
+        {
+          "code": "60810900",
+          "name": "Ipakchilik va tutchilik"
+        },
+        {
+          "code": "60811000",
+          "name": "Meva-sabzavotchilik va uzumchilik"
+        },
+        {
+          "code": "60811100",
+          "name": "Dorivor oʻsimliklarni yetishtirish va qayta ishlash texnologiyasi"
+        },
+        {
+          "code": "60820100",
+          "name": "Oʻrmonchilik va aholi yashash joylarini koʻkalamzorlashtirish"
+        },
+        {
+          "code": "60830100",
+          "name": "Suv bioresurslari va akvakultura"
+        },
+        {
+          "code": "60840100",
+          "name": "Veterinariya meditsinasi"
+        },
+        {
+          "code": "60840200",
+          "name": "Veterinariya farmatsevtikasi"
+        },
+        {
+          "code": "60840300",
+          "name": "Veterinariya sanitariya ekspertizasi"
+        },
+        {
+          "code": "60910100",
+          "name": "Stomatologiya"
+        },
+        {
+          "code": "60910200",
+          "name": "Davolash ishi"
+        },
+        {
+          "code": "60910300",
+          "name": "Pediatriya ishi"
+        },
+        {
+          "code": "60910600",
+          "name": "Oliy hamshiralik ishi"
+        }
+      ]
+    },
+    "": {
+      "Kasbiy (ijodiy) imtihon Ona tili va adabiyoti": [
+        {
+          "code": "60110300",
+          "name": "Maxsus pedagogika: surdotarjimonlik faoliyati"
+        }
+      ],
+      "Kasbiy (ijodiy) imtihon Kasbiy (ijodiy) imtihon": [
+        {
+          "code": "60110500",
+          "name": "Tasviriy sanʼat va muhandislik grafikasi"
+        },
+        {
+          "code": "60110600",
+          "name": "Musiqa taʼlimi"
+        },
+        {
+          "code": "61010200",
+          "name": "Sport faoliyati"
+        },
+        {
+          "code": "61010300",
+          "name": "Adaptiv jismoniy tarbiya va sport"
+        }
+      ],
+      "Tarix": [
+        {
+          "code": "60110800",
+          "name": "Ona tili va adabiyoti: qoraqalpoq tili"
+        },
+        {
+          "code": "60110800",
+          "name": "Ona tili va adabiyoti: turkman tili"
+        }
+      ],
+      "Ona tili va adabiyoti": [
+        {
+          "code": "60210300",
+          "name": "Tarix"
+        }
+      ],
+      "Chet tili": [
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: qoraqalpoq tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: turkman tili"
+        }
+      ],
+      "Rus tili": [
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: rus tili"
+        }
+      ],
+      "Fizika": [
+        {
+          "code": "60720400",
+          "name": "Matematika"
+        },
+        {
+          "code": "60721400",
+          "name": "Matematika"
+        }
+      ]
+    },
+    "Ona tili va adabiyoti": {
+      "Matematika": [
+        {
+          "code": "60110400",
+          "name": "Boshlangʻich taʼlim"
+        },
+        {
+          "code": "60230400",
+          "name": "Kompyuter lingvistikasi"
+        }
+      ],
+      "Chet tili": [
+        {
+          "code": "60230300",
+          "name": "Noshirlik ishi"
+        }
+      ]
+    },
+    "Oʻzbek tili va adabiyoti": {
+      "Chet tili": [
+        {
+          "code": "60110700",
+          "name": "Oʻzbek tili va adabiyoti"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: oʻzbek tili"
+        }
+      ]
+    },
+    "Rus tili va adabiyoti": {
+      "Tarix": [
+        {
+          "code": "60110800",
+          "name": "Ona tili va adabiyoti: rus tili"
+        }
+      ],
+      "Chet tili": [
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: rus tili"
+        }
+      ]
+    },
+    "Qirgʻiz tili va adabiyoti": {
+      "Tarix": [
+        {
+          "code": "60110800",
+          "name": "Ona tili va adabiyoti: qirgʻiz tili"
+        }
+      ]
+    },
+    "Qozoq tili va adabiyoti": {
+      "Tarix": [
+        {
+          "code": "60110800",
+          "name": "Ona tili va adabiyoti: qozoq tili"
+        }
+      ],
+      "Chet tili": [
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: qozoq tili"
+        }
+      ]
+    },
+    "Tojik tili va adabiyoti": {
+      "Tarix": [
+        {
+          "code": "60110800",
+          "name": "Ona tili va adabiyoti: tojik tili"
+        }
+      ],
+      "Chet tili": [
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: tojik tili"
+        }
+      ]
+    },
+    "Ingliz tili": {
+      "Ona tili va adabiyoti": [
+        {
+          "code": "60110900",
+          "name": "Xorijiy til va adabiyoti: ingliz tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: ingliz tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: ingliz tili"
+        }
+      ]
+    },
+    "Chet tili": {
+      "Ona tili va adabiyoti": [
+        {
+          "code": "60110900",
+          "name": "Xorijiy til va adabiyoti: nemis tili"
+        },
+        {
+          "code": "60110900",
+          "name": "Xorijiy til va adabiyoti: fransuz tili"
+        },
+        {
+          "code": "60110900",
+          "name": "Xorijiy til va adabiyoti: koreys tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: nemis tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: fransuz tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: ispan tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: xitoy tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: yapon tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: koreys tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: arab tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: turk tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: dariy tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: indonez tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: urdu tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: fors tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: hind tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: malay tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: uygʻur tili"
+        },
+        {
+          "code": "60230100",
+          "name": "Filologiya va tillarni oʻqitish: italyan tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: nemis tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: fransuz tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: italyan tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: arab tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: turk tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: koreys tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: xitoy tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: dariy tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: fors tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: ispan tili"
+        },
+        {
+          "code": "60230200",
+          "name": "Tarjima nazariyasi va amaliyoti: pushtu tili"
+        }
+      ]
+    },
+    "Kasbiy (ijodiy) imtihon": {
+      "Kasbiy (ijodiy) imtihon": [
+        {
+          "code": "60111000",
+          "name": "Chaqiriqqacha harbiy taʼlim"
+        },
+        {
+          "code": "60111200",
+          "name": "Jismoniy madaniyat"
+        },
+        {
+          "code": "60210100",
+          "name": "Texnogen sanʼat"
+        },
+        {
+          "code": "60210200",
+          "name": "Kino-teleoperatorlik"
+        },
+        {
+          "code": "60210400",
+          "name": "Dizayn"
+        },
+        {
+          "code": "60210500",
+          "name": "Rangtasvir"
+        },
+        {
+          "code": "60210600",
+          "name": "Grafika"
+        },
+        {
+          "code": "60210700",
+          "name": "Haykaltaroshlik"
+        },
+        {
+          "code": "60210800",
+          "name": "Amaliy sanʼat"
+        },
+        {
+          "code": "60210900",
+          "name": "Bastakorlik sanʼati"
+        },
+        {
+          "code": "60211000",
+          "name": "Sanʼatshunoslik"
+        },
+        {
+          "code": "60211100",
+          "name": "Aktyorlik sanʼati"
+        },
+        {
+          "code": "60211200",
+          "name": "Rejissyorlik"
+        },
+        {
+          "code": "60211300",
+          "name": "Dirijyorlik"
+        },
+        {
+          "code": "60211400",
+          "name": "Vokal sanʼati"
+        },
+        {
+          "code": "60211500",
+          "name": "Cholgʻu ijrochiligi"
+        },
+        {
+          "code": "60211600",
+          "name": "Xoreografiya"
+        },
+        {
+          "code": "60211700",
+          "name": "Xalq ijodiyoti"
+        }
+      ],
+      "Chet tili": [
+        {
+          "code": "60320100",
+          "name": "Jurnalistika"
+        },
+        {
+          "code": "60320200",
+          "name": "Axborot xizmati va jamoatchilik bilan aloqalar"
+        }
+      ]
+    },
+    "Fizika": {
+      "Matematika": [
+        {
+          "code": "60111300",
+          "name": "Texnologik taʼlim"
+        },
+        {
+          "code": "60530500",
+          "name": "Fizika"
+        },
+        {
+          "code": "60530700",
+          "name": "Astronomiya"
+        },
+        {
+          "code": "60710500",
+          "name": "Elektr muhandisligi"
+        },
+        {
+          "code": "60711100",
+          "name": "Biotibbiyot muhandisligi"
+        },
+        {
+          "code": "60711700",
+          "name": "Aerokosmik texnologiyalar"
+        },
+        {
+          "code": "60720800",
+          "name": "Konchilik ishi"
+        },
+        {
+          "code": "60720900",
+          "name": "Foydali qazilma konlari geologiyasi, qidiruv va razvedkasi"
+        },
+        {
+          "code": "60721000",
+          "name": "Gidrogeologiya va muhandislik geologiyasi"
+        },
+        {
+          "code": "60721100",
+          "name": "Neft va gaz ishi"
+        },
+        {
+          "code": "60811400",
+          "name": "Meliorativ gidrogeologiya"
+        }
+      ],
+      "Chet tili": [
+        {
+          "code": "61040100",
+          "name": "Havodagi harakatni boshqarish"
+        },
+        {
+          "code": "61040300",
+          "name": "Havo kemalarining parvoz ekspluatatsiyasi"
+        }
+      ]
+    },
+    "Matematika": {
+      "Ona tili va adabiyoti": [
+        {
+          "code": "60310400",
+          "name": "Sotsiologiya"
+        },
+        {
+          "code": "60320400",
+          "name": "Kutubxona-axborot faoliyati"
+        },
+        {
+          "code": "60730800",
+          "name": "Arxitektura yodgorliklari rekonstruksiyasi va restavratsiyasi"
+        }
+      ],
+      "Chet tili": [
+        {
+          "code": "60410100",
+          "name": "Iqtisodiyot"
+        },
+        {
+          "code": "60410200",
+          "name": "Buxgalteriya hisobi"
+        },
+        {
+          "code": "60410300",
+          "name": "Soliqlar va soliqqa tortish"
+        },
+        {
+          "code": "60410400",
+          "name": "Bojxona ishi"
+        },
+        {
+          "code": "60410500",
+          "name": "Moliya va moliyaviy texnologiyalar"
+        },
+        {
+          "code": "60410600",
+          "name": "Bank ishi"
+        },
+        {
+          "code": "60410700",
+          "name": "Statistika"
+        },
+        {
+          "code": "60410800",
+          "name": "Menejment"
+        },
+        {
+          "code": "60410900",
+          "name": "Biznesni boshqarish"
+        },
+        {
+          "code": "60411000",
+          "name": "Inson resurslarini boshqarish"
+        },
+        {
+          "code": "60411100",
+          "name": "Jahon iqtisodiyoti va xalqaro iqtisodiy munosabatlar"
+        },
+        {
+          "code": "60411200",
+          "name": "Marketing"
+        },
+        {
+          "code": "60411300",
+          "name": "Savdo ishi"
+        },
+        {
+          "code": "60411400",
+          "name": "Mamlakatshunoslik"
+        },
+        {
+          "code": "61010400",
+          "name": "Logistika"
+        }
+      ],
+      "Geografiya": [
+        {
+          "code": "60520100",
+          "name": "Meteorologiya va iqlimshunoslik"
+        },
+        {
+          "code": "60530400",
+          "name": "Gidrologiya"
+        },
+        {
+          "code": "60530800",
+          "name": "Seysmologiya va seysmometriya"
+        },
+        {
+          "code": "60721600",
+          "name": "Kartografiya va masofadan zondlash"
+        }
+      ],
+      "Fizika": [
+        {
+          "code": "60530300",
+          "name": "Geologiya"
+        },
+        {
+          "code": "60530600",
+          "name": "Mexanika va matematik modellashtirish"
+        },
+        {
+          "code": "60540100",
+          "name": "Matematika"
+        },
+        {
+          "code": "60540200",
+          "name": "Amaliy matematika"
+        },
+        {
+          "code": "60610100",
+          "name": "Axborot tizimlari va texnologiyalari"
+        },
+        {
+          "code": "60610200",
+          "name": "Axborot xavfsizligi"
+        },
+        {
+          "code": "60610300",
+          "name": "Kompyuter injiniringi"
+        },
+        {
+          "code": "60610400",
+          "name": "Dasturiy injiniring"
+        },
+        {
+          "code": "60610500",
+          "name": "Sunʼiy intellekt"
+        },
+        {
+          "code": "60610600",
+          "name": "Telekommunikatsiya texnologiyalari"
+        },
+        {
+          "code": "60610700",
+          "name": "Televizion texnologiyalar"
+        },
+        {
+          "code": "60610800",
+          "name": "Pochta aloqasi texnologiyasi"
+        },
+        {
+          "code": "60610900",
+          "name": "Radioelektron qurilmalar va tizimlar"
+        },
+        {
+          "code": "60611000",
+          "name": "Simsiz aloqa va teleradioeshittirish injiniringi"
+        },
+        {
+          "code": "60611100",
+          "name": "Infokommunikatsiya injiniringi"
+        },
+        {
+          "code": "60611200",
+          "name": "Kiberxavfsizlik injiniringi"
+        },
+        {
+          "code": "60710400",
+          "name": "Energetika muhandisligi"
+        },
+        {
+          "code": "60710600",
+          "name": "Gidroenergetika"
+        },
+        {
+          "code": "60710700",
+          "name": "Elektronika va asbobsozlik"
+        },
+        {
+          "code": "60710800",
+          "name": "Metrologiya va standartlashtirish"
+        },
+        {
+          "code": "60710900",
+          "name": "Texnologik jarayonlar va ishlab chiqarishni avtomatlashtirish"
+        },
+        {
+          "code": "60711000",
+          "name": "Mexatronika va robototexnika"
+        },
+        {
+          "code": "60711300",
+          "name": "Metallar texnologiyalari"
+        },
+        {
+          "code": "60711400",
+          "name": "Transport vositalari muhandisligi"
+        },
+        {
+          "code": "60711500",
+          "name": "Aviatsiya muhandisligi"
+        },
+        {
+          "code": "60711600",
+          "name": "Kosmik texnologiyalar"
+        },
+        {
+          "code": "60711900",
+          "name": "Barqaror transport"
+        },
+        {
+          "code": "60712100",
+          "name": "Qayta tiklanuvchi energiya manbalari"
+        },
+        {
+          "code": "60712200",
+          "name": "Sanoat muhandisligi va menejmenti"
+        },
+        {
+          "code": "60712300",
+          "name": "Mexanika muhandisligi"
+        },
+        {
+          "code": "60720400",
+          "name": "Texnologik mashinalar va jihozlar"
+        },
+        {
+          "code": "60720700",
+          "name": "Yengil sanoat muhandisligi"
+        },
+        {
+          "code": "60721200",
+          "name": "Konchilik elektr mexanikasi"
+        },
+        {
+          "code": "60721300",
+          "name": "Geologiya-qidiruv ishlari texnikasi va texnologiyasi"
+        },
+        {
+          "code": "60721500",
+          "name": "Geodeziya va geoinformatika"
+        },
+        {
+          "code": "60721700",
+          "name": "Kadastr"
+        },
+        {
+          "code": "60721800",
+          "name": "Ishlab chiqarish muhandisligi"
+        },
+        {
+          "code": "60730200",
+          "name": "Kommunal infratuzilmani tashkil etish va boshqarish"
+        },
+        {
+          "code": "60730300",
+          "name": "Qurilish muhandisligi"
+        },
+        {
+          "code": "60730400",
+          "name": "Muhandislik kommunikatsiyalari qurilish va ekspluatatsiyasi"
+        },
+        {
+          "code": "60730500",
+          "name": "Yoʻl muhandisligi"
+        },
+        {
+          "code": "60730600",
+          "name": "Gidrotexnika va geotexnika muhandisligi"
+        },
+        {
+          "code": "60730700",
+          "name": "Qiymat injiniringi va koʻchmas mulkni boshqarish"
+        },
+        {
+          "code": "60730900",
+          "name": "Shahar qurilishi va loyihalash"
+        },
+        {
+          "code": "60810100",
+          "name": "Qishloq xoʻjaligini mexanizatsiyalashtirish"
+        },
+        {
+          "code": "60811200",
+          "name": "Suv xoʻjaligi va melioratsiya"
+        },
+        {
+          "code": "60811300",
+          "name": "Gidrotexnika inshootlari va nasos stansiyalaridan foydalanish"
+        },
+        {
+          "code": "60811500",
+          "name": "Suv taʼminoti muhandislik tizimlari"
+        },
+        {
+          "code": "60811600",
+          "name": "Yer kadastri va yer tuzish"
+        },
+        {
+          "code": "60811700",
+          "name": "Agromuhandislik"
+        },
+        {
+          "code": "61020100",
+          "name": "Hayot faoliyati xavfsizligi"
+        },
+        {
+          "code": "61020200",
+          "name": "Mehnat muhofazasi va texnika xavfsizligi"
+        },
+        {
+          "code": "61040200",
+          "name": "Yoʻl harakatini tashkil etish"
+        }
+      ],
+      "Kasbiy (ijodiy) imtihon": [
+        {
+          "code": "60730100",
+          "name": "Arxitektura"
+        }
+      ]
+    },
+    "Huquqshunoslik fanlari": {
+      "Chet tili": [
+        {
+          "code": "60420100",
+          "name": "Yurisprudensiya"
+        }
+      ]
+    },
+    "Kimyo": {
+      "Biologiya": [
+        {
+          "code": "60520200",
+          "name": "Ekologiya va atrof-muhit muhofazasi"
+        },
+        {
+          "code": "60711800",
+          "name": "Atrof-muhit muhandisligi"
+        },
+        {
+          "code": "60720100",
+          "name": "Oziq-ovqat texnologiyasi"
+        },
+        {
+          "code": "60720200",
+          "name": "Parfyumeriya-kosmetika mahsulotlari texnologiyasi"
+        },
+        {
+          "code": "60810500",
+          "name": "Oʻsimliklar himoyasi va karantini"
+        },
+        {
+          "code": "60810700",
+          "name": "Qishloq xoʻjalik mahsulotlarini saqlash va qayta ishlash texnologiyasi"
+        },
+        {
+          "code": "60910400",
+          "name": "Tibbiy profilaktika ishi"
+        },
+        {
+          "code": "60910700",
+          "name": "Fundamental tibbiyot"
+        },
+        {
+          "code": "60910800",
+          "name": "Farmatsiya"
+        },
+        {
+          "code": "60910900",
+          "name": "Sanoat farmatsiyasi"
+        }
+      ],
+      "Matematika": [
+        {
+          "code": "60530100",
+          "name": "Kimyo"
+        },
+        {
+          "code": "60710100",
+          "name": "Kimyo muhandisligi"
+        },
+        {
+          "code": "60710300",
+          "name": "Matbaa va qadoqlash muhandisligi"
+        },
+        {
+          "code": "60711200",
+          "name": "Metallurgiya muhandisligi"
+        },
+        {
+          "code": "60720300",
+          "name": "Materialshunoslik"
+        },
+        {
+          "code": "60720500",
+          "name": "Gazni chuqur qayta ishlash texnologiyasi"
+        },
+        {
+          "code": "60720600",
+          "name": "Neft va neft-gazni qayta ishlash texnologiyasi"
+        }
+      ]
+    },
+    "Geografiya": {
+      "Matematika": [
+        {
+          "code": "60530200",
+          "name": "Geografiya"
+        }
+      ]
+    }
+  }
+}

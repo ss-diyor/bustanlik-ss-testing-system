@@ -697,6 +697,9 @@ def user_menu_keyboard(
         row3.append(KeyboardButton(text="🤖 AI Chatbot"))
     keyboard.append(row3)
 
+    # Yangi qator: OTM Yo'nalishlari
+    keyboard.append([KeyboardButton(text="🎓 OTM Yo'nalishlari")])
+
     # To'rtinchi qator: Mashq qilish va Bildirishnomalar (quiz_enabled bo'lsa)
     row4 = []
     if quiz_enabled == "True":

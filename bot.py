@@ -31,6 +31,7 @@ import mini_test_handler
 import parent
 import practice_quiz
 import payment
+import otm_handler
 
 # ── Discord notify moduli ─────────────────────────────────────
 from discord_notify import (
@@ -68,6 +69,7 @@ dp.include_router(email_import.router)
 dp.include_router(mock_admin.router)
 dp.include_router(mock_student.router)
 dp.include_router(mock_excel_import.router)
+dp.include_router(otm_handler.router)
 
 
 @dp.message(CommandStart())
