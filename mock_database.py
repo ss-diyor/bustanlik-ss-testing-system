@@ -86,9 +86,12 @@ BUILTIN_EXAM_TYPES = [
 ]
 
 
-def create_mock_tables():
-    conn = get_connection()
-    cur = conn.cursor()
+def create_mock_tables(cursor=None):
+    if cursor:
+        cur = cursor
+    else:
+        conn = get_connection()
+        cur = conn.cursor()
 
     # Eski bazalarda (legacy) `exam_type` nomi ishlatilgan bo‘lishi mumkin.
     # Avval parent jadvalni yaratamiz, keyin kerak bo‘lsa ustunlarni migrate qilamiz,
@@ -193,14 +196,16 @@ def create_mock_tables():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_nat_kod  ON mock_natijalari(talaba_kod)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_nat_key  ON mock_natijalari(exam_key)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_nat_sana ON mock_natijalari(test_sanasi)")
-    conn.commit()
 
-    _seed_builtin(cur, conn)
-    cur.close()
-    release_connection(conn)
+    _seed_builtin(cur)
+
+    if not cursor:
+        conn.commit()
+        cur.close()
+        release_connection(conn)
 
 
-def _seed_builtin(cur, conn):
+def _seed_builtin(cur):
     for et in BUILTIN_EXAM_TYPES:
         cur.execute(
             """
@@ -233,7 +238,6 @@ def _seed_builtin(cur, conn):
                 """,
                 (et["exam_key"], sec["section_key"], sec["label"], sec.get("max_score"), i),
             )
-    conn.commit()
 
 
 # ─── EXAM TYPE CRUD ───────────────────────────────────────────

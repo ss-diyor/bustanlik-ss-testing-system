@@ -47,10 +47,13 @@ class MaktabAdminFSM(StatesGroup):
 
 # ── DB funksiyalari ─────────────────────────────────────────────────────────
 
-def create_payment_tables():
+def create_payment_tables(cursor=None):
     """Yangi jadvallar va ustunlarni yaratish (migration)."""
-    conn = db.get_connection()
-    cur = conn.cursor()
+    if cursor:
+        cur = cursor
+    else:
+        conn = db.get_connection()
+        cur = conn.cursor()
 
     # maktablar jadvaliga yangi ustunlar
     migrations = [
@@ -64,10 +67,12 @@ def create_payment_tables():
         try:
             cur.execute(sql)
         except Exception as e:
-            conn.rollback()
+            if not cursor:
+                conn.rollback()
             logger.warning(f"Migration skip: {e}")
-            conn = db.get_connection()
-            cur = conn.cursor()
+            if not cursor:
+                conn = db.get_connection()
+                cur = conn.cursor()
 
     # tolovlar jadvali
     cur.execute("""
@@ -96,9 +101,10 @@ def create_payment_tables():
         "INSERT INTO settings (key, value) VALUES ('payment_enabled', 'False') ON CONFLICT DO NOTHING"
     )
 
-    conn.commit()
-    cur.close()
-    db.release_connection(conn)
+    if not cursor:
+        conn.commit()
+        cur.close()
+        db.release_connection(conn)
 
 
 def get_maktab_by_admin(telegram_id: int) -> dict | None:

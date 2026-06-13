@@ -406,29 +406,12 @@ async def main():
     from webapp.server import start_web_server
     await start_web_server(BOT_TOKEN)
 
+    # database.py ichidagi init_db() barcha jadvallarni (shu jumladan admin jadvallarini ham) 
+    # bitta transaction ichida yaratadi. Shuning uchun bu yerda alohida chaqirish shart emas.
     init_db()
     logging.info("Ma'lumotlar bazasi tayyor va indekslar tekshirildi.")
 
-    from database import create_admin_sessions_table, create_admins_table
-    try:
-        create_admin_sessions_table()
-        create_admins_table()
-        logging.info("Admin jadvallari yaratildi yoki allaqachon mavjud.")
-    except Exception as e:
-        logging.error(f"Admin jadvallarini yaratishda xato: {e}")
-
-    try:
-        create_chatbot_logs_table()
-        logging.info("Chatbot log jadvali yaratildi yoki allaqachon mavjud.")
-    except Exception as e:
-        logging.error(f"Chatbot log jadvalini yaratishda xato: {e}")
-
-    from mock_database import create_mock_tables
-    try:
-        create_mock_tables()
-        logging.info("Mock imtihon jadvallari yaratildi yoki allaqachon mavjud.")
-    except Exception as e:
-        logging.error(f"Mock jadvallarini yaratishda xato: {e}")
+    # Barcha jadvallar (chatbot, mock, payment va b.) init_db() ichida yaratiladi.
 
     # Schedulerlarni ishga tushirish
     asyncio.create_task(scheduler())

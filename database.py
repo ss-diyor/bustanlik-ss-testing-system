@@ -10,10 +10,14 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 # Admin sessiyalari jadvali
-def create_admin_sessions_table():
+def create_admin_sessions_table(cursor=None):
     """Admin sessiyalari jadvalini yaratish"""
-    conn = get_connection()
-    cur = conn.cursor()
+    if cursor:
+        cur = cursor
+    else:
+        conn = get_connection()
+        cur = conn.cursor()
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS admin_sessions (
             id SERIAL PRIMARY KEY,
@@ -24,14 +28,20 @@ def create_admin_sessions_table():
             is_active BOOLEAN NOT NULL DEFAULT true
         )
     """)
-    conn.commit()
-    cur.close()
-    release_connection(conn)
 
-def create_attendance_table():
+    if not cursor:
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+
+def create_attendance_table(cursor=None):
     """Davomat jadvalini yaratish"""
-    conn = get_connection()
-    cur = conn.cursor()
+    if cursor:
+        cur = cursor
+    else:
+        conn = get_connection()
+        cur = conn.cursor()
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS attendance (
             id SERIAL PRIMARY KEY,
@@ -42,14 +52,20 @@ def create_attendance_table():
             type TEXT DEFAULT 'qr_scan'
         )
     """)
-    conn.commit()
-    cur.close()
-    release_connection(conn)
 
-def create_mini_test_tables():
+    if not cursor:
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+
+def create_mini_test_tables(cursor=None):
     """Mini-testlar uchun jadvallarni yaratish"""
-    conn = get_connection()
-    cur = conn.cursor()
+    if cursor:
+        cur = cursor
+    else:
+        conn = get_connection()
+        cur = conn.cursor()
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS mini_testlar (
             id SERIAL PRIMARY KEY,
@@ -97,9 +113,11 @@ def create_mini_test_tables():
             sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    conn.commit()
-    cur.close()
-    release_connection(conn)
+
+    if not cursor:
+        conn.commit()
+        cur.close()
+        release_connection(conn)
 
 
 # Connection pool — lazy yaratiladi (birinchi so'rovda)
@@ -365,8 +383,24 @@ def init_db():
     )
     
     # Mini-testlar
-    create_attendance_table()
-    create_mini_test_tables()
+    create_attendance_table(cur)
+    create_mini_test_tables(cur)
+    
+    # Admin jadvallari (init_db ichida bitta transactionda yaratiladi)
+    create_admin_sessions_table(cur)
+    create_admins_table(cur)
+    
+    # Chatbot log jadvali
+    create_chatbot_logs_table(cur)
+    
+    # Mock imtihon jadvallari
+    from mock_database import create_mock_tables
+    create_mock_tables(cur)
+
+    # To'lov jadvallari
+    from payment import create_payment_tables
+    create_payment_tables(cur)
+    
     cur.execute(
         "INSERT INTO settings (key, value) VALUES ('mock_enabled', 'True') ON CONFLICT DO NOTHING"
     )
@@ -1914,10 +1948,14 @@ def is_admin_already_active(admin_id: int):
 # ─────────────────────────────────────────
 
 
-def create_admins_table():
+def create_admins_table(cursor=None):
     """Adminlar jadvalini yaratish"""
-    conn = get_connection()
-    cur = conn.cursor()
+    if cursor:
+        cur = cursor
+    else:
+        conn = get_connection()
+        cur = conn.cursor()
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS admins (
             id SERIAL PRIMARY KEY,
@@ -1928,9 +1966,11 @@ def create_admins_table():
             created_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
     """)
-    conn.commit()
-    cur.close()
-    release_connection(conn)
+
+    if not cursor:
+        conn.commit()
+        cur.close()
+        release_connection(conn)
 
 
 def add_admin(user_id: int, username: str = None, full_name: str = None):
@@ -2682,10 +2722,14 @@ def get_user_language(user_id: int) -> str:
 # CHATBOT funksiyalari
 # ─────────────────────────────────────────
 
-def create_chatbot_logs_table():
+def create_chatbot_logs_table(cursor=None):
     """Chatbot foydalanish loglarini saqlash jadvali."""
-    conn = get_connection()
-    cur = conn.cursor()
+    if cursor:
+        cur = cursor
+    else:
+        conn = get_connection()
+        cur = conn.cursor()
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS chatbot_logs (
             id SERIAL PRIMARY KEY,
@@ -2703,9 +2747,11 @@ def create_chatbot_logs_table():
     cur.execute(
         "CREATE INDEX IF NOT EXISTS idx_chatbot_logs_created_at ON chatbot_logs(created_at)"
     )
-    conn.commit()
-    cur.close()
-    release_connection(conn)
+
+    if not cursor:
+        conn.commit()
+        cur.close()
+        release_connection(conn)
 
 
 def chatbot_log_qosh(user_id: int, talaba_kod: str, talaba_ism: str, savol: str, javob: str):
