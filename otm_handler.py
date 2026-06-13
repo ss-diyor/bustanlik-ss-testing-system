@@ -11,9 +11,17 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 # Ma'lumotlarni yuklash
-DATA_PATH = os.path.join(os.path.dirname(__file__), "otm_directions.json")
+BASE_DIR = os.path.dirname(__file__)
+DATA_PATH = os.path.join(BASE_DIR, "otm_directions.json")
+SCORES_PATH = os.path.join(BASE_DIR, "scores_data.json")
+
 with open(DATA_PATH, "r", encoding="utf-8") as f:
     OTM_DATA = json.load(f)
+
+SCORES_DATA = {}
+if os.path.exists(SCORES_PATH):
+    with open(SCORES_PATH, "r", encoding="utf-8") as f:
+        SCORES_DATA = json.load(f)
 
 class OTMState(StatesGroup):
     selecting_fan1 = State()
@@ -29,7 +37,7 @@ async def start_otm_selection(message: Message, state: FSMContext):
     builder.adjust(2)
     
     await message.answer(
-        "🎓 <b>OTM yo'nalishlarini aniqlash xizmatiga xush kelibsiz!</b>\n\n"
+        "🎓 <b>OTM yo'nalishlarini aniqlash xizmati</b>\n\n"
         "Iltimos, <b>1-asosiy faningizni</b> tanlang:",
         parse_mode="HTML",
         reply_markup=builder.as_markup()
@@ -74,27 +82,60 @@ async def select_fan2(callback: CallbackQuery, state: FSMContext):
             ])
         )
     else:
-        text = f"📚 <b>Tanlangan fanlar:</b> {fan1} + {fan2}\n"
+        text = f"📚 <b>Fanlar:</b> {fan1} + {fan2}\n"
         text += f"✅ <b>Jami yo'nalishlar:</b> {len(directions)}\n\n"
-        text += "📋 <b>Mavjud yo'nalishlar ro'yxati:</b>\n\n"
-        
-        # Ro'yxatni shakllantirish (agar juda uzun bo'lsa, qismlarga bo'lish kerak bo'lishi mumkin)
-        # Hozircha bitta xabarda chiqarishga harakat qilamiz
-        for idx, d in enumerate(directions, 1):
-            line = f"{idx}. <code>{d['code']}</code> - <b>{d['name']}</b>\n"
-            if len(text + line) > 4000: # Telegram xabar limiti
-                await callback.message.answer(text, parse_mode="HTML")
-                text = ""
-            text += line
-            
-        text += "\n<i>Ma'lumotlar 2026/2027 o'quv yili uchun fanlar majmuasiga asoslangan.</i>"
+        text += "📋 <b>Yo'nalishlar ro'yxati:</b>\n"
+        text += "<i>(Ballarni ko'rish uchun yo'nalishni tanlang)</i>\n\n"
         
         builder = InlineKeyboardBuilder()
+        for d in directions:
+            # Har bir yo'nalish uchun alohida tugma
+            builder.button(text=f"{d['name']}", callback_data=f"otm_det:{d['code']}")
+        
         builder.button(text="🔄 Qayta tanlash", callback_data="otm_restart")
-        builder.button(text="🏠 Asosiy menyu", callback_data="otm_home")
+        builder.button(text="🏠 Bosh menyu", callback_data="otm_home")
+        builder.adjust(1)
         
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=builder.as_markup())
     
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("otm_det:"))
+async def show_direction_details(callback: CallbackQuery):
+    code = callback.data.split(":")[1]
+    scores = SCORES_DATA.get(code, [])
+    
+    # Yo'nalish nomini topish
+    dir_name = "Noma'lum yo'nalish"
+    for f1 in OTM_DATA["data"]:
+        for f2 in OTM_DATA["data"][f1]:
+            for d in OTM_DATA["data"][f1][f2]:
+                if d["code"] == code:
+                    dir_name = d["name"]
+                    break
+    
+    text = f"🎯 <b>Yo'nalish:</b> {dir_name}\n"
+    text += f"🔑 <b>Kodi:</b> <code>{code}</code>\n\n"
+    
+    if not scores:
+        text += "⚠️ <i>Ushbu yo'nalish bo'yicha o'tish ballari haqida ma'lumot topilmadi.</i>"
+    else:
+        text += "📊 <b>2024-yilgi o'tish ballari:</b>\n\n"
+        for s in scores[:15]: # Limit to avoid long messages
+            text += f"🏛 <b>{s['otm']}</b> ({s['shakl']})\n"
+            text += f"  Grant: <b>{s['grant']}</b> | Kontrakt: <b>{s['kontrakt']}</b>\n\n"
+        
+        if len(scores) > 15:
+            text += f"<i>... va yana {len(scores)-15} ta OTM.</i>\n"
+            
+    text += "\n<i>Ma'lumotlar 2024-yilgi kirish natijalariga asoslangan.</i>"
+    
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🔙 Orqaga", callback_data="otm_restart")
+    builder.button(text="🏠 Bosh menyu", callback_data="otm_home")
+    builder.adjust(2)
+    
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=builder.as_markup())
     await callback.answer()
 
 @router.callback_query(F.data == "otm_back_f1")
@@ -111,7 +152,5 @@ async def restart_otm(callback: CallbackQuery, state: FSMContext):
 async def go_home(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.delete()
-    # Asosiy menyuni chiqarish uchun bot.py dagi handlerga o'xshash narsa kerak
-    # Lekin hozircha xabarni o'chirish va foydalanuvchini yo'naltirish kifoya
     await callback.message.answer("🏠 Asosiy menyuga qaytdingiz. Menyu tugmalaridan foydalanishingiz mumkin.")
     await callback.answer()
