@@ -5575,15 +5575,54 @@ async def talaba_malumot_tahrirlash_start(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
         return
 
+    await state.set_state(TalabaTahrirlash.tanlash)
+    await message.answer(
+        "✏️ <b>O'quvchi ma'lumotlarini tahrirlash</b>\n\n"
+        "Qidirish uchun o'quvchi <b>kodini</b> kiriting yoki quyidagi ro'yxatdan tanlang:",
+        parse_mode="HTML"
+    )
+
     talabalar = get_all_students()
-    if not talabalar:
+    if talabalar:
+        await message.answer(
+            "📋 <b>O'quvchilar ro'yxati:</b>",
+            parse_mode="HTML",
+            reply_markup=talaba_tahrirlash_keyboard(talabalar, page=1),
+        )
+    else:
         await message.answer("❌ Hozircha o'quvchilar mavjud emas.")
+
+
+@router.message(TalabaTahrirlash.tanlash)
+async def talaba_tahrir_kod_qidirish(message: Message, state: FSMContext):
+    """Tahrirlash uchun kod bo'yicha qidirish"""
+    if not await admin_tekshir(state, message.from_user.id):
         return
 
+    kod = message.text.strip().upper()
+    talaba = talaba_topish(kod)
+
+    if not talaba:
+        await message.answer(
+            f"❌ <b>{kod}</b> kodli o'quvchi topilmadi.\n"
+            "Iltimos, kodni to'g'ri kiriting yoki ro'yxatdan tanlang:",
+            parse_mode="HTML"
+        )
+        return
+
+    await state.clear()
+    await state.update_data(admin=True) # Adminligini saqlab qolish uchun
+
+    text = (
+        f"✏️ <b>O'quvchi ma'lumotlari:</b>\n\n"
+        f"🆔 Kod: <b>{talaba['kod']}</b>\n"
+        f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
+        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>"
+    )
+
     await message.answer(
-        "✏️ <b>Tahrirlash uchun o'quvchini tanlang:</b>",
-        parse_mode="HTML",
-        reply_markup=talaba_tahrirlash_keyboard(talabalar, page=1),
+        text, parse_mode="HTML", reply_markup=talaba_edit_options_keyboard(kod)
     )
 
 
@@ -5781,6 +5820,9 @@ async def cancel_callback_handler(callback: CallbackQuery, state: FSMContext):
 async def talaba_edit_callback(callback: CallbackQuery, state: FSMContext):
     if not await admin_tekshir(state, callback.from_user.id):
         return
+
+    await state.clear()
+    await state.update_data(admin=True)
 
     kod = callback.data.split(":")[1]
     talaba = talaba_topish(kod)
