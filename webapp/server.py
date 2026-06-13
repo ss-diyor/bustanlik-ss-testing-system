@@ -294,6 +294,128 @@ async def scanner_handler(request: web.Request) -> web.Response:
     html_path = os.path.join(STATIC_DIR, "scanner.html")
     return web.FileResponse(html_path)
 
+
+async def attendance_record_api(request: web.Request) -> web.Response:
+    """QR-kod orqali o'quvchi davomatini qaydga oladi. POST { kod: "..." }"""
+    from database import get_connection, release_connection
+
+    bot_token = request.app["bot_token"]
+
+    # Telegram initData tekshiruvi
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, err_msg = validate_telegram_init_data(init_data, bot_token)
+
+    if not user:
+        debug = os.getenv("WEBAPP_DEBUG", "")
+        if debug:
+            try:
+                admin_id = int(request.rel_url.query.get("user_id", 0))
+            except ValueError:
+                return web.json_response({"error": "Invalid user_id"}, status=400)
+        else:
+            return web.json_response({"error": f"Unauthorized: {err_msg}"}, status=401)
+    else:
+        admin_id = user.get("id", 0)
+
+    # JSON body olish
+    try:
+        body = await request.json()
+        kod = body.get("kod", "").strip()
+    except Exception:
+        return web.json_response({"error": "JSON body noto'g'ri"}, status=400)
+
+    if not kod:
+        return web.json_response({"error": "kod maydoni bo'sh"}, status=400)
+
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # O'quvchini kod bo'yicha topish
+        cur.execute("""
+            SELECT t.ismlar, t.kod, t.sinf, t.yonalish,
+                   COALESCE(m.nomi, '') AS maktab_nomi
+            FROM talabalar t
+            LEFT JOIN maktablar m ON t.maktab_id = m.id
+            WHERE t.kod = %s
+        """, (kod,))
+        talaba = cur.fetchone()
+
+        if not talaba:
+            cur.close()
+            release_connection(conn)
+            return web.json_response({"error": f"Kod topilmadi: {kod}"}, status=404)
+
+        # Davomatni qaydga olish
+        cur.execute("""
+            INSERT INTO attendance (student_kod, admin_id, status, type)
+            VALUES (%s, %s, 'present', 'qr_scan')
+            RETURNING timestamp
+        """, (kod, admin_id))
+        row = cur.fetchone()
+        timestamp = row["timestamp"]
+        conn.commit()
+        cur.close()
+        release_connection(conn)
+
+        return safe_json_response({
+            "success": True,
+            "student": {
+                "ismlar": talaba["ismlar"],
+                "kod": talaba["kod"],
+                "sinf": talaba["sinf"] or "—",
+                "maktab": talaba["maktab_nomi"] or "—",
+                "yonalish": talaba["yonalish"] or "—",
+            },
+            "timestamp": timestamp,
+        })
+
+    except Exception as e:
+        logging.error(f"attendance_record_api error: {e}")
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            release_connection(conn)
+        return web.json_response({"error": "Server xatosi"}, status=500)
+
+
+async def attendance_today_count_api(request: web.Request) -> web.Response:
+    """Bugungi davomat sonini qaytaradi. GET -> { count: N }"""
+    from database import get_connection, release_connection
+
+    bot_token = request.app["bot_token"]
+
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, err_msg = validate_telegram_init_data(init_data, bot_token)
+
+    if not user:
+        debug = os.getenv("WEBAPP_DEBUG", "")
+        if not debug:
+            return web.json_response({"error": f"Unauthorized: {err_msg}"}, status=401)
+
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) FROM attendance
+            WHERE timestamp::date = CURRENT_DATE
+        """)
+        count = cur.fetchone()[0]
+        cur.close()
+        release_connection(conn)
+        return web.json_response({"count": count})
+
+    except Exception as e:
+        logging.error(f"attendance_today_count_api error: {e}")
+        if conn:
+            release_connection(conn)
+        return web.json_response({"error": "Server xatosi"}, status=500)
+
+
 async def get_user_role(user_id, conn):
     """Foydalanuvchi rolini aniqlaydi (admin yoki oqituvchi)."""
     from config import ADMIN_IDS
