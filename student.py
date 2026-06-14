@@ -10,6 +10,7 @@ from aiogram import Router, F, Bot
 from aiogram.types import (
     Message,
     FSInputFile,
+    BufferedInputFile,
     CallbackQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
@@ -1437,7 +1438,7 @@ async def student_qr_handler(message: Message):
     qr_buf = gen.generate_id_qr(talaba["kod"])
     
     await message.answer_photo(
-        FSInputFile(qr_buf, filename=f"qr_{talaba['kod']}.png"),
+        BufferedInputFile(qr_buf.getvalue(), filename=f"qr_{talaba['kod']}.png"),
         caption=(
             f"🆔 <b>Sizning shaxsiy QR-kodingiz</b>\n\n"
             f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
