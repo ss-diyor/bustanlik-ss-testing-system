@@ -1427,6 +1427,7 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/", index_handler)
     app.router.add_get("/health", health_handler)
     app.router.add_get("/verify/{kod}", verify_handler)
+    app.router.add_get("/scan/{kod}", verify_handler)  # QR-kod uchun alias
     app.router.add_get("/api/student", student_api)
     app.router.add_get("/api/student/mock", student_mock_api)
     
