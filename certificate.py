@@ -316,6 +316,33 @@ class CertificateGenerator:
         buf.seek(0)
         return buf
 
+    def generate_admin_qr(self, student_data: dict) -> io.BytesIO:
+        """
+        Admin uchun o'quvchi ma'lumotlari bilan QR-kod generatsiya qiladi.
+        Ma'lumotlar: Ism-familiya, maktab, sinf, email.
+        """
+        import qrcode as qrlib
+        
+        ism = student_data.get("ismlar", "Noma'lum")
+        maktab = student_data.get("maktab_nomi") or student_data.get("maktab") or "Noma'lum"
+        sinf = student_data.get("sinf", "Noma'lum")
+        email = student_data.get("email", "")
+        
+        qr_text = f"Ism: {ism}\nMaktab: {maktab}\nSinf: {sinf}"
+        if email:
+            qr_text += f"\nEmail: {email}"
+            
+        qr = qrlib.QRCode(version=None,
+                           error_correction=qrlib.constants.ERROR_CORRECT_M,
+                           box_size=10, border=2)
+        qr.add_data(qr_text)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return buf
+
     # ── Preview ───────────────────────────────────────────────────────────────
 
     def generate_preview(self, pdf_path: str) -> str | None:

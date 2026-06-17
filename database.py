@@ -974,7 +974,12 @@ def talaba_topish(kod: str):
     conn = get_connection()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT * FROM talabalar WHERE kod = %s", (kod.upper(),))
+        cur.execute("""
+            SELECT t.*, m.nomi as maktab_nomi 
+            FROM talabalar t 
+            LEFT JOIN maktablar m ON t.maktab_id = m.id 
+            WHERE t.kod = %s
+        """, (kod.upper(),))
         row = cur.fetchone()
         cur.close()
         return dict(row) if row else None

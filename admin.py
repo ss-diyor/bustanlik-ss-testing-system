@@ -5426,16 +5426,21 @@ async def admin_qr_gen_process(message: Message, state: FSMContext):
     from aiogram.types import BufferedInputFile
     
     gen = CertificateGenerator.from_db()
-    qr_buf = gen.generate_id_qr(talaba["kod"])
+    qr_buf = gen.generate_admin_qr(talaba)
     
+    caption = (
+        f"🆔 <b>O'quvchi QR-kodi yaratildi</b>\n\n"
+        f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
+        f"🔑 Kod: <code>{talaba['kod']}</code>\n"
+        f"🏫 Sinf: <b>{talaba['sinf']}</b>\n"
+        f"🏢 Maktab: <b>{talaba.get('maktab_nomi', 'Noma\'lum')}</b>"
+    )
+    if talaba.get("email"):
+        caption += f"\n📧 Email: <code>{talaba['email']}</code>"
+
     await message.answer_photo(
         BufferedInputFile(qr_buf.getvalue(), filename=f"qr_{talaba['kod']}.png"),
-        caption=(
-            f"🆔 <b>O'quvchi QR-kodi yaratildi</b>\n\n"
-            f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
-            f"🔑 Kod: <code>{talaba['kod']}</code>\n"
-            f"🏫 Sinf: <b>{talaba['sinf']}</b>"
-        ),
+        caption=caption,
         parse_mode="HTML"
     )
     await state.set_state(None)

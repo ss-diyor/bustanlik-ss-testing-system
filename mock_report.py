@@ -187,54 +187,58 @@ def _draw_header(pdf: FPDF, exam_label: str):
     bar_h  = 20
     _fill(pdf, 0, bar_y, PW, bar_h, C_NAVY_DARK)
 
-    # "MOCK NATIJASI" — kichik subtitle
-    pdf.set_xy(0, bar_y + 2.5)
-    pdf.set_font("DV", "", 7.5)
-    pdf.set_text_color(*C_WHITE)
-    pdf.cell(PW, 5, "MOCK NATIJASI", align="C", ln=True)
-
-    # Imtihon nomi — katta sarlavha
+    # Imtihon nomi — katta sarlavha (SAT/IELTS va hokazo)
     clean_label = _strip_emoji(exam_label).upper()
-    pdf.set_font("DV", "B", 14)
+    pdf.set_xy(0, bar_y + 3)
+    pdf.set_font("DV", "B", 16)
+    pdf.set_text_color(*C_WHITE)
     pdf.cell(PW, 7, clean_label, align="C", ln=True)
+
+    # "MOCK NATIJASI" — subtitle (pastda bo'lishi kerak)
+    pdf.set_font("DV", "", 9)
+    pdf.cell(PW, 6, "MOCK NATIJASI", align="C", ln=True)
 
     pdf.set_y(bar_y + bar_h + 5)
     pdf.set_text_color(*C_BLACK)
 
 
 def _draw_student_info(pdf: FPDF, talaba: dict):
-    """O'quvchi ismi, sinfi, yo'nalishi."""
+    """O'quvchi ismi, sinfi, yo'nalishi, maktabi."""
     sinf     = (talaba.get("sinf") or "").strip()
     yonalish = (talaba.get("yonalish") or talaba.get("yonalishi") or "").strip()
     ismlar   = (talaba.get("ismlar") or "O'quvchi").strip()
+    maktab   = (talaba.get("maktab_nomi") or talaba.get("maktab") or "").strip()
 
-    # Ism (ko'k bold)
-    pdf.set_font("DV", "B", 12)
+    # Ism (ko'k bold) - Shrifts kattalashtirildi
+    pdf.set_font("DV", "B", 14)
     pdf.set_text_color(*C_NAVY)
-    pdf.cell(0, 7, f"Hurmatli {ismlar},", align="L", ln=True)
+    pdf.cell(0, 8, f"Hurmatli {ismlar},", align="L", ln=True)
 
-    # Sinf | Yo'nalish
-    pdf.set_font("DV", "", 9.5)
+    # Sinf | Maktab | Yo'nalish - Shrifts kattalashtirildi
+    pdf.set_font("DV", "", 11)
     pdf.set_text_color(*C_TEXT)
     meta_parts = []
     if sinf:
         meta_parts.append(f"Sinf: {sinf}")
+    if maktab:
+        meta_parts.append(f"Maktab: {maktab}")
     if yonalish:
         meta_parts.append(f"Yo'nalish: {yonalish}")
+        
     if meta_parts:
-        pdf.cell(0, 5, "   ".join(meta_parts), ln=True)
+        pdf.cell(0, 6, "   ".join(meta_parts), ln=True)
 
     pdf.ln(3)
-    pdf.set_font("DV", "", 9.5)
-    pdf.cell(0, 5, "Quyida sizning mock imtihon natijangiz keltirilgan:", ln=True)
-    pdf.ln(4)
+    pdf.set_font("DV", "", 11)
+    pdf.cell(0, 6, "Quyida sizning mock imtihon natijangiz keltirilgan:", ln=True)
+    pdf.ln(5)
     pdf.set_text_color(*C_BLACK)
 
 
 def _section_row(
     pdf: FPDF, label: str, score_str: str, max_str: str | None = None,
     progress_val=None, progress_max=None, bar_color=None,
-    row_bg=None, row_h=12,
+    row_bg=None, row_h=14,
 ):
     """
     Bitta natija satri: [Label]  [Score / Max]
@@ -255,19 +259,19 @@ def _section_row(
     pdf.set_draw_color(*C_GRAY_BRD)
     pdf.rect(x, y, CW, row_h)
 
-    # Label
-    pdf.set_xy(x + 3, y + (row_h - 4) / 2)
-    pdf.set_font("DV", "", 10)
+    # Label - Shrift kattalashtirildi
+    pdf.set_xy(x + 3, y + (row_h - 5) / 2)
+    pdf.set_font("DV", "", 12)
     pdf.set_text_color(*C_TEXT)
     # Clip label to available width
-    pdf.cell(LBL_W - 6, 4, label[:40], align="L")
+    pdf.cell(LBL_W - 6, 5, label[:40], align="L")
 
-    # Score text
+    # Score text - Shrift kattalashtirildi
     scr_text = f"{score_str} / {max_str}" if max_str else score_str
-    pdf.set_xy(x + LBL_W, y + (row_h - 4) / 2)
-    pdf.set_font("DV", "B", 11)
+    pdf.set_xy(x + LBL_W, y + (row_h - 5) / 2)
+    pdf.set_font("DV", "B", 13)
     pdf.set_text_color(*C_SCORE)
-    pdf.cell(SCR_W - 3, 4, scr_text, align="R")
+    pdf.cell(SCR_W - 3, 5, scr_text, align="R")
 
     # Progress bar (2mm tall, at the bottom of the row)
     if progress_val is not None and progress_max:
@@ -284,7 +288,7 @@ def _section_row(
     pdf.set_text_color(*C_BLACK)
 
 
-def _total_row(pdf: FPDF, label: str, score_str: str, row_h=15):
+def _total_row(pdf: FPDF, label: str, score_str: str, row_h=18):
     """Ko'k fon, oq matn — Umumiy ball satri."""
     LM = pdf.l_margin
     CW = pdf.w - LM * 2
@@ -298,16 +302,16 @@ def _total_row(pdf: FPDF, label: str, score_str: str, row_h=15):
     pdf.set_draw_color(*C_NAVY_DARK)
     pdf.rect(x, y, CW, row_h)
 
-    # Label
-    pdf.set_xy(x + 4, y + (row_h - 5) / 2)
-    pdf.set_font("DV", "B", 11)
+    # Label - Shrift kattalashtirildi
+    pdf.set_xy(x + 4, y + (row_h - 6) / 2)
+    pdf.set_font("DV", "B", 13)
     pdf.set_text_color(*C_WHITE)
-    pdf.cell(LBL_W - 4, 5, label, align="L")
+    pdf.cell(LBL_W - 4, 6, label, align="L")
 
     # Score — katta
-    pdf.set_xy(x + LBL_W, y + (row_h - 6) / 2)
-    pdf.set_font("DV", "B", 14)
-    pdf.cell(SCR_W - 4, 6, score_str, align="R")
+    pdf.set_xy(x + LBL_W, y + (row_h - 7) / 2)
+    pdf.set_font("DV", "B", 16)
+    pdf.cell(SCR_W - 4, 7, score_str, align="R")
 
     pdf.set_y(y + row_h)
     pdf.set_text_color(*C_BLACK)
@@ -462,17 +466,20 @@ def _render_sat(pdf: FPDF, natija: dict, et: dict):
     sections = natija.get("sections", {})
     sec_map  = {s["section_key"]: s for s in et.get("sections", [])}
 
+    # SAT uchun Reading & Writing va Math bo'limlari
     PARTS = [
-        ("reading_writing", "Reading & Writing", 800.0),
-        ("math",            "Math",              800.0),
+        ("reading_writing", "Reading & Writing Section", 800.0),
+        ("math",            "Math Section",              800.0),
     ]
 
     for i, (key, label, default_max) in enumerate(PARTS):
-        if key not in sections:
-            continue
-        val   = _section_val(sections[key])
+        # Agar natijada bo'lim bo'lmasa, 0 ball bilan ko'rsatish (yoki skip qilish)
+        # Foydalanuvchi "hisobotda yo'q" degani uchun, mavjud bo'lmasa ham ko'rsatishga harakat qilamiz
+        val_raw = sections.get(key)
+        val = _section_val(val_raw) if val_raw is not None else 0
+        
         sec   = sec_map.get(key, {})
-        max_v = _section_max(sections[key], sec) or default_max
+        max_v = _section_max(val_raw, sec) if val_raw is not None else default_max
 
         _section_row(
             pdf, label,
@@ -482,7 +489,7 @@ def _render_sat(pdf: FPDF, natija: dict, et: dict):
             progress_max= max_v,
             bar_color   = (170, 60, 60),
             row_bg      = C_ROW_ALT if i % 2 else C_ROW_NORM,
-            row_h       = 13,
+            row_h       = 15,
         )
 
     # Total
