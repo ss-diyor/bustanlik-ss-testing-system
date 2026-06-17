@@ -126,6 +126,7 @@ async def start_handler(message: Message):
     mock_enabled      = get_setting('mock_enabled',      'True')
     quiz_enabled      = get_setting('quiz_enabled',      'True')
     mini_test_enabled = get_setting('mini_test_enabled', 'True')
+    student_qr_enabled = get_setting('student_qr_enabled', 'True')
 
     await message.answer(
         "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM imtihoni va mock natijalari botiga xush kelibsiz!</b>\n\n"
@@ -143,6 +144,7 @@ async def start_handler(message: Message):
             mock_enabled,
             quiz_enabled,
             mini_test_enabled,
+            student_qr_enabled,
         ),
     )
 

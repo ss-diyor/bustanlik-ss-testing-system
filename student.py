@@ -357,6 +357,7 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
                 get_setting("mock_enabled", "True"),
                 get_setting("quiz_enabled", "True"),
                 get_setting("mini_test_enabled", "True"),
+                get_setting("student_qr_enabled", "True"),
             )
 
         await state.clear()
@@ -408,6 +409,7 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
                 get_setting("mock_enabled", "True"),
                 get_setting("quiz_enabled", "True"),
                 get_setting("mini_test_enabled", "True"),
+                get_setting("student_qr_enabled", "True"),
             )
 
         await message.answer(
@@ -426,6 +428,7 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
                 get_setting("mock_enabled", "True"),
                 get_setting("quiz_enabled", "True"),
                 get_setting("mini_test_enabled", "True"),
+                get_setting("student_qr_enabled", "True"),
             ),
         )
 
@@ -1428,6 +1431,10 @@ async def inline_search_handler(inline_query: InlineQuery):
 @router.message(F.text == "🆔 Mening QR-kodim")
 async def student_qr_handler(message: Message):
     """O'quvchiga uning shaxsiy QR-kodini yuboradi."""
+    from database import get_setting
+    if get_setting("student_qr_enabled", "True") != "True":
+        return
+
     talaba = _talaba_ol(message.from_user.id)
     if not talaba:
         await message.answer("❌ O'quvchi ma'lumoti topilmadi. Avval profilingizni ulang.")

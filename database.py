@@ -413,6 +413,9 @@ def init_db():
     cur.execute(
         "INSERT INTO settings (key, value) VALUES ('payment_enabled', 'False') ON CONFLICT DO NOTHING"
     )
+    cur.execute(
+        "INSERT INTO settings (key, value) VALUES ('student_qr_enabled', 'True') ON CONFLICT DO NOTHING"
+    )
 
     # ── Sertifikat sozlamalari (default) ─────────────────────────────────────
     _cert_defaults = [

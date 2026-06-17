@@ -228,13 +228,15 @@ async def chatbot_chiqish(message: Message, state: FSMContext):
     mock_enabled = gs("mock_enabled", "True")
     quiz_enabled = gs("quiz_enabled", "True")
     mini_test_enabled = gs("mini_test_enabled", "True")
+    student_qr_enabled = gs("student_qr_enabled", "True")
 
     await state.clear()
     await message.answer(
         "✅ Chatdan chiqdingiz. Asosiy menyuga qaytdingiz.",
         reply_markup=user_menu_keyboard(
             ranking_enabled, stats_enabled, chatbot_enabled,
-            mock_enabled, quiz_enabled, mini_test_enabled
+            mock_enabled, quiz_enabled, mini_test_enabled,
+            student_qr_enabled
         ),
     )
 

@@ -470,6 +470,10 @@ class KodQidirish(StatesGroup):
     kod_kutish = State()
 
 
+class AdminQRGenerate(StatesGroup):
+    kod_kutish = State()
+
+
 class YonalishBoshqar(StatesGroup):
     nomi_kutish = State()
 
@@ -3266,6 +3270,7 @@ async def settings_start(message: Message, state: FSMContext):
     quiz_enabled = get_setting("quiz_enabled", "True")
     mini_test_enabled = get_setting("mini_test_enabled", "True")
     payment_enabled = get_setting("payment_enabled", "False")
+    student_qr_enabled = get_setting("student_qr_enabled", "True")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
@@ -3275,13 +3280,14 @@ async def settings_start(message: Message, state: FSMContext):
         f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📝 Mashq qilish (Quiz): <b>{'✅ Yoqilgan' if quiz_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"🆔 Mening QR-kodim (O'quvchi): <b>{'✅ Yoqilgan' if student_qr_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await message.answer(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled, student_qr_enabled),
     )
 
 
@@ -3301,6 +3307,7 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
     quiz_enabled = get_setting("quiz_enabled", "True")
     mini_test_enabled = get_setting("mini_test_enabled", "True")
     payment_enabled = get_setting("payment_enabled", "False")
+    student_qr_enabled = get_setting("student_qr_enabled", "True")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
@@ -3310,13 +3317,14 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
         f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📝 Mashq qilish (Quiz): <b>{'✅ Yoqilgan' if quiz_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"🆔 Mening QR-kodim (O'quvchi): <b>{'✅ Yoqilgan' if student_qr_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled, student_qr_enabled),
     )
     await callback.answer("✅ Sozlama yangilandi")
 
@@ -3334,15 +3342,23 @@ async def payment_settings_back(callback: CallbackQuery, state: FSMContext):
     quiz_enabled = get_setting("quiz_enabled", "True")
     mini_test_enabled = get_setting("mini_test_enabled", "True")
     payment_enabled = get_setting("payment_enabled", "False")
+    student_qr_enabled = get_setting("student_qr_enabled", "True")
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
-        f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"🏆 Reyting (Top-50): <b>{'✅ Yoqilgan' if ranking_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"📈 Statistika: <b>{'✅ Yoqilgan' if stats_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"🤖 AI Chatbot: <b>{'✅ Yoqilgan' if chatbot_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"🧪 Mock natijalarim (User menyu): <b>{'✅ Yoqilgan' if mock_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"📝 Mashq qilish (Quiz): <b>{'✅ Yoqilgan' if quiz_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"🆔 Mening QR-kodim (O'quvchi): <b>{'✅ Yoqilgan' if student_qr_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled, student_qr_enabled),
     )
     await callback.answer()
 
@@ -5381,6 +5397,50 @@ async def kod_qidirish_process(message: Message, state: FSMContext):
     await state.set_state(None)
 
 
+@router.message(F.text == "🆔 QR-kod yaratish")
+async def admin_qr_gen_start(message: Message, state: FSMContext):
+    """Admin uchun o'quvchi kodi orqali QR-kod yaratish boshlanishi."""
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    await state.set_state(AdminQRGenerate.kod_kutish)
+    await message.answer(
+        "🆔 QR-kod yaratish uchun o'quvchi <b>shaxsiy kodini</b> kiriting:",
+        parse_mode="HTML"
+    )
+
+
+@router.message(AdminQRGenerate.kod_kutish)
+async def admin_qr_gen_process(message: Message, state: FSMContext):
+    """Admin kiritgan kod bo'yicha QR-kod yaratish va yuborish."""
+    if not await admin_tekshir(state, message.from_user.id):
+        return
+    
+    kod = message.text.strip().upper()
+    talaba = talaba_topish(kod)
+    
+    if not talaba:
+        await message.answer("❌ O'quvchi topilmadi. Iltimos, kodni qayta tekshirib kiriting:")
+        return
+
+    from certificate import CertificateGenerator
+    from aiogram.types import BufferedInputFile
+    
+    gen = CertificateGenerator.from_db()
+    qr_buf = gen.generate_id_qr(talaba["kod"])
+    
+    await message.answer_photo(
+        BufferedInputFile(qr_buf.getvalue(), filename=f"qr_{talaba['kod']}.png"),
+        caption=(
+            f"🆔 <b>O'quvchi QR-kodi yaratildi</b>\n\n"
+            f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
+            f"🔑 Kod: <code>{talaba['kod']}</code>\n"
+            f"🏫 Sinf: <b>{talaba['sinf']}</b>"
+        ),
+        parse_mode="HTML"
+    )
+    await state.set_state(None)
+
+
 # Yangi FSM state handlerlar
 @router.message(BittaNatijaOchirish.kod_kutish)
 async def bitta_natija_ochirish_process(message: Message, state: FSMContext):
@@ -7054,34 +7114,7 @@ def _create_comparison_chart(a: dict, b: dict) -> str | None:
         return None
 
 
-@router.message(F.text == "📱 QR Davomat Skaneri")
-async def admin_qr_scanner_handler(message: Message, state: FSMContext):
-    """Admin uchun QR skaner WebApp'ni ochish tugmasini yuboradi."""
-    if not await admin_tekshir(state, message.from_user.id):
-        return
-        
-    from config import WEBAPP_URL
-    if not WEBAPP_URL:
-        await message.answer("⚠️ WEBAPP_URL sozlanmagan. Iltimos, administrator bilan bog'laning.")
-        return
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="📸 Skanerni ochish",
-                    web_app=WebAppInfo(url=f"{WEBAPP_URL}/scanner")
-                )
-            ]
-        ]
-    )
-    
-    await message.answer(
-        "📱 <b>QR Davomat Skaneri</b>\n\n"
-        "Quyidagi tugmani bosib skanerni oching va o'quvchilarning QR-kodini skanerlang.",
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
 
 @router.message(F.text == "⚖️ Sinf taqqoslash")
 async def sinf_taqq_start(message: Message, state: FSMContext):

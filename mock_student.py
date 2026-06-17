@@ -117,6 +117,9 @@ async def mock_kor_kod(message: Message, state: FSMContext):
         stats_enabled = get_setting("stats_enabled", "True")
         chatbot_enabled = get_setting("chatbot_enabled", "True")
         mock_enabled = get_setting("mock_enabled", "True")
+        quiz_enabled = get_setting("quiz_enabled", "True")
+        mini_test_enabled = get_setting("mini_test_enabled", "True")
+        student_qr_enabled = get_setting("student_qr_enabled", "True")
         await message.answer(
             "✅ Mock natijalarni qidirish bekor qilindi.\n\nAsosiy menyudan davom etishingiz mumkin.",
             reply_markup=user_menu_keyboard(
@@ -124,6 +127,9 @@ async def mock_kor_kod(message: Message, state: FSMContext):
                 stats_enabled,
                 chatbot_enabled,
                 mock_enabled,
+                quiz_enabled,
+                mini_test_enabled,
+                student_qr_enabled,
             ),
         )
         return

@@ -53,7 +53,7 @@ def admin_menu_keyboard():
             ],
             [KeyboardButton(text="📊 Excel Hisobot")],
             [KeyboardButton(text="📗 Google Sheets Eksport")],
-            [KeyboardButton(text="📱 QR Davomat Skaneri")],
+
             [
                 KeyboardButton(text="⚖️ Sinf taqqoslash"),
                 KeyboardButton(text="📋 O'quvchilar ro'yxati"),
@@ -84,6 +84,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="📦 Mini-test yuborish")],
             [KeyboardButton(text="📝 Mashq Quiz (Web)")],
             [KeyboardButton(text="🔍 Kod bo'yicha qidirish")],
+            [KeyboardButton(text="🆔 QR-kod yaratish")],
             [KeyboardButton(text="🎭 Demo kodlar")],
             [KeyboardButton(text="🚪 Chiqish")],
         ],
@@ -664,6 +665,7 @@ def user_menu_keyboard(
     mock_enabled="True",
     quiz_enabled="True",
     mini_test_enabled="True",
+    student_qr_enabled="True",
 ):
     """Foydalanuvchi asosiy menyusi (Dinamik)."""
     keyboard = []
@@ -713,10 +715,11 @@ def user_menu_keyboard(
         keyboard.append([KeyboardButton(text="📦 Mini-testlar")])
 
     # QR-kod va Admin bilan bog'lanish
-    keyboard.append([
-        KeyboardButton(text="🆔 Mening QR-kodim"),
-        KeyboardButton(text="✍️ Admin bilan bog'lanish")
-    ])
+    qr_row = []
+    if student_qr_enabled == "True":
+        qr_row.append(KeyboardButton(text="🆔 Mening QR-kodim"))
+    qr_row.append(KeyboardButton(text="✍️ Admin bilan bog'lanish"))
+    keyboard.append(qr_row)
 
     # Oxirgi qator: Chiqish
     keyboard.append([KeyboardButton(text="🚪 Chiqish")])
@@ -1580,6 +1583,7 @@ def settings_keyboard(
     quiz_enabled="True",
     mini_test_enabled="True",
     payment_enabled="False",
+    student_qr_enabled="True",
 ):
     """Bot sozlamalari klaviaturasi."""
     ranking_text = (
@@ -1616,6 +1620,11 @@ def settings_keyboard(
         "✅ 💳 Obuna to'lov: Yoqilgan"
         if payment_enabled == "True"
         else "❌ 💳 Obuna to'lov: O'chirilgan"
+    )
+    student_qr_text = (
+        "✅ Mening QR-kodim (O'quvchi): Yoqilgan"
+        if student_qr_enabled == "True"
+        else "❌ Mening QR-kodim (O'quvchi): O'chirilgan"
     )
 
     return InlineKeyboardMarkup(
@@ -1660,6 +1669,12 @@ def settings_keyboard(
                 InlineKeyboardButton(
                     text=payment_text,
                     callback_data="toggle_setting:payment_enabled",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=student_qr_text,
+                    callback_data="toggle_setting:student_qr_enabled",
                 )
             ],
             [

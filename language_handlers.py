@@ -72,11 +72,24 @@ async def update_user_menu(message: Message, user_id: int, language: str):
     # Oddiy foydalanuvchi
     ranking_enabled = get_setting('ranking_enabled', 'True')
     stats_enabled = get_setting('stats_enabled', 'True')
+    chatbot_enabled = get_setting('chatbot_enabled', 'True')
+    mock_enabled = get_setting('mock_enabled', 'True')
+    quiz_enabled = get_setting('quiz_enabled', 'True')
+    mini_test_enabled = get_setting('mini_test_enabled', 'True')
+    student_qr_enabled = get_setting('student_qr_enabled', 'True')
     
     await message.answer(
         get_user_text(user_id, "start.welcome"),
         parse_mode="HTML",
-        reply_markup=user_menu_keyboard(ranking_enabled, stats_enabled)
+        reply_markup=user_menu_keyboard(
+            ranking_enabled, 
+            stats_enabled, 
+            chatbot_enabled, 
+            mock_enabled, 
+            quiz_enabled, 
+            mini_test_enabled, 
+            student_qr_enabled
+        )
     )
 
 def get_user_keyboard(user_id: int, language: str):
@@ -91,7 +104,20 @@ def get_user_keyboard(user_id: int, language: str):
     # Oddiy foydalanuvchi klaviaturasi
     ranking_enabled = get_setting('ranking_enabled', 'True')
     stats_enabled = get_setting('stats_enabled', 'True')
-    return user_menu_keyboard(ranking_enabled, stats_enabled)
+    chatbot_enabled = get_setting('chatbot_enabled', 'True')
+    mock_enabled = get_setting('mock_enabled', 'True')
+    quiz_enabled = get_setting('quiz_enabled', 'True')
+    mini_test_enabled = get_setting('mini_test_enabled', 'True')
+    student_qr_enabled = get_setting('student_qr_enabled', 'True')
+    return user_menu_keyboard(
+        ranking_enabled, 
+        stats_enabled, 
+        chatbot_enabled, 
+        mock_enabled, 
+        quiz_enabled, 
+        mini_test_enabled, 
+        student_qr_enabled
+    )
 
 def get_teacher_keyboard(language: str):
     """O'qituvchi klaviaturasi"""
