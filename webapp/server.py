@@ -1026,6 +1026,14 @@ async def verify_handler(request: web.Request) -> web.Response:
         logging.error(f"verify_handler error: {e}")
         raise web.HTTPInternalServerError()
 
+    # Mock natijalarni olish
+    mock_natijalar = []
+    try:
+        from mock_database import mock_natijalari_ol
+        mock_natijalar = mock_natijalari_ol(kod, limit=5)
+    except Exception as e:
+        logging.error(f"Mock results fetch error: {e}")
+
     # Hash tekshiruvi (blockchain verification)
     hash_valid = False
     stored_hash = talaba.get("cert_hash") or ""
@@ -1045,7 +1053,7 @@ async def verify_handler(request: web.Request) -> web.Response:
 
     return web.Response(
         content_type="text/html",
-        text=_verify_success_html(talaba, natija, stored_hash, hash_valid),
+        text=_verify_success_html(talaba, natija, stored_hash, hash_valid, mock_natijalar),
     )
 
 
@@ -1232,6 +1240,14 @@ body {
 }
 .tg-link svg { width: 15px; height: 15px; fill: #fff; }
 .no-result { color: #a0aec0; font-style: italic; padding: 16px 0; }
+.mock-section { margin-top: 24px; text-align: left; }
+.section-title { font-size: .85em; font-weight: 700; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.mock-list { display: flex; flex-direction: column; gap: 8px; }
+.mock-item { background: #f8fafc; border: 1px solid #edf2f7; border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+.mock-info { display: flex; flex-direction: column; }
+.mock-name { font-size: .9em; font-weight: 700; color: var(--text); }
+.mock-date { font-size: .75em; color: var(--muted); }
+.mock-score { font-size: 1.2em; font-weight: 800; color: var(--primary); }
 """
 
 _VERIFY_NOT_FOUND_CSS = """
@@ -1321,7 +1337,8 @@ def _verify_not_found_html(kod: str) -> str:
 
 
 def _verify_success_html(talaba: dict, natija: dict | None,
-                         cert_hash: str = "", hash_valid: bool = True) -> str:
+                         cert_hash: str = "", hash_valid: bool = True,
+                         mock_natijalar: list = None) -> str:
     bot_user, logo_url = _get_verify_config()
     ism  = talaba.get("ismlar", "")
     sinf = talaba.get("sinf", "—")
@@ -1373,6 +1390,31 @@ def _verify_success_html(talaba: dict, natija: dict | None,
     else:
         natija_blok = '<div class="no-result">Hali test natijalari mavjud emas</div>'
 
+    # Mock natijalar bloki
+    mock_blok = ""
+    if mock_natijalar:
+        mock_items = ""
+        for m in mock_natijalar:
+            m_ball = m.get("umumiy_ball", 0)
+            m_sana = str(m.get("test_sanasi", ""))[:10]
+            m_nomi = m.get("exam_key", "Mock")
+            mock_items += f"""
+            <div class="mock-item">
+              <div class="mock-info">
+                <span class="mock-name">🎯 {m_nomi}</span>
+                <span class="mock-date">{m_sana}</span>
+              </div>
+              <div class="mock-score">{m_ball}</div>
+            </div>"""
+        
+        mock_blok = f"""
+        <div class="mock-section">
+          <div class="section-title">🎯 Mock Imtihon Natijalari</div>
+          <div class="mock-list">
+            {mock_items}
+          </div>
+        </div>"""
+
     return f"""<!DOCTYPE html>
 <html lang="uz">
 <head>
@@ -1395,6 +1437,8 @@ def _verify_success_html(talaba: dict, natija: dict | None,
       <div class="student-meta">{sinf}<span class="sep">|</span>{yo}</div>
 
       {natija_blok}
+
+      {mock_blok}
 
       {hash_block}
 
