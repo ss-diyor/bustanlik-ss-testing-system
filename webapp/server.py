@@ -1242,12 +1242,31 @@ body {
 .no-result { color: #a0aec0; font-style: italic; padding: 16px 0; }
 .mock-section { margin-top: 24px; text-align: left; }
 .section-title { font-size: .85em; font-weight: 700; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .05em; }
-.mock-list { display: flex; flex-direction: column; gap: 8px; }
+.mock-list { display: none; flex-direction: column; gap: 8px; margin-top: 12px; }
 .mock-item { background: #f8fafc; border: 1px solid #edf2f7; border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
 .mock-info { display: flex; flex-direction: column; }
 .mock-name { font-size: .9em; font-weight: 700; color: var(--text); }
 .mock-date { font-size: .75em; color: var(--muted); }
 .mock-score { font-size: 1.2em; font-weight: 800; color: var(--primary); }
+.toggle-mock-btn {
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--primary-light);
+  color: var(--primary-light);
+  padding: 10px;
+  border-radius: 12px;
+  font-size: .85em;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.toggle-mock-btn:hover { background: #f0f7ff; }
+.toggle-mock-btn svg { width: 16px; height: 16px; fill: currentColor; transition: transform 0.2s; }
+.toggle-mock-btn.active svg { transform: rotate(180deg); }
 """
 
 _VERIFY_NOT_FOUND_CSS = """
@@ -1409,11 +1428,28 @@ def _verify_success_html(talaba: dict, natija: dict | None,
         
         mock_blok = f"""
         <div class="mock-section">
-          <div class="section-title">🎯 Mock Imtihon Natijalari</div>
-          <div class="mock-list">
+          <button class="toggle-mock-btn" onclick="toggleMockResults()">
+            🎯 Mock imtihon natijalari
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>
+          </button>
+          <div id="mockList" class="mock-list">
+            <div class="section-title" style="margin-top: 15px; margin-bottom: 8px;">So'nggi natijalar</div>
             {mock_items}
           </div>
-        </div>"""
+        </div>
+        <script>
+          function toggleMockResults() {{
+            const list = document.getElementById('mockList');
+            const btn = document.querySelector('.toggle-mock-btn');
+            if (list.style.display === 'flex') {{
+              list.style.display = 'none';
+              btn.classList.remove('active');
+            }} else {{
+              list.style.display = 'flex';
+              btn.classList.add('active');
+            }}
+          }}
+        </script>"""
 
     return f"""<!DOCTYPE html>
 <html lang="uz">
