@@ -400,6 +400,10 @@ def init_db():
     # To'lov jadvallari
     from payment import create_payment_tables
     create_payment_tables(cur)
+
+    # Audit log jadvali (admin va foydalanuvchi amallari jurnali)
+    from audit_log import create_audit_log_table
+    create_audit_log_table(cur)
     
     cur.execute(
         "INSERT INTO settings (key, value) VALUES ('mock_enabled', 'True') ON CONFLICT DO NOTHING"
