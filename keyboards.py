@@ -86,6 +86,7 @@ def admin_menu_keyboard():
             [KeyboardButton(text="🔍 Kod bo'yicha qidirish")],
             [KeyboardButton(text="🆔 QR-kod yaratish")],
             [KeyboardButton(text="🎭 Demo kodlar")],
+            [KeyboardButton(text="🗂 Audit jurnali")],
             [KeyboardButton(text="🚪 Chiqish")],
         ],
         resize_keyboard=True,
