@@ -21,6 +21,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramBadRequest
 
 from config import ADMIN_PASSWORD, MAX_SAVOL, ADMIN_IDS
+from audit_log import log_action
 
 
 async def safe_edit(callback: CallbackQuery, text: str, **kwargs):
@@ -1314,6 +1315,13 @@ async def admin_remove_handler(callback: CallbackQuery, state: FSMContext):
         return
 
     if remove_admin(user_id):
+        log_action(
+            actor_id=callback.from_user.id,
+            actor_role="admin",
+            action_type="admin_ochirish",
+            actor_name=callback.from_user.full_name,
+            target=str(user_id),
+        )
         await callback.answer(f"✅ Admin o'chirildi!", show_alert=True)
         # Admin ro'yxatini yangilab ko'rsatish
         admins = get_all_admins()
@@ -1351,6 +1359,13 @@ async def admin_add_tasdiq(callback: CallbackQuery, state: FSMContext):
             # Bu user_id ga tegishli user ma'lumotlarini olish (masalan, bot orqali)
             # Bu yerda oddiy qilib user_id va ismni qo'shamiz
             if add_admin(user_id, username=None, full_name=f"Admin {user_id}"):
+                log_action(
+                    actor_id=callback.from_user.id,
+                    actor_role="admin",
+                    action_type="admin_qoshish",
+                    actor_name=callback.from_user.full_name,
+                    target=str(user_id),
+                )
                 await callback.message.edit_text(
                     f"✅ <b>Yangi admin qo'shildi!</b>\n\n"
                     f"👤 User ID: <code>{user_id}</code>\n"
@@ -1675,6 +1690,13 @@ async def sinf_ochir_tasdiq(callback: CallbackQuery, state: FSMContext):
     else:
         # To'g'ridan-to'g'ri o'chiramiz
         sinf_ochir_id(sinf_id)
+        log_action(
+            actor_id=callback.from_user.id,
+            actor_role="admin",
+            action_type="sinf_ochirish",
+            actor_name=callback.from_user.full_name,
+            target=full_nomi,
+        )
         await callback.answer(f"✅ {full_nomi} o'chirildi")
         await callback.message.edit_text(
             "❌ O'chirmoqchi bo'lgan sinfni tanlang:",
@@ -1689,6 +1711,14 @@ async def sinf_ochir_tasdiqlandi(callback: CallbackQuery, state: FSMContext):
     sinf_id = int(callback.data.split(":")[1])
     full_nomi = sinf_id_dan_full_nomi(sinf_id) or "Sinf"
     sinf_ochir_id(sinf_id)
+    log_action(
+        actor_id=callback.from_user.id,
+        actor_role="admin",
+        action_type="sinf_ochirish",
+        actor_name=callback.from_user.full_name,
+        target=full_nomi,
+        details="O'quvchilari mavjud holatda tasdiqlab o'chirildi",
+    )
     await callback.answer(f"✅ {full_nomi} o'chirildi", show_alert=True)
     await callback.message.edit_text(
         "❌ O'chirmoqchi bo'lgan sinfni tanlang:",
@@ -1869,6 +1899,13 @@ async def kalit_delete(callback: CallbackQuery, state: FSMContext):
         return
     test_nomi = callback.data.split(":")[1]
     kalit_ochir(test_nomi)
+    log_action(
+        actor_id=callback.from_user.id,
+        actor_role="admin",
+        action_type="kalit_ochirish",
+        actor_name=callback.from_user.full_name,
+        target=test_nomi,
+    )
     await callback.answer(f"✅ {test_nomi} o'chirildi")
     await kalit_boshqar_actions(callback, state)
 
@@ -2593,6 +2630,14 @@ async def talaba_tasdiq(callback: CallbackQuery, state: FSMContext):
             natija["asosiy_1"],
             natija["asosiy_2"],
         )
+        log_action(
+            actor_id=callback.from_user.id,
+            actor_role="admin",
+            action_type="talaba_qoshish",
+            actor_name=callback.from_user.full_name,
+            target=talaba["kod"],
+            details=f"Ball: {natija['umumiy_ball']}",
+        )
 
         await callback.message.edit_text(
             "✅ Ma'lumotlar muvaffaqiyatli saqlandi!", reply_markup=None
@@ -2703,6 +2748,14 @@ async def natija_tahrir_asosiy2(message: Message, state: FSMContext):
 
     # Ma'lumotlarni yangilash
     natija_qosh(data["kod"], data["majburiy"], data["asosiy1"], son)
+    log_action(
+        actor_id=message.from_user.id,
+        actor_role="admin",
+        action_type="natija_qoshish",
+        actor_name=message.from_user.full_name,
+        target=data["kod"],
+        details=f"Yangi ball: {ball}",
+    )
 
     # O'quvchiga avtomatik xabarnoma (profil ulangan bo'lsa)
     try:
@@ -2962,6 +3015,13 @@ async def run_excel_import_task(message: Message, df, header_mode, resolved_cols
             f"⚠️ O'tkazib yuborilganlar: <b>{skipped}</b>",
             parse_mode="HTML",
             reply_markup=admin_menu_keyboard(),
+        )
+        log_action(
+            actor_id=message.from_user.id,
+            actor_role="admin",
+            action_type="excel_import",
+            actor_name=message.from_user.full_name,
+            details=f"Import: {count} ta, o'tkazib yuborilgan: {skipped} ta",
         )
     except Exception as e:
         await message.answer(f"❌ Import jarayonida xatolik: {e}")
@@ -3299,6 +3359,14 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
     current = get_setting(key, "True")
     new_value = "False" if current == "True" else "True"
     set_setting(key, new_value)
+    log_action(
+        actor_id=callback.from_user.id,
+        actor_role="admin",
+        action_type="sozlama_ozgartirish",
+        actor_name=callback.from_user.full_name,
+        target=key,
+        details=f"{current} → {new_value}",
+    )
 
     ranking_enabled = get_setting("ranking_enabled", "True")
     stats_enabled = get_setting("stats_enabled", "True")
@@ -3762,6 +3830,13 @@ async def talaba_ochir_callback(callback: CallbackQuery, state: FSMContext):
         data = await state.get_data()
         kod = data.get("ochirish_kod")
         if talaba_ochir(kod):
+            log_action(
+                actor_id=callback.from_user.id,
+                actor_role="admin",
+                action_type="talaba_ochirish",
+                actor_name=callback.from_user.full_name,
+                target=kod,
+            )
             await callback.message.edit_text(
                 f"✅ O'quvchi (Kod: {kod}) muvaffaqiyatli o'chirildi."
             )
@@ -3980,6 +4055,13 @@ async def oqituvchi_ochir_process(callback: CallbackQuery, state: FSMContext):
         return
     user_id = int(callback.data.split(":")[1])
     if oqituvchi_ochir(user_id):
+        log_action(
+            actor_id=callback.from_user.id,
+            actor_role="admin",
+            action_type="oqituvchi_ochirish",
+            actor_name=callback.from_user.full_name,
+            target=str(user_id),
+        )
         await callback.answer("✅ O'qituvchi o'chirildi")
     else:
         await callback.answer("❌ Xatolik yuz berdi")
@@ -4567,6 +4649,14 @@ async def broadcast_confirm_callback(
             )
 
     await state.clear()
+    log_action(
+        actor_id=callback.from_user.id,
+        actor_role="admin",
+        action_type="xabar_yuborish",
+        actor_name=callback.from_user.full_name,
+        target=maktab_nomi,
+        details=f"Jami: {total}, yuborildi: {sent_count}, xatolik: {fail_count}",
+    )
     await callback.message.edit_text(
         f"✅ Xabar yuborish yakunlandi.\n"
         f"🏫 Maqsad: <b>{maktab_nomi}</b>\n"
@@ -4844,6 +4934,13 @@ async def clear_db_callback(callback: CallbackQuery, state: FSMContext):
     if action == "ha":
         try:
             delete_all_data()
+            log_action(
+                actor_id=callback.from_user.id,
+                actor_role="admin",
+                action_type="baza_tozalash",
+                actor_name=callback.from_user.full_name,
+                details="Barcha o'quvchilar, natijalar va test kalitlari o'chirildi",
+            )
             await callback.message.edit_text(
                 "✅ Barcha ma'lumotlar o'chirildi."
             )
