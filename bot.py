@@ -32,6 +32,8 @@ import parent
 import practice_quiz
 import payment
 import otm_handler
+import audit_log_admin
+from audit_log import log_action
 
 # ── Discord notify moduli ─────────────────────────────────────
 from discord_notify import (
@@ -70,6 +72,7 @@ dp.include_router(mock_admin.router)
 dp.include_router(mock_student.router)
 dp.include_router(mock_excel_import.router)
 dp.include_router(otm_handler.router)
+dp.include_router(audit_log_admin.router)
 
 
 @dp.message(CommandStart())
@@ -99,6 +102,12 @@ async def start_handler(message: Message):
     from database import oqituvchi_ol
 
     if is_admin_id(message.from_user.id):
+        log_action(
+            actor_id=message.from_user.id,
+            actor_role="admin",
+            action_type="tizimga_kirish",
+            actor_name=message.from_user.full_name,
+        )
         await message.answer(f"👋 Xush kelibsiz, Admin!", reply_markup=admin_menu_keyboard())
         return
 
@@ -106,6 +115,12 @@ async def start_handler(message: Message):
     try:
         from payment import is_maktab_admin, show_school_admin_menu
         if is_maktab_admin(message.from_user.id):
+            log_action(
+                actor_id=message.from_user.id,
+                actor_role="school_admin",
+                action_type="tizimga_kirish",
+                actor_name=message.from_user.full_name,
+            )
             await show_school_admin_menu(message, message.from_user.id)
             return
     except Exception:
@@ -114,6 +129,12 @@ async def start_handler(message: Message):
     # O'qituvchi tekshiruvi
     teacher = oqituvchi_ol(message.from_user.id)
     if teacher:
+        log_action(
+            actor_id=message.from_user.id,
+            actor_role="teacher",
+            action_type="tizimga_kirish",
+            actor_name=message.from_user.full_name,
+        )
         await message.answer(
             f"👋 Xush kelibsiz, {teacher['ismlar']}! ({teacher['sinf']} sinf rahbari)",
             reply_markup=oqituvchi_menu_keyboard(),
@@ -127,6 +148,13 @@ async def start_handler(message: Message):
     quiz_enabled      = get_setting('quiz_enabled',      'True')
     mini_test_enabled = get_setting('mini_test_enabled', 'True')
     student_qr_enabled = get_setting('student_qr_enabled', 'True')
+
+    log_action(
+        actor_id=message.from_user.id,
+        actor_role="student",
+        action_type="tizimga_kirish",
+        actor_name=message.from_user.full_name,
+    )
 
     await message.answer(
         "👋 <b>Assalomu alaykum! Bo'stonliq tuman ixtisoslashtirilgan maktabining DTM imtihoni va mock natijalari botiga xush kelibsiz!</b>\n\n"
@@ -157,6 +185,14 @@ async def contact_handler(message: Message):
         phone_number = "+" + phone_number
     update_user_phone(message.from_user.id, phone_number)
     await message.answer("✅ Telefon raqamingiz muvaffaqiyatli saqlandi!", reply_markup=ReplyKeyboardRemove())
+
+    log_action(
+        actor_id=message.from_user.id,
+        actor_role="student",
+        action_type="royxatdan_otish",
+        actor_name=message.from_user.full_name,
+        details=phone_number,
+    )
 
     # ── Guruhga yangi ro'yxatdan o'tgan foydalanuvchi haqida xabar ──
     user      = message.from_user
@@ -204,6 +240,12 @@ async def logout_handler(message: Message):
     conn.commit()
     cur.close()
     release_connection(conn)
+    log_action(
+        actor_id=message.from_user.id,
+        actor_role="student",
+        action_type="chiqish",
+        actor_name=message.from_user.full_name,
+    )
     await message.answer(
         "🚪 <b>Siz shaxsiy kabinetdan chiqdingiz.</b>\n\n"
         "Qayta kirish uchun shaxsiy kodingizni yuboring yoki <code>ULASH_KOD</code> buyrug'idan foydalaning.",
