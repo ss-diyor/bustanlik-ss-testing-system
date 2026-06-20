@@ -29,6 +29,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from config import ADMIN_IDS, KARTA_RAQAMI, OYLIK_NARX
 import database as db
+from audit_log import log_action
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -597,6 +598,15 @@ async def pay_approve_handler(callback: CallbackQuery, bot: Bot):
         return
 
     tugash = payment["yangi_tugash"]
+    log_action(
+        actor_id=callback.from_user.id,
+        actor_role="admin",
+        action_type="tolov_tasdiqlash",
+        actor_name=callback.from_user.full_name,
+        target=str(payment_id),
+        details=f"Obuna {tugash.strftime('%d.%m.%Y')} gacha",
+        maktab_id=payment.get("maktab_id"),
+    )
     await callback.message.edit_caption(
         callback.message.caption + f"\n\n✅ <b>TASDIQLANDI</b> — obuna {tugash.strftime('%d.%m.%Y')} gacha",
         parse_mode="HTML",
@@ -649,6 +659,15 @@ async def rad_sababi_qabul(message: Message, state: FSMContext, bot: Bot):
         return
 
     await message.answer(f"❌ To'lov #{payment_id} rad etildi.")
+    log_action(
+        actor_id=message.from_user.id,
+        actor_role="admin",
+        action_type="tolov_rad_etish",
+        actor_name=message.from_user.full_name,
+        target=str(payment_id),
+        details=sabab,
+        maktab_id=payment.get("maktab_id"),
+    )
 
     # Maktab adminga xabar
     try:
@@ -846,6 +865,15 @@ async def maktab_narx_qabul(message: Message, state: FSMContext):
     await state.clear()
 
     if ok:
+        log_action(
+            actor_id=message.from_user.id,
+            actor_role="admin",
+            action_type="narx_ozgartirish",
+            actor_name=message.from_user.full_name,
+            target=str(maktab_id),
+            details=f"Yangi narx: {narx:,} so'm",
+            maktab_id=maktab_id,
+        )
         await message.answer(
             f"✅ Oylik narx yangilandi: <b>{narx:,} so'm</b>",
             parse_mode="HTML"
