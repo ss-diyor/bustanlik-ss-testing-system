@@ -3,6 +3,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from database import get_connection, release_connection
+from audit_log import log_action
 import json
 import random
 
@@ -37,6 +38,13 @@ async def start_practice(message: Message, state: FSMContext):
 async def quiz_start_subject(callback: CallbackQuery, state: FSMContext):
     subject = callback.data.split(":")[1]
     await state.update_data(subject=subject, score=0, count=0, answered_ids=[])
+    log_action(
+        actor_id=callback.from_user.id,
+        actor_role="student",
+        action_type="mashq_boshlash",
+        actor_name=callback.from_user.full_name,
+        target=subject,
+    )
     await callback.answer()
     await send_next_question(callback.message, state)
 
