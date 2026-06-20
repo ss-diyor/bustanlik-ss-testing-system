@@ -2205,6 +2205,11 @@ def sheets_export_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    text="🔄 Sheetsdan import (Ballarni yangilash)", callback_data="sheets:import"
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="🔙 Orqaga", callback_data="cancel:admin_menu"
                 )
             ],
