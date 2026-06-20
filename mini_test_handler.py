@@ -3,6 +3,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from database import mini_test_ol, mini_test_natija_saqlash, get_connection, release_connection
+from audit_log import log_action
 import asyncio
 
 router = Router()
@@ -20,7 +21,15 @@ async def start_mini_test(callback: CallbackQuery, state: FSMContext):
         return
 
     await state.update_data(test_id=test_id, answers={}, current_q=1)
-    
+
+    log_action(
+        actor_id=callback.from_user.id,
+        actor_role="student",
+        action_type="mini_test_boshlash",
+        actor_name=callback.from_user.full_name,
+        target=test["nomi"],
+    )
+
     msg_text = f"🏁 <b>{test['nomi']}</b> boshlandi!\n\n"
     if test['pdf_file_id']:
         await callback.message.answer_document(test['pdf_file_id'], caption=msg_text + "Savollar PDF faylda. Javoblarni pastdagi tugmalar orqali yuboring.", parse_mode="HTML")
@@ -122,6 +131,14 @@ async def finish_mini_test(message: Message, state: FSMContext):
         mini_test_natija_saqlash(test['id'], message.chat.id, kod, float(correct), total)
     except Exception:
         if conn: release_connection(conn)
+
+    log_action(
+        actor_id=message.chat.id,
+        actor_role="student",
+        action_type="mini_test_yakunlash",
+        target=test["nomi"],
+        details=f"{correct}/{total} to'g'ri",
+    )
 
     res_text = (
         f"🏁 <b>Test yakunlandi!</b>\n\n"
