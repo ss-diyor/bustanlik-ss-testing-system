@@ -61,6 +61,7 @@ from keyboards import (
 )
 from config import ADMIN_IDS, AI_DAILY_LIMIT
 from certificate import CertificateGenerator
+from audit_log import log_action
 
 router = Router()
 
@@ -221,6 +222,14 @@ async def send_full_results(message: Message, kod: str):
         )
         return
 
+    log_action(
+        actor_id=message.from_user.id,
+        actor_role="student",
+        action_type="natija_korish",
+        actor_name=message.from_user.full_name,
+        target=kod,
+    )
+
     all_results = talaba_natijalari(kod)
 
     # Grafik yaratish
@@ -368,6 +377,14 @@ async def murojaat_yuborish(message: Message, state: FSMContext):
 
     talaba_info = _murojaat_talaba_info(message.from_user.id)
     username = f"@{message.from_user.username}" if message.from_user.username else "yoq"
+
+    log_action(
+        actor_id=message.from_user.id,
+        actor_role="student",
+        action_type="murojaat",
+        actor_name=message.from_user.full_name,
+        details=message.text[:200] if message.text else None,
+    )
 
     murojaat_matni = (
         f"📩 <b>Yangi murojaat keldi!</b>\n\n"
@@ -581,6 +598,13 @@ async def ranking_menu(event):
 
     if is_admin_id(user_id):
         return
+
+    log_action(
+        actor_id=user_id,
+        actor_role="student",
+        action_type="reyting_korish",
+        actor_name=event.from_user.full_name,
+    )
 
     ranking_enabled = get_setting("ranking_enabled", "True")
     if ranking_enabled == "False":
@@ -837,6 +861,14 @@ async def appeal_message_save(message: Message, state: FSMContext):
     data = await state.get_data()
     kod = data["appeal_kod"]
     appeal_qosh(message.from_user.id, kod, message.text)
+    log_action(
+        actor_id=message.from_user.id,
+        actor_role="student",
+        action_type="apellyatsiya",
+        actor_name=message.from_user.full_name,
+        target=kod,
+        details=message.text[:200],
+    )
 
     # Adminlarga bildirishnoma yuborish
     from config import ADMIN_IDS
@@ -1074,6 +1106,14 @@ async def student_profile(message: Message):
             "⚠️ Avval profilingizni ulang (Masalan: ULASH_A-001)"
         )
         return
+
+    log_action(
+        actor_id=message.from_user.id,
+        actor_role="student",
+        action_type="profil_korish",
+        actor_name=message.from_user.full_name,
+        target=talaba["kod"],
+    )
 
     natijalar = talaba_natijalari(talaba["kod"], limit=5)
     oxirgi_ball = natijalar[0]["umumiy_ball"] if natijalar else 0
