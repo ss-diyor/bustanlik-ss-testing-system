@@ -7534,6 +7534,88 @@ async def sheets_export_callback(callback: CallbackQuery, state: FSMContext):
             reply_markup=maktab_tanlash_keyboard(maktablar_ol(), "sheets_maktab"),
         )
 
+    elif action == "import":
+        wait_msg = await callback.message.answer(
+            "⏳ Google Sheets bilan solishtirilmoqda..."
+        )
+        try:
+            from sheets_import import preview_sheet_changes
+            result = preview_sheet_changes()
+        except Exception as e:
+            await wait_msg.delete()
+            await callback.message.answer(f"❌ Xatolik: {e}")
+            await callback.answer()
+            return
+
+        await wait_msg.delete()
+
+        if result.get("error"):
+            await callback.message.answer(f"❌ {result['error']}")
+            await callback.answer()
+            return
+
+        changes = result["changes"]
+        not_found = result["not_found"]
+        invalid = result["invalid"]
+        unchanged = result["unchanged_count"]
+
+        if not changes:
+            text = (
+                "✅ <b>Solishtirish yakunlandi</b>\n\n"
+                "Hech qanday farq topilmadi — baza Sheets bilan bir xil.\n\n"
+                f"📊 O'zgarmagan: {unchanged} ta"
+            )
+            if not_found:
+                text += f"\n⚠️ Sheetsda bor, bazada topilmadi: {len(not_found)} ta"
+            if invalid:
+                text += f"\n❌ Ball noto'g'ri formatda: {len(invalid)} ta"
+            await callback.message.answer(text, parse_mode="HTML")
+            await callback.answer()
+            return
+
+        # Oldindan ko'rish — birinchi 10 tasi
+        preview_lines = []
+        for c in changes[:10]:
+            eski = f"{c['eski_ball']:.1f}" if c["eski_ball"] is not None else "—"
+            yangi_ball = (
+                c["majburiy"] * 1.1 + c["asosiy1"] * 3.1 + c["asosiy2"] * 2.1
+            )
+            preview_lines.append(
+                f"• <b>{c['kod']}</b> ({c['ismlar']}): {eski} → {yangi_ball:.1f}"
+            )
+        if len(changes) > 10:
+            preview_lines.append(f"... va yana {len(changes) - 10} ta")
+
+        text = (
+            f"🔄 <b>Sheetsdan {len(changes)} ta o'zgarish topildi</b>\n\n"
+            + "\n".join(preview_lines)
+            + f"\n\n📊 O'zgarmagan: {unchanged} ta"
+        )
+        if not_found:
+            text += f"\n⚠️ Sheetsda bor, bazada topilmadi: {len(not_found)} ta"
+        if invalid:
+            text += f"\n❌ Ball noto'g'ri formatda: {len(invalid)} ta"
+        text += "\n\nUshbu o'zgarishlarni bazaga yozishni tasdiqlaysizmi?"
+
+        await state.update_data(sheets_import_changes=changes)
+        await callback.message.answer(
+            text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="✅ Tasdiqlash va qo'llash",
+                            callback_data="shimport:confirm",
+                        ),
+                        InlineKeyboardButton(
+                            text="❌ Bekor qilish", callback_data="shimport:cancel"
+                        ),
+                    ]
+                ]
+            ),
+        )
+
     elif action == "sinf_reyting":
         from keyboards import sinf_tanlash_excel_keyboard as _sinf_kb
         # Sheets uchun alohida sinf callback ishlatamiz
@@ -7562,6 +7644,55 @@ async def sheets_export_callback(callback: CallbackQuery, state: FSMContext):
             reply_markup=sheets_export_keyboard(),
         )
 
+    await callback.answer()
+
+
+@router.callback_query(F.data == "shimport:confirm")
+async def sheets_import_confirm(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    data = await state.get_data()
+    changes = data.get("sheets_import_changes")
+    await state.update_data(sheets_import_changes=None)
+
+    if not changes:
+        await callback.answer("⚠️ O'zgarishlar muddati tugagan. Qaytadan urinib ko'ring.", show_alert=True)
+        return
+
+    wait_msg = await callback.message.answer("⏳ Bazaga yozilmoqda...")
+    try:
+        from sheets_import import apply_sheet_changes
+        updated = apply_sheet_changes(changes)
+    except Exception as e:
+        await wait_msg.delete()
+        await callback.message.answer(f"❌ Xatolik: {e}")
+        await callback.answer()
+        return
+
+    await wait_msg.delete()
+    log_action(
+        actor_id=callback.from_user.id,
+        actor_role="admin",
+        action_type="natija_qoshish",
+        actor_name=callback.from_user.full_name,
+        details=f"Google Sheets'dan sinxronlash: {updated} ta o'quvchi yangilandi",
+    )
+    await callback.message.edit_text(
+        f"✅ <b>Sinxronlash yakunlandi!</b>\n\n"
+        f"📊 Yangilangan o'quvchilar: <b>{updated} ta</b>",
+        parse_mode="HTML",
+    )
+    await callback.message.answer("Asosiy menyu:", reply_markup=admin_menu_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "shimport:cancel")
+async def sheets_import_cancel(callback: CallbackQuery, state: FSMContext):
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    await state.update_data(sheets_import_changes=None)
+    await callback.message.edit_text("❌ Sinxronlash bekor qilindi.")
     await callback.answer()
 
 
