@@ -31,6 +31,20 @@ async def _require_admin(request: web.Request):
     return role, None
 
 
+async def _get_admin_user_id(request: web.Request) -> int:
+    """check_admin_role bilan bir xil naqsh — Telegram user_id'ni qayta olib chiqadi."""
+    from server import validate_telegram_init_data
+    bot_token = request.app["bot_token"]
+    init_data = request.headers.get("X-Telegram-Init-Data", "")
+    user, _ = validate_telegram_init_data(init_data, bot_token)
+    if user:
+        return user.get("id", 0)
+    try:
+        return int(request.rel_url.query.get("user_id", 0))
+    except ValueError:
+        return 0
+
+
 # ─────────────────────────────────────────
 # Imtihon turlari (dropdown uchun: IELTS, CEFR, ...)
 # ─────────────────────────────────────────
@@ -265,9 +279,66 @@ async def admin_mock_attempt_detail_api(request: web.Request) -> web.Response:
         return web.json_response({"error": "Server xatosi"}, status=500)
 
 
+async def admin_mock_attempt_finalize_api(request: web.Request) -> web.Response:
+    """
+    POST { sections: {listening: 7.0, reading: 6.5, writing: 6.0, speaking: 7.0},
+           level_label: 'B2' (CEFR uchun), notes: '...' }
+
+    Adminning yakuniy ballarini mavjud `mock_database.mock_natija_qosh()` orqali
+    `mock_natijalari`ga yozadi va shu attempt'ni 'released' holatga o'tkazib,
+    natija id'sini bog'laydi — talaba shu zahoti odatdagi natija sahifasida ko'radi.
+    """
+    _, error_resp = await _require_admin(request)
+    if error_resp:
+        return error_resp
+
+    attempt_id = int(request.match_info["id"])
+    try:
+        data = await request.json()
+        sections = data.get("sections") or {}
+        level_label = data.get("level_label") or None
+        notes = data.get("notes") or None
+
+        if not sections:
+            return web.json_response({"error": "Kamida bitta bo'lim balli kiritilishi kerak"}, status=400)
+
+        meta = engine.attempt_meta(attempt_id)
+        if not meta:
+            return web.json_response({"error": "Urinish topilmadi"}, status=404)
+        if meta["status"] not in ("submitted", "reviewed"):
+            return web.json_response(
+                {"error": "Bu urinish hali yuborilmagan yoki allaqachon yakunlangan"}, status=400
+            )
+
+        admin_id = await _get_admin_user_id(request)
+
+        from mock_database import mock_natija_qosh
+        natija_id = mock_natija_qosh(
+            talaba_kod=meta["talaba_kod"],
+            exam_key=meta["exam_key"],
+            sections=sections,
+            level_label=level_label,
+            notes=notes,
+            admin_id=admin_id,
+        )
+        engine.attempt_natija_biriktir(attempt_id, natija_id, admin_id)
+
+        return web.json_response({"success": True, "natija_id": natija_id})
+
+    except Exception as e:
+        logging.error(f"admin_mock_attempt_finalize_api error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+
 async def mock_admin_page_handler(request: web.Request) -> web.Response:
     """Admin uchun mock savol qo'shish sahifasi (mock-admin.html)."""
     html_path = os.path.join(STATIC_DIR, "mock-admin.html")
+    return web.FileResponse(html_path)
+
+
+async def mock_review_page_handler(request: web.Request) -> web.Response:
+    """Admin uchun tekshirish/baholash sahifasi (mock-review.html)."""
+    html_path = os.path.join(STATIC_DIR, "mock-review.html")
     return web.FileResponse(html_path)
 
 
@@ -293,5 +364,7 @@ def register_mock_admin_routes(app: web.Application) -> None:
 
     app.router.add_get("/api/admin/mock/pending", admin_mock_pending_api)
     app.router.add_get("/api/admin/mock/attempt/{id}", admin_mock_attempt_detail_api)
+    app.router.add_post("/api/admin/mock/attempt/{id}/finalize", admin_mock_attempt_finalize_api)
 
     app.router.add_get("/mock-admin", mock_admin_page_handler)
+    app.router.add_get("/mock-review", mock_review_page_handler)
