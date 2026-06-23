@@ -1,4 +1,4 @@
-# bustanlik-ss-testing-system 🚀
+# bustanlik-ss-testing-system
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.x-blue.svg" alt="Python Version">
