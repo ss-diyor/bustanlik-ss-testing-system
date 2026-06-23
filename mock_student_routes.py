@@ -16,6 +16,24 @@ SESSION_COOKIE = "mock_session"
 
 
 # ─────────────────────────────────────────
+# Domen asosida yo'naltirish
+# ─────────────────────────────────────────
+#
+# Bitta Railway ilovasi bir nechta domenga (asosiy bot webapp + mock.sultanov.space)
+# xizmat ko'rsatadi. Asosiy "/" route Telegram WebApp uchun mo'ljallangan va
+# initData talab qiladi. mock.sultanov.space orqali kirilganda esa, "/" ni
+# talaba login sahifasiga (/mock) yo'naltiramiz — asosiy domenning ishlashiga
+# tegmaymiz.
+
+@web.middleware
+async def mock_domain_redirect_middleware(request: web.Request, handler):
+    host = request.host.split(":")[0].lower()
+    if host.startswith("mock.") and request.path == "/":
+        raise web.HTTPFound("/mock")
+    return await handler(request)
+
+
+# ─────────────────────────────────────────
 # Yordamchi
 # ─────────────────────────────────────────
 
@@ -251,6 +269,8 @@ async def mock_test_page(request: web.Request) -> web.Response:
 # ─────────────────────────────────────────
 
 def register_mock_student_routes(app: web.Application) -> None:
+    app.middlewares.append(mock_domain_redirect_middleware)
+
     app.router.add_post("/api/mock/login", mock_login_api)
     app.router.add_post("/api/mock/logout", mock_logout_api)
     app.router.add_get("/api/mock/me", mock_me_api)
