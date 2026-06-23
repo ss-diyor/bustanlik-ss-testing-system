@@ -397,6 +397,10 @@ def init_db():
     from mock_database import create_mock_tables
     create_mock_tables(cur)
 
+    # Mock topshirish tizimi (savollar banki, talaba urinishlari, sessiyalar)
+    from mock_exam_engine import create_mock_exam_engine_tables
+    create_mock_exam_engine_tables(cur)
+
     # To'lov jadvallari
     from payment import create_payment_tables
     create_payment_tables(cur)
