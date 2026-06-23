@@ -11,6 +11,8 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime
 from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
+from mock_admin_routes import register_mock_admin_routes
+from mock_student_routes import register_mock_student_routes
 
 def json_serializer(obj):
     """JSON uchun datetime va boshqa obyektlarni serializatsiya qiladi."""
@@ -1540,6 +1542,10 @@ def create_app(bot_token: str) -> web.Application:
 
     # CSS / JS / assets
     app.router.add_static("/static", STATIC_DIR)
+
+    # Mock imtihon — savollar boshqaruvi (admin) va onlayn topshirish (talaba)
+    register_mock_admin_routes(app)
+    register_mock_student_routes(app)
 
     return app
 
