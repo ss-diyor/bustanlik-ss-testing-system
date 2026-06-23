@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock — Tekshirish va baholash</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg:#0f1117; --card:#171a23; --card2:#1d2029; --border:#2a2e3a;
+    --text:#e7e9ee; --muted:#8b8fa3; --accent:#7c5cff; --accent2:#9b81ff;
+    --green:#3ddc84; --red:#ff5c7a; --amber:#ffb444;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,Segoe UI,Roboto,Inter,sans-serif; padding:18px; padding-bottom:60px;}
+  h1{font-size:1.25em; margin:0 0 4px;}
+  .sub{color:var(--muted); font-size:.85em; margin-bottom:18px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px;}
+  .card h2{font-size:1em; margin:0 0 12px;}
+  label{display:block; font-size:.78em; color:var(--muted); margin:10px 0 4px;}
+  input,select,textarea{width:100%; background:var(--card2); border:1px solid var(--border); color:var(--text); padding:9px 10px; border-radius:8px; font-size:.92em; font-family:inherit;}
+  textarea{resize:vertical; min-height:50px;}
+  button{background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px 14px; font-size:.88em; cursor:pointer; font-weight:600;}
+  button:hover{background:var(--accent2);}
+  button.secondary{background:var(--card2); border:1px solid var(--border); color:var(--text);}
+  .row{display:flex; gap:10px; flex-wrap:wrap;}
+  .row>*{flex:1; min-width:110px;}
+  .pending-item{display:flex; justify-content:space-between; align-items:center; padding:12px; border:1px solid var(--border); border-radius:10px; margin-bottom:8px; cursor:pointer; background:var(--card2);}
+  .pending-item:hover{border-color:var(--accent);}
+  .pending-item.active{border-color:var(--accent); background:#221c3a;}
+  .badge{font-size:.7em; padding:2px 8px; border-radius:20px; background:var(--accent); color:#fff; margin-left:6px;}
+  .empty{color:var(--muted); font-size:.85em; padding:8px 0;}
+  .q-card{border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px; background:var(--card2);}
+  .q-card.correct{border-left:3px solid var(--green);}
+  .q-card.wrong{border-left:3px solid var(--red);}
+  .q-meta{font-size:.7em; color:var(--accent2); text-transform:uppercase; font-weight:700;}
+  .q-text{margin:4px 0; font-size:.9em;}
+  .ans-line{font-size:.85em; margin:2px 0;}
+  .ans-line .lbl{color:var(--muted);}
+  .essay-box{border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px; background:var(--card2);}
+  .essay-box .meta{font-size:.78em; color:var(--muted); margin-bottom:6px;}
+  .essay-box .text{white-space:pre-wrap; font-size:.9em; line-height:1.5;}
+  .summary{display:flex; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
+  .summary .box{background:var(--card2); border:1px solid var(--border); border-radius:10px; padding:10px 16px; text-align:center;}
+  .summary .box b{font-size:1.3em; display:block;}
+  .msg{font-size:.82em; margin-top:8px;}
+  .msg.ok{color:var(--green);} .msg.err{color:var(--red);}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<h1>✅ Mock — Tekshirish va baholash</h1>
+<div class="sub">Tekshirilmagan (yuborilgan) urinishlar ro'yxati</div>
+
+<div class="card">
+  <h2>Navbat</h2>
+  <div id="pendingList"><div class="empty">Yuklanmoqda...</div></div>
+</div>
+
+<div class="card hidden" id="detailCard">
+  <h2 id="detailTitle">—</h2>
+  <div class="summary" id="summaryBox"></div>
+
+  <div id="lrSection">
+    <h3 style="font-size:.92em; color:var(--muted)">🎧📖 Listening / Reading javoblari</h3>
+    <div id="lrList"></div>
+  </div>
+
+  <div id="essaySection" style="margin-top:16px">
+    <h3 style="font-size:.92em; color:var(--muted)">✍️ Writing insholari</h3>
+    <div id="essayList"></div>
+  </div>
+
+  <div class="card" style="background:var(--bg); border-color:var(--accent); margin-top:18px">
+    <h2>Yakuniy ballarni kiritish</h2>
+    <div id="scoreFields"></div>
+    <label>Izoh (ixtiyoriy)</label>
+    <textarea id="notesInput" placeholder="Masalan: Writing'da grammatik xatolar ko'p"></textarea>
+    <button id="finalizeBtn" style="margin-top:12px; width:100%">Yakunlash va natijani chiqarish</button>
+    <div id="finalizeMsg" class="msg"></div>
+  </div>
+</div>
+
+<script>
+const IS_DEBUG_USER_ID = new URLSearchParams(location.search).get("user_id");
+
+function authHeaders(){
+  const h = {"Content-Type":"application/json"};
+  try{ const initData = window.Telegram?.WebApp?.initData || ""; if (initData) h["X-Telegram-Init-Data"] = initData; }catch(e){}
+  return h;
+}
+function withDebug(url){
+  if (IS_DEBUG_USER_ID && !(window.Telegram?.WebApp?.initData)) {
+    return url + (url.includes("?") ? "&" : "?") + "user_id=" + IS_DEBUG_USER_ID;
+  }
+  return url;
+}
+async function api(path, opts={}){
+  const res = await fetch(withDebug(path), {headers: authHeaders(), ...opts});
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+  return data;
+}
+
+let currentAttempt = null;
+let examTypesCache = null;
+
+async function loadPending(){
+  const box = document.getElementById("pendingList");
+  try{
+    const data = await api("/api/admin/mock/pending");
+    if (!data.pending.length){
+      box.innerHTML = `<div class="empty">Hozircha tekshirilishi kerak bo'lgan urinish yo'q 🎉</div>`;
+      return;
+    }
+    box.innerHTML = data.pending.map(p => `
+      <div class="pending-item" data-id="${p.id}">
+        <div>
+          <b>${p.ismlar || p.talaba_kod}</b>
+          <span class="badge">${p.exam_key}</span>
+          <div class="sub" style="margin:4px 0 0">${p.test_title} · ${p.sinf || ''}</div>
+        </div>
+        <div style="color:var(--muted); font-size:.78em">${new Date(p.submitted_at).toLocaleString("uz-UZ")}</div>
+      </div>
+    `).join("");
+    box.querySelectorAll(".pending-item").forEach(el => {
+      el.onclick = () => selectAttempt(parseInt(el.dataset.id));
+    });
+  }catch(e){
+    box.innerHTML = `<div class="empty">Xato: ${e.message}</div>`;
+  }
+}
+
+async function loadExamTypes(){
+  if (examTypesCache) return examTypesCache;
+  const data = await api("/api/admin/mock/exam-types");
+  examTypesCache = data.exam_types || [];
+  return examTypesCache;
+}
+
+async function selectAttempt(id){
+  document.querySelectorAll(".pending-item").forEach(el => {
+    el.classList.toggle("active", parseInt(el.dataset.id) === id);
+  });
+  try{
+    const data = await api("/api/admin/mock/attempt/" + id);
+    currentAttempt = data.attempt;
+    await renderDetail();
+  }catch(e){
+    alert("Xato: " + e.message);
+  }
+}
+
+function fmtAnswer(q, side){
+  // side: 'student' yoki 'correct'
+  const val = side === "student" ? q.student_answer : q.correct_answer;
+  if (val === null || val === undefined) return "<i>javob yo'q</i>";
+
+  if (q.question_type === "mcq" || q.question_type === "true_false"){
+    const opts = q.content.options || [];
+    const idxs = side === "student" ? (Array.isArray(val) ? val : [val]) : (val.correct || []);
+    return idxs.map(i => opts[i] ?? i).join(", ") || "<i>tanlanmagan</i>";
+  }
+  if (q.question_type === "fill_blank"){
+    if (side === "student") return (Array.isArray(val) ? val : []).join(" / ") || "<i>bo'sh</i>";
+    return (val.answers || []).map(a => a.join("|")).join("  ·  ");
+  }
+  if (q.question_type === "matching"){
+    const map = side === "student" ? val : (val.map || {});
+    return Object.entries(map || {}).map(([k,v]) => `${k}→${v}`).join(", ") || "<i>bo'sh</i>";
+  }
+  return JSON.stringify(val);
+}
+
+async function renderDetail(){
+  const a = currentAttempt;
+  document.getElementById("detailCard").classList.remove("hidden");
+  document.getElementById("detailTitle").textContent = `${a.ismlar || a.talaba_kod} — ${a.test_title} (${a.exam_key})`;
+
+  document.getElementById("summaryBox").innerHTML = `
+    <div class="box"><b>${a.listening_reading_summary.togri_javob}/${a.listening_reading_summary.jami_savol}</b>To'g'ri javob</div>
+    <div class="box"><b>${a.sinf || '—'}</b>Sinf</div>
+    <div class="box"><b>${a.talaba_kod}</b>Kod</div>
+  `;
+
+  const lrBox = document.getElementById("lrList");
+  if (!a.listening_reading.length){
+    lrBox.innerHTML = `<div class="empty">Listening/Reading savollari yo'q</div>`;
+  } else {
+    lrBox.innerHTML = a.listening_reading.map((q,i) => `
+      <div class="q-card ${q.is_correct ? 'correct' : 'wrong'}">
+        <div class="q-meta">${q.section_label} · ${q.question_type} · ${q.points} ball ${q.is_correct ? '✅' : '❌'}</div>
+        <div class="q-text">${i+1}. ${q.question_text}</div>
+        <div class="ans-line"><span class="lbl">Talaba javobi:</span> ${fmtAnswer(q,'student')}</div>
+        <div class="ans-line"><span class="lbl">To'g'ri javob:</span> ${fmtAnswer(q,'correct')}</div>
+      </div>
+    `).join("");
+  }
+
+  const essayBox = document.getElementById("essayList");
+  if (!a.essays.length){
+    essayBox.innerHTML = `<div class="empty">Writing topshirilmagan</div>`;
+  } else {
+    essayBox.innerHTML = a.essays.map(e => `
+      <div class="essay-box">
+        <div class="meta">${e.section_label} · ${e.word_count} so'z</div>
+        <div class="text">${(e.essay_text || '').replace(/</g,'&lt;')}</div>
+      </div>
+    `).join("");
+  }
+
+  await renderScoreFields(a.exam_key);
+}
+
+async function renderScoreFields(examKey){
+  const types = await loadExamTypes();
+  const et = types.find(t => t.exam_key === examKey);
+  const box = document.getElementById("scoreFields");
+
+  if (!et){
+    box.innerHTML = `<div class="empty">Imtihon turi topilmadi, ballarni qo'lda kiriting</div>
+      <label>Sections (JSON)</label>
+      <textarea id="rawSectionsInput" placeholder='{"listening": 7, "reading": 6.5}'></textarea>`;
+    return;
+  }
+
+  const sections = et.sections || [];
+  box.innerHTML = `
+    <div class="row">
+      ${sections.map(s => `
+        <div>
+          <label>${s.label} (max ${s.max_score})</label>
+          <input type="number" step="0.5" class="sectionScore" data-key="${s.section_key}" placeholder="0 - ${s.max_score}">
+        </div>
+      `).join("")}
+    </div>
+    ${et.has_level ? `
+      <label>Daraja (level)</label>
+      <select id="levelSelect">
+        ${(et.levels || "").split(",").map(l => `<option value="${l.trim()}">${l.trim()}</option>`).join("")}
+      </select>
+    ` : ""}
+  `;
+}
+
+document.getElementById("finalizeBtn").onclick = async () => {
+  const msg = document.getElementById("finalizeMsg");
+  const sectionInputs = [...document.querySelectorAll(".sectionScore")];
+  const sections = {};
+
+  if (sectionInputs.length){
+    let hasAny = false;
+    sectionInputs.forEach(inp => {
+      if (inp.value !== ""){ sections[inp.dataset.key] = parseFloat(inp.value); hasAny = true; }
+    });
+    if (!hasAny){ msg.textContent = "Kamida bitta bo'lim balli kiritilishi kerak"; msg.className = "msg err"; return; }
+  } else {
+    const raw = document.getElementById("rawSectionsInput")?.value.trim();
+    if (!raw){ msg.textContent = "Ballarni kiriting"; msg.className = "msg err"; return; }
+    try{ Object.assign(sections, JSON.parse(raw)); }
+    catch(e){ msg.textContent = "JSON formati noto'g'ri"; msg.className = "msg err"; return; }
+  }
+
+  const level_label = document.getElementById("levelSelect")?.value || null;
+  const notes = document.getElementById("notesInput").value.trim() || null;
+
+  try{
+    await api(`/api/admin/mock/attempt/${currentAttempt.id}/finalize`, {
+      method: "POST",
+      body: JSON.stringify({sections, level_label, notes}),
+    });
+    msg.textContent = "✅ Natija chiqarildi, talaba botdan ko'ra oladi"; msg.className = "msg ok";
+    setTimeout(() => {
+      document.getElementById("detailCard").classList.add("hidden");
+      currentAttempt = null;
+      loadPending();
+    }, 1200);
+  }catch(e){
+    msg.textContent = "Xato: " + e.message; msg.className = "msg err";
+  }
+};
+
+loadPending();
+</script>
+</body>
+</html>
