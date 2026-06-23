@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock Imtihon — Bosh sahifa</title>
+<link rel="stylesheet" href="/static/mock-style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <div class="name" id="studentName">—</div>
+      <div class="kod" id="studentKod">—</div>
+    </div>
+    <a class="linkbtn" id="logoutBtn" href="#">Chiqish</a>
+  </div>
+
+  <div class="card hidden" id="continueCard" style="display:none">
+    <h3 style="margin:0 0 10px; font-size:1em">⏱ Davom etayotgan mock</h3>
+    <div id="continueBody"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 12px; font-size:1em">📋 Mavjud mock testlar</h3>
+    <div id="testsList"><div class="spinner"></div></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 12px; font-size:1em">📜 Tarix</h3>
+    <div id="historyList"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<script>
+async function api(path, opts={}){
+  const res = await fetch(path, {headers:{"Content-Type":"application/json"}, ...opts});
+  if (res.status === 401){ location.href = "/mock"; throw new Error("Unauthorized"); }
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || "Server xatosi");
+  return data;
+}
+
+const STATUS_LABELS = {
+  in_progress: '<span class="badge amber">Davom etmoqda</span>',
+  submitted:   '<span class="badge muted">Tekshirilmoqda</span>',
+  reviewed:    '<span class="badge muted">Tekshirildi</span>',
+  released:    '<span class="badge green">Natija tayyor</span>',
+};
+
+async function init(){
+  try{
+    const me = await api("/api/mock/me");
+    document.getElementById("studentName").textContent = me.student.ismlar || me.student.kod;
+    document.getElementById("studentKod").textContent = me.student.kod + (me.student.sinf ? " · " + me.student.sinf : "");
+  }catch(e){ return; }
+
+  loadTests();
+  loadHistory();
+}
+
+async function loadTests(){
+  const box = document.getElementById("testsList");
+  try{
+    const data = await api("/api/mock/tests");
+    if (!data.tests.length){
+      box.innerHTML = `<div class="empty">Hozircha aktiv mock test yo'q</div>`;
+      return;
+    }
+    box.innerHTML = data.tests.map(t => `
+      <div class="test-item" data-id="${t.id}">
+        <div>
+          <b>${t.title}</b>
+          <span class="badge">${t.exam_key}</span>
+          <div class="sub" style="margin:4px 0 0">${t.duration_minutes} daqiqa · ${t.sections_count} bo'lim</div>
+        </div>
+        <button class="wauto" style="padding:8px 14px">Boshlash</button>
+      </div>
+    `).join("");
+    box.querySelectorAll(".test-item").forEach(el => {
+      el.querySelector("button").onclick = () => startTest(parseInt(el.dataset.id));
+    });
+  }catch(e){
+    box.innerHTML = `<div class="empty">Xato: ${e.message}</div>`;
+  }
+}
+
+async function startTest(testId){
+  try{
+    const data = await api("/api/mock/attempt/start", {
+      method:"POST", body: JSON.stringify({test_id: testId}),
+    });
+    location.href = "/mock/test?attempt_id=" + data.attempt_id;
+  }catch(e){
+    alert("Xato: " + e.message);
+  }
+}
+
+async function loadHistory(){
+  const box = document.getElementById("historyList");
+  const contCard = document.getElementById("continueCard");
+  const contBody = document.getElementById("continueBody");
+  try{
+    const data = await api("/api/mock/my-attempts");
+    const inProgress = data.attempts.filter(a => a.status === "in_progress");
+    const rest = data.attempts.filter(a => a.status !== "in_progress");
+
+    if (inProgress.length){
+      contCard.style.display = "block";
+      contBody.innerHTML = inProgress.map(a => `
+        <div class="test-item" data-id="${a.id}">
+          <div><b>${a.test_title}</b> <span class="badge">${a.exam_key}</span></div>
+          <button class="wauto" style="padding:8px 14px">Davom ettirish</button>
+        </div>
+      `).join("");
+      contBody.querySelectorAll(".test-item").forEach(el => {
+        el.querySelector("button").onclick = () => {
+          location.href = "/mock/test?attempt_id=" + el.dataset.id;
+        };
+      });
+    }
+
+    if (!rest.length){
+      box.innerHTML = `<div class="empty">Tarix bo'sh</div>`;
+      return;
+    }
+    box.innerHTML = rest.map(a => `
+      <div class="test-item" style="cursor:default">
+        <div>
+          <b>${a.test_title}</b> <span class="badge">${a.exam_key}</span>
+          <div class="sub" style="margin:4px 0 0">${new Date(a.submitted_at || a.started_at).toLocaleDateString("uz-UZ")}</div>
+        </div>
+        ${STATUS_LABELS[a.status] || ""}
+      </div>
+    `).join("");
+  }catch(e){
+    box.innerHTML = `<div class="empty">Xato: ${e.message}</div>`;
+  }
+}
+
+document.getElementById("logoutBtn").onclick = async (e) => {
+  e.preventDefault();
+  await fetch("/api/mock/logout", {method:"POST"});
+  location.href = "/mock";
+};
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock Imtihon — Kirish</title>
+<link rel="stylesheet" href="/static/mock-style.css">
+</head>
+<body>
+<div class="wrap" style="padding-top:60px">
+  <div class="center" style="margin-bottom:24px">
+    <div style="font-size:2.4em">🎯</div>
+    <h1>Mock Imtihon</h1>
+    <div class="sub">IELTS / CEFR — Bo'stonliq tuman ixtisoslashtirilgan maktabi</div>
+  </div>
+
+  <div class="card">
+    <label>Shaxsiy kodingizni kiriting</label>
+    <input id="kodInput" placeholder="Masalan: SS001" autocomplete="off" autocapitalize="characters">
+    <button id="loginBtn" style="margin-top:14px">Kirish</button>
+    <div id="loginMsg" class="msg"></div>
+  </div>
+
+  <div class="sub center">Kodingizni bilmasangiz, maktab adminstratsiyasiga yoki Telegram botga murojaat qiling</div>
+</div>
+
+<script>
+const input = document.getElementById("kodInput");
+const btn = document.getElementById("loginBtn");
+const msg = document.getElementById("loginMsg");
+
+async function doLogin(){
+  const kod = input.value.trim();
+  if (!kod){ msg.textContent = "Kodni kiriting"; msg.className = "msg err"; return; }
+  btn.disabled = true; btn.textContent = "Tekshirilmoqda...";
+  try{
+    const res = await fetch("/api/mock/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({kod}),
+    });
+    const data = await res.json();
+    if (!res.ok){
+      msg.textContent = data.error || "Xato yuz berdi";
+      msg.className = "msg err";
+      btn.disabled = false; btn.textContent = "Kirish";
+      return;
+    }
+    location.href = "/mock/home";
+  }catch(e){
+    msg.textContent = "Server bilan bog'lanishda xato";
+    msg.className = "msg err";
+    btn.disabled = false; btn.textContent = "Kirish";
+  }
+}
+
+btn.onclick = doLogin;
+input.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+input.addEventListener("input", () => { input.value = input.value.toUpperCase(); });
+</script>
+</body>
+</html>

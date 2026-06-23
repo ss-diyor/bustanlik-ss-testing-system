@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock Imtihon — Savollar boshqaruvi</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg:#0f1117; --card:#171a23; --card2:#1d2029; --border:#2a2e3a;
+    --text:#e7e9ee; --muted:#8b8fa3; --accent:#7c5cff; --accent2:#9b81ff;
+    --green:#3ddc84; --red:#ff5c7a; --amber:#ffb444;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,Segoe UI,Roboto,Inter,sans-serif;
+    padding:18px; padding-bottom:60px;
+  }
+  h1{font-size:1.25em; margin:0 0 4px;}
+  .sub{color:var(--muted); font-size:.85em; margin-bottom:18px;}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:16px; margin-bottom:16px;
+  }
+  .card h2{font-size:1em; margin:0 0 12px; display:flex; align-items:center; gap:8px;}
+  label{display:block; font-size:.78em; color:var(--muted); margin:10px 0 4px;}
+  input,select,textarea{
+    width:100%; background:var(--card2); border:1px solid var(--border);
+    color:var(--text); padding:9px 10px; border-radius:8px; font-size:.92em;
+    font-family:inherit;
+  }
+  textarea{resize:vertical; min-height:60px;}
+  button{
+    background:var(--accent); color:#fff; border:none; border-radius:8px;
+    padding:9px 14px; font-size:.88em; cursor:pointer; font-weight:600;
+  }
+  button:hover{background:var(--accent2);}
+  button.secondary{background:var(--card2); border:1px solid var(--border); color:var(--text);}
+  button.danger{background:transparent; color:var(--red); border:1px solid var(--red);}
+  button.small{padding:5px 10px; font-size:.78em;}
+  .row{display:flex; gap:10px; flex-wrap:wrap;}
+  .row>*{flex:1; min-width:120px;}
+  .test-item{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+    margin-bottom:8px; cursor:pointer; background:var(--card2);
+  }
+  .test-item:hover{border-color:var(--accent);}
+  .test-item.active{border-color:var(--accent); background:#221c3a;}
+  .badge{
+    font-size:.7em; padding:2px 8px; border-radius:20px; background:var(--accent);
+    color:#fff; margin-left:6px;
+  }
+  .badge.muted{background:var(--border); color:var(--muted);}
+  .tabs{display:flex; gap:6px; margin-bottom:14px;}
+  .tab{
+    padding:7px 14px; border-radius:8px; background:var(--card2); cursor:pointer;
+    font-size:.85em; border:1px solid var(--border);
+  }
+  .tab.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .q-item{
+    border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;
+    background:var(--card2);
+  }
+  .q-item .qtype{font-size:.7em; color:var(--accent2); text-transform:uppercase; font-weight:700;}
+  .q-item .qtext{margin:4px 0; font-size:.92em;}
+  .opt-row{display:flex; gap:8px; align-items:center; margin-bottom:6px;}
+  .opt-row input[type=text]{flex:1;}
+  .opt-row input[type=checkbox]{width:auto; flex:none;}
+  .hidden{display:none !important;}
+  .toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .empty{color:var(--muted); font-size:.85em; padding:8px 0;}
+  .msg{font-size:.82em; margin-top:8px;}
+  .msg.ok{color:var(--green);} .msg.err{color:var(--red);}
+  .blank-row{display:flex; gap:8px; align-items:center; margin-bottom:6px;}
+  .blank-row span{font-size:.8em; color:var(--muted); width:60px;}
+  .match-row{display:flex; gap:8px; align-items:center; margin-bottom:6px;}
+  .match-row span{flex:1; font-size:.88em;}
+  .match-row select{flex:1;}
+</style>
+</head>
+<body>
+
+<h1>🎯 Mock Imtihon — Savollar boshqaruvi</h1>
+<div class="sub">IELTS / CEFR uchun test, bo'lim va savollarni shu yerdan qo'shasiz</div>
+
+<!-- Yangi test yaratish -->
+<div class="card">
+  <h2>➕ Yangi mock test</h2>
+  <div class="row">
+    <div>
+      <label>Imtihon turi</label>
+      <select id="examTypeSelect"></select>
+    </div>
+    <div>
+      <label>Test nomi</label>
+      <input id="testTitleInput" placeholder="Masalan: IELTS Mock #1">
+    </div>
+    <div style="max-width:140px">
+      <label>Davomiyligi (daq)</label>
+      <input id="testDurationInput" type="number" value="60">
+    </div>
+  </div>
+  <button id="createTestBtn" style="margin-top:12px">Test yaratish</button>
+  <div id="createTestMsg" class="msg"></div>
+</div>
+
+<!-- Testlar ro'yxati -->
+<div class="card">
+  <h2>📋 Mavjud testlar</h2>
+  <div id="testsList"><div class="empty">Yuklanmoqda...</div></div>
+</div>
+
+<!-- Tanlangan test tafsiloti -->
+<div class="card hidden" id="testDetailCard">
+  <div class="toolbar">
+    <h2 id="testDetailTitle" style="margin:0">—</h2>
+    <div class="row" style="flex:none; gap:6px">
+      <button class="secondary small" id="toggleActiveBtn">Faollikni o'zgartirish</button>
+      <button class="danger small" id="deleteTestBtn">O'chirish</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab" data-key="listening">🎧 Listening</div>
+    <div class="tab" data-key="reading">📖 Reading</div>
+    <div class="tab" data-key="writing">✍️ Writing</div>
+  </div>
+
+  <div id="sectionArea"></div>
+</div>
+
+<script>
+const IS_DEBUG_USER_ID = new URLSearchParams(location.search).get("user_id");
+
+function authHeaders(){
+  const h = {"Content-Type":"application/json"};
+  try{
+    const initData = window.Telegram?.WebApp?.initData || "";
+    if (initData) h["X-Telegram-Init-Data"] = initData;
+  }catch(e){}
+  return h;
+}
+function withDebug(url){
+  if (IS_DEBUG_USER_ID && !(window.Telegram?.WebApp?.initData)) {
+    return url + (url.includes("?") ? "&" : "?") + "user_id=" + IS_DEBUG_USER_ID;
+  }
+  return url;
+}
+async function api(path, opts={}){
+  const res = await fetch(withDebug(path), {
+    headers: authHeaders(),
+    ...opts,
+  });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+  return data;
+}
+
+let currentTest = null;
+let currentSectionKey = "listening";
+let sectionsCache = {}; // section_key -> section object (with questions) or null
+
+const SECTION_LABELS = {listening:"Listening", reading:"Reading", writing:"Writing"};
+
+// ─── Imtihon turlari ───
+async function loadExamTypes(){
+  try{
+    const data = await api("/api/admin/mock/exam-types");
+    const sel = document.getElementById("examTypeSelect");
+    sel.innerHTML = (data.exam_types || []).map(t =>
+      `<option value="${t.exam_key}">${t.label || t.exam_key}</option>`
+    ).join("") || `<option value="IELTS">IELTS</option><option value="CEFR">CEFR</option>`;
+  }catch(e){
+    document.getElementById("examTypeSelect").innerHTML =
+      `<option value="IELTS">IELTS</option><option value="CEFR">CEFR</option>`;
+  }
+}
+
+// ─── Test yaratish ───
+document.getElementById("createTestBtn").onclick = async () => {
+  const exam_key = document.getElementById("examTypeSelect").value;
+  const title = document.getElementById("testTitleInput").value.trim();
+  const duration_minutes = parseInt(document.getElementById("testDurationInput").value || "60");
+  const msg = document.getElementById("createTestMsg");
+  if (!title){ msg.textContent = "Test nomini kiriting"; msg.className="msg err"; return; }
+  try{
+    await api("/api/admin/mock/tests", {method:"POST", body: JSON.stringify({exam_key, title, duration_minutes})});
+    msg.textContent = "✅ Test yaratildi"; msg.className = "msg ok";
+    document.getElementById("testTitleInput").value = "";
+    loadTests();
+  }catch(e){
+    msg.textContent = "Xato: " + e.message; msg.className = "msg err";
+  }
+};
+
+// ─── Testlar ro'yxati ───
+async function loadTests(){
+  const box = document.getElementById("testsList");
+  try{
+    const data = await api("/api/admin/mock/tests");
+    if (!data.tests || !data.tests.length){
+      box.innerHTML = `<div class="empty">Hali test yaratilmagan</div>`;
+      return;
+    }
+    box.innerHTML = data.tests.map(t => `
+      <div class="test-item" data-id="${t.id}">
+        <div>
+          <b>${t.title}</b>
+          <span class="badge">${t.exam_key}</span>
+          <span class="badge muted">${t.duration_minutes} daq</span>
+          ${!t.is_active ? '<span class="badge muted">nofaol</span>' : ''}
+        </div>
+        <div style="color:var(--muted); font-size:.8em">#${t.id}</div>
+      </div>
+    `).join("");
+    box.querySelectorAll(".test-item").forEach(el => {
+      el.onclick = () => selectTest(parseInt(el.dataset.id));
+    });
+  }catch(e){
+    box.innerHTML = `<div class="empty">Xato: ${e.message}</div>`;
+  }
+}
+
+// ─── Test tanlash ───
+async function selectTest(id){
+  try{
+    const data = await api("/api/admin/mock/tests/" + id);
+    currentTest = data.test;
+    sectionsCache = {};
+    (currentTest.sections || []).forEach(s => { sectionsCache[s.section_key] = s; });
+
+    document.querySelectorAll(".test-item").forEach(el => {
+      el.classList.toggle("active", parseInt(el.dataset.id) === id);
+    });
+
+    document.getElementById("testDetailCard").classList.remove("hidden");
+    document.getElementById("testDetailTitle").textContent =
+      `${currentTest.title} (${currentTest.exam_key})`;
+
+    currentSectionKey = "listening";
+    renderTabs();
+    await renderSection(currentSectionKey);
+  }catch(e){
+    alert("Xato: " + e.message);
+  }
+}
+
+document.getElementById("toggleActiveBtn").onclick = async () => {
+  if (!currentTest) return;
+  await api("/api/admin/mock/tests/" + currentTest.id, {
+    method:"PUT", body: JSON.stringify({is_active: !currentTest.is_active})
+  });
+  loadTests();
+  selectTest(currentTest.id);
+};
+document.getElementById("deleteTestBtn").onclick = async () => {
+  if (!currentTest) return;
+  if (!confirm("Bu testni butunlay o'chirmoqchimisiz? Barcha savollar va urinishlar ham o'chadi.")) return;
+  await api("/api/admin/mock/tests/" + currentTest.id, {method:"DELETE"});
+  document.getElementById("testDetailCard").classList.add("hidden");
+  currentTest = null;
+  loadTests();
+};
+
+function renderTabs(){
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.classList.toggle("active", tab.dataset.key === currentSectionKey);
+    tab.onclick = () => { currentSectionKey = tab.dataset.key; renderTabs(); renderSection(currentSectionKey); };
+  });
+}
+
+// ─── Bo'lim render qilish ───
+async function renderSection(sectionKey){
+  const area = document.getElementById("sectionArea");
+  let section = sectionsCache[sectionKey];
+
+  // Agar bo'lim hali yo'q bo'lsa lekin id bor (faqat metadata cache) — to'liq olib kelish
+  if (section && !section.questions){
+    const data = await api("/api/admin/mock/sections/" + section.id);
+    section = data.section;
+    sectionsCache[sectionKey] = section;
+  }
+
+  if (!section){
+    area.innerHTML = renderCreateSectionForm(sectionKey);
+    bindCreateSectionForm(sectionKey);
+    return;
+  }
+
+  area.innerHTML = `
+    <div style="color:var(--muted); font-size:.82em; margin-bottom:10px">
+      ${section.instructions ? section.instructions : ''}
+      ${section.audio_url ? `<br>🔊 Audio: <a href="${section.audio_url}" target="_blank" style="color:var(--accent2)">${section.audio_url}</a>` : ''}
+    </div>
+    <div id="questionsList"></div>
+    <button class="secondary" id="addQuestionBtn" style="margin-top:8px">+ Savol qo'shish</button>
+    <div id="questionFormArea" style="margin-top:14px"></div>
+  `;
+
+  const qList = document.getElementById("questionsList");
+  if (!section.questions || !section.questions.length){
+    qList.innerHTML = `<div class="empty">Hali savol qo'shilmagan</div>`;
+  } else {
+    qList.innerHTML = section.questions.map((q, i) => `
+      <div class="q-item">
+        <div class="qtype">${q.question_type} · ${q.points} ball</div>
+        <div class="qtext">${i+1}. ${q.question_text}</div>
+        <button class="danger small" onclick="deleteQuestion(${q.id})">O'chirish</button>
+      </div>
+    `).join("");
+  }
+
+  document.getElementById("addQuestionBtn").onclick = () => {
+    document.getElementById("questionFormArea").innerHTML = renderQuestionForm();
+    bindQuestionForm(section.id);
+  };
+}
+
+function renderCreateSectionForm(sectionKey){
+  const label = SECTION_LABELS[sectionKey];
+  const isListening = sectionKey === "listening";
+  return `
+    <div class="empty" style="margin-bottom:10px">Bu test uchun "${label}" bo'limi hali yaratilmagan</div>
+    ${isListening ? `<label>Audio fayl URL (Cloudinary va h.k.)</label><input id="newSectionAudio" placeholder="https://...">` : ""}
+    <label>Ko'rsatma / instructions (talabaga ko'rinadi)</label>
+    <textarea id="newSectionInstructions" placeholder="Masalan: Listen to the recording and answer questions 1-10"></textarea>
+    <button id="createSectionBtn" style="margin-top:10px">"${label}" bo'limini yaratish</button>
+  `;
+}
+
+function bindCreateSectionForm(sectionKey){
+  document.getElementById("createSectionBtn").onclick = async () => {
+    const audio_url = document.getElementById("newSectionAudio")?.value.trim() || null;
+    const instructions = document.getElementById("newSectionInstructions").value.trim() || null;
+    const data = await api("/api/admin/mock/sections", {
+      method:"POST",
+      body: JSON.stringify({
+        test_id: currentTest.id, section_key: sectionKey,
+        label: SECTION_LABELS[sectionKey], audio_url, instructions,
+      }),
+    });
+    sectionsCache[sectionKey] = {id: data.id, section_key: sectionKey, audio_url, instructions, questions: []};
+    renderSection(sectionKey);
+  };
+}
+
+async function deleteQuestion(qid){
+  if (!confirm("Savolni o'chirmoqchimisiz?")) return;
+  await api("/api/admin/mock/questions/" + qid, {method:"DELETE"});
+  delete sectionsCache[currentSectionKey].questions;
+  renderSection(currentSectionKey);
+}
+
+// ─── Savol qo'shish formasi ───
+function renderQuestionForm(){
+  return `
+    <div class="card" style="background:var(--bg); border-color:var(--accent)">
+      <label>Savol turi</label>
+      <select id="qType">
+        <option value="mcq">Multiple Choice (bitta yoki bir nechta to'g'ri)</option>
+        <option value="true_false">True / False / Not Given</option>
+        <option value="fill_blank">Bo'sh joy to'ldirish</option>
+        <option value="matching">Moslashtirish (matching)</option>
+      </select>
+
+      <label>Savol matni / topshiriq</label>
+      <textarea id="qText" placeholder="Savol yoki topshiriq matnini yozing"></textarea>
+
+      <div id="qTypeFields"></div>
+
+      <label>Ball</label>
+      <input id="qPoints" type="number" step="0.5" value="1" style="max-width:120px">
+
+      <button id="saveQuestionBtn" style="margin-top:12px">Savolni saqlash</button>
+      <div id="qSaveMsg" class="msg"></div>
+    </div>
+  `;
+}
+
+function bindQuestionForm(sectionId){
+  const typeSelect = document.getElementById("qType");
+  const fieldsBox = document.getElementById("qTypeFields");
+
+  function renderFieldsFor(type){
+    if (type === "mcq"){
+      fieldsBox.innerHTML = `
+        <label>Variantlar (har biri yonidagi katakcha — to'g'ri javob)</label>
+        <div id="optRows"></div>
+        <button type="button" class="secondary small" id="addOptBtn">+ Variant qo'shish</button>
+      `;
+      const rows = document.getElementById("optRows");
+      const addRow = (val="") => {
+        const row = document.createElement("div");
+        row.className = "opt-row";
+        row.innerHTML = `<input type="checkbox" class="optCorrect"><input type="text" class="optText" value="${val}" placeholder="Variant matni"><button type="button" class="danger small" onclick="this.parentElement.remove()">×</button>`;
+        rows.appendChild(row);
+      };
+      addRow(); addRow(); addRow(); addRow();
+      document.getElementById("addOptBtn").onclick = () => addRow();
+    }
+
+    if (type === "true_false"){
+      fieldsBox.innerHTML = `
+        <label>To'g'ri javobni belgilang</label>
+        <div class="opt-row"><input type="radio" name="tfCorrect" value="0" checked><span>True</span></div>
+        <div class="opt-row"><input type="radio" name="tfCorrect" value="1"><span>False</span></div>
+        <div class="opt-row"><input type="radio" name="tfCorrect" value="2"><span>Not Given</span></div>
+      `;
+    }
+
+    if (type === "fill_blank"){
+      fieldsBox.innerHTML = `
+        <label>Bo'sh joylar soni</label>
+        <input id="blankCount" type="number" min="1" value="1" style="max-width:120px">
+        <div id="blankRows" style="margin-top:8px"></div>
+      `;
+      const renderBlankRows = () => {
+        const n = parseInt(document.getElementById("blankCount").value || "1");
+        const box = document.getElementById("blankRows");
+        box.innerHTML = "";
+        for (let i=0;i<n;i++){
+          const row = document.createElement("div");
+          row.className = "blank-row";
+          row.innerHTML = `<span>#${i+1}</span><input type="text" class="blankAns" placeholder="To'g'ri javob(lar), vergul bilan: cat, cats">`;
+          box.appendChild(row);
+        }
+      };
+      document.getElementById("blankCount").oninput = renderBlankRows;
+      renderBlankRows();
+    }
+
+    if (type === "matching"){
+      fieldsBox.innerHTML = `
+        <label>Elementlar (har bir qatorga bitta, masalan savol raqamlari)</label>
+        <textarea id="matchItems" placeholder="1&#10;2&#10;3"></textarea>
+        <label>Variantlar (har bir qatorga bitta)</label>
+        <textarea id="matchOptions" placeholder="A&#10;B&#10;C&#10;D"></textarea>
+        <button type="button" class="secondary small" id="buildMatchBtn" style="margin-top:8px">Mosliklarni belgilash</button>
+        <div id="matchRows" style="margin-top:10px"></div>
+      `;
+      document.getElementById("buildMatchBtn").onclick = () => {
+        const items = document.getElementById("matchItems").value.split("\n").map(s=>s.trim()).filter(Boolean);
+        const options = document.getElementById("matchOptions").value.split("\n").map(s=>s.trim()).filter(Boolean);
+        const box = document.getElementById("matchRows");
+        box.innerHTML = items.map(item => `
+          <div class="match-row" data-item="${item}">
+            <span>${item}</span>
+            <select class="matchSelect">${options.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>
+          </div>
+        `).join("");
+      };
+    }
+  }
+
+  typeSelect.onchange = () => renderFieldsFor(typeSelect.value);
+  renderFieldsFor(typeSelect.value);
+
+  document.getElementById("saveQuestionBtn").onclick = async () => {
+    const type = typeSelect.value;
+    const question_text = document.getElementById("qText").value.trim();
+    const points = parseFloat(document.getElementById("qPoints").value || "1");
+    const msg = document.getElementById("qSaveMsg");
+
+    if (!question_text){ msg.textContent = "Savol matnini kiriting"; msg.className="msg err"; return; }
+
+    let content = {}, correct_answer = {};
+
+    if (type === "mcq"){
+      const opts = [...document.querySelectorAll("#optRows .opt-row")];
+      const options = opts.map(r => r.querySelector(".optText").value.trim());
+      const correct = opts.map((r,i) => r.querySelector(".optCorrect").checked ? i : null).filter(i=>i!==null);
+      if (!options.length || !correct.length){ msg.textContent="Variantlar va to'g'ri javobni belgilang"; msg.className="msg err"; return; }
+      content = {options}; correct_answer = {correct};
+    }
+
+    if (type === "true_false"){
+      content = {options:["True","False","Not Given"]};
+      const checked = document.querySelector('input[name="tfCorrect"]:checked');
+      correct_answer = {correct:[parseInt(checked.value)]};
+    }
+
+    if (type === "fill_blank"){
+      const rows = [...document.querySelectorAll(".blankAns")];
+      const answers = rows.map(r => r.value.split(",").map(s=>s.trim()).filter(Boolean));
+      if (!answers.length || answers.some(a=>!a.length)){ msg.textContent="Har bir bo'sh joy uchun javob kiriting"; msg.className="msg err"; return; }
+      content = {blanks_count: answers.length}; correct_answer = {answers};
+    }
+
+    if (type === "matching"){
+      const items = document.getElementById("matchItems").value.split("\n").map(s=>s.trim()).filter(Boolean);
+      const options = document.getElementById("matchOptions").value.split("\n").map(s=>s.trim()).filter(Boolean);
+      const rows = [...document.querySelectorAll(".match-row")];
+      if (!rows.length){ msg.textContent = "Avval 'Mosliklarni belgilash' tugmasini bosing"; msg.className="msg err"; return; }
+      const map = {};
+      rows.forEach(r => { map[r.dataset.item] = r.querySelector(".matchSelect").value; });
+      content = {items, options}; correct_answer = {map};
+    }
+
+    try{
+      await api("/api/admin/mock/questions", {
+        method:"POST",
+        body: JSON.stringify({section_id: sectionId, question_type: type, question_text, content, correct_answer, points}),
+      });
+      msg.textContent = "✅ Savol qo'shildi"; msg.className = "msg ok";
+      delete sectionsCache[currentSectionKey].questions;
+      setTimeout(() => renderSection(currentSectionKey), 400);
+    }catch(e){
+      msg.textContent = "Xato: " + e.message; msg.className = "msg err";
+    }
+  };
+}
+
+// ─── Init ───
+loadExamTypes();
+loadTests();
+</script>
+</body>
+</html>

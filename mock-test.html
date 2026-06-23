@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock Imtihon</title>
+<link rel="stylesheet" href="/static/mock-style.css">
+<style>
+  .timer{
+    position:sticky; top:0; z-index:10; background:var(--card); border:1px solid var(--border);
+    border-radius:12px; padding:10px 16px; display:flex; justify-content:space-between;
+    align-items:center; margin-bottom:14px;
+  }
+  .timer.warn{border-color:var(--red); color:var(--red);}
+  .timer .t{font-size:1.3em; font-weight:700; font-family:monospace;}
+  .tabs{display:flex; gap:6px; margin-bottom:14px; overflow-x:auto;}
+  .tab{
+    padding:9px 16px; border-radius:9px; background:var(--card2); cursor:pointer;
+    font-size:.88em; border:1px solid var(--border); white-space:nowrap; flex:none;
+  }
+  .tab.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .tab .cnt{font-size:.78em; opacity:.8; margin-left:4px;}
+  .q-block{
+    border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:14px;
+    background:var(--card);
+  }
+  .q-num{color:var(--accent2); font-weight:700; font-size:.82em; margin-bottom:6px;}
+  .opt{
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px;
+    margin-bottom:6px; background:var(--card2); cursor:pointer; border:1px solid transparent;
+  }
+  .opt:hover{border-color:var(--accent);}
+  .opt input{width:auto; flex:none;}
+  .opt span{flex:1; font-size:.92em;}
+  .blank-line{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .blank-line span{color:var(--muted); font-size:.85em; width:24px;}
+  .match-line{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .match-line .item{flex:1; font-size:.92em;}
+  .match-line select{flex:1;}
+  audio{width:100%; margin-bottom:14px;}
+  .word-count{color:var(--muted); font-size:.8em; margin-top:6px; text-align:right;}
+  .save-dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); margin-left:6px; opacity:0; transition:opacity .3s;}
+  .save-dot.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="timer" id="timerBox">
+    <div id="testTitle">Yuklanmoqda...</div>
+    <div class="t" id="timeLeft">--:--</div>
+  </div>
+
+  <div id="blockedNotice" style="display:none" class="card center">
+    <div style="font-size:2em">✅</div>
+    <div>Bu mock allaqachon yuborilgan.</div>
+    <a class="linkbtn" href="/mock/home">← Bosh sahifaga qaytish</a>
+  </div>
+
+  <div id="mainArea" style="display:none">
+    <div class="tabs" id="tabsBox"></div>
+    <div id="sectionContent"><div class="spinner"></div></div>
+
+    <button id="submitBtn" style="margin-top:10px; background:var(--red)">Mockni yakunlab yuborish</button>
+  </div>
+
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const attemptId = parseInt(params.get("attempt_id"));
+let attemptInfo = null;
+let currentSectionId = null;
+let timerInterval = null;
+let saveTimers = {}; // questionId/sectionId -> timeout
+
+async function api(path, opts={}){
+  const res = await fetch(path, {headers:{"Content-Type":"application/json"}, ...opts});
+  if (res.status === 401){ location.href = "/mock"; throw new Error("Unauthorized"); }
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || "Server xatosi");
+  return data;
+}
+
+function fmtTime(sec){
+  const m = Math.floor(sec/60), s = sec%60;
+  return String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+}
+
+async function init(){
+  if (!attemptId){ location.href = "/mock/home"; return; }
+  try{
+    const data = await api("/api/mock/attempt/" + attemptId);
+    attemptInfo = data.attempt;
+  }catch(e){
+    document.getElementById("testTitle").textContent = "Xato: " + e.message;
+    return;
+  }
+
+  if (attemptInfo.status !== "in_progress"){
+    document.getElementById("blockedNotice").style.display = "block";
+    document.getElementById("timerBox").style.display = "none";
+    return;
+  }
+
+  document.getElementById("testTitle").textContent = attemptInfo.test_title + " (" + attemptInfo.exam_key + ")";
+  document.getElementById("mainArea").style.display = "block";
+
+  renderTabs();
+  startTimer(attemptInfo.remaining_seconds);
+
+  if (attemptInfo.sections.length){
+    selectSection(attemptInfo.sections[0].id);
+  }
+}
+
+function renderTabs(){
+  const box = document.getElementById("tabsBox");
+  const icons = {listening:"🎧", reading:"📖", writing:"✍️"};
+  box.innerHTML = attemptInfo.sections.map(s => `
+    <div class="tab" data-id="${s.id}">
+      ${icons[s.section_key] || ""} ${s.label}
+      <span class="cnt">${s.section_key === 'writing' ? '' : s.answered_count + '/' + s.questions_count}</span>
+    </div>
+  `).join("");
+  box.querySelectorAll(".tab").forEach(el => {
+    el.onclick = () => selectSection(parseInt(el.dataset.id));
+  });
+}
+
+function markActiveTab(){
+  document.querySelectorAll(".tab").forEach(el => {
+    el.classList.toggle("active", parseInt(el.dataset.id) === currentSectionId);
+  });
+}
+
+function startTimer(remaining){
+  let sec = remaining;
+  const box = document.getElementById("timerBox");
+  const el = document.getElementById("timeLeft");
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    sec--;
+    if (sec <= 0){
+      clearInterval(timerInterval);
+      el.textContent = "00:00";
+      autoSubmit();
+      return;
+    }
+    el.textContent = fmtTime(sec);
+    box.classList.toggle("warn", sec < 300);
+  }, 1000);
+  el.textContent = fmtTime(sec);
+}
+
+async function autoSubmit(){
+  alert("Vaqt tugadi. Mock avtomatik yuborildi.");
+  await doSubmit(true);
+}
+
+// ─── Bo'lim render qilish ───
+async function selectSection(sectionId){
+  currentSectionId = sectionId;
+  markActiveTab();
+  const box = document.getElementById("sectionContent");
+  box.innerHTML = `<div class="spinner"></div>`;
+  try{
+    const data = await api(`/api/mock/attempt/${attemptId}/section/${sectionId}`);
+    renderSection(data.section);
+  }catch(e){
+    box.innerHTML = `<div class="empty">Xato: ${e.message}</div>`;
+  }
+}
+
+function renderSection(section){
+  const box = document.getElementById("sectionContent");
+
+  if (section.section_key === "writing"){
+    box.innerHTML = `
+      ${section.instructions ? `<div class="card" style="padding:14px"><b>Topshiriq:</b><br>${section.instructions}</div>` : ""}
+      <div class="q-block">
+        <textarea id="essayText" placeholder="Insho matnini shu yerga yozing...">${section.essay_text || ""}</textarea>
+        <div class="word-count"><span id="wordCount">${section.word_count || 0}</span> so'z <span class="save-dot" id="saveDot"></span></div>
+      </div>
+    `;
+    const ta = document.getElementById("essayText");
+    ta.addEventListener("input", () => {
+      document.getElementById("wordCount").textContent = ta.value.trim().split(/\s+/).filter(Boolean).length;
+      clearTimeout(saveTimers["essay_" + section.id]);
+      saveTimers["essay_" + section.id] = setTimeout(() => saveEssay(section.id, ta.value), 1200);
+    });
+    return;
+  }
+
+  let html = "";
+  if (section.audio_url){
+    html += `<audio controls src="${section.audio_url}"></audio>`;
+  }
+  if (section.instructions){
+    html += `<div class="card" style="padding:14px"><b>Topshiriq:</b><br>${section.instructions}</div>`;
+  }
+
+  html += section.questions.map((q, i) => renderQuestion(q, i+1)).join("");
+  box.innerHTML = html;
+
+  section.questions.forEach(q => bindQuestion(q));
+}
+
+function renderQuestion(q, num){
+  const saved = q.student_answer;
+
+  if (q.question_type === "mcq"){
+    return `
+      <div class="q-block" data-qid="${q.question_id}" data-type="mcq">
+        <div class="q-num">${num}-savol · ${q.points} ball</div>
+        <div style="margin-bottom:10px">${q.question_text}</div>
+        ${q.content.options.map((opt, i) => `
+          <label class="opt">
+            <input type="checkbox" class="optChk" value="${i}" ${saved && saved.includes(i) ? "checked" : ""}>
+            <span>${opt}</span>
+          </label>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  if (q.question_type === "true_false"){
+    return `
+      <div class="q-block" data-qid="${q.question_id}" data-type="true_false">
+        <div class="q-num">${num}-savol · ${q.points} ball</div>
+        <div style="margin-bottom:10px">${q.question_text}</div>
+        ${["True","False","Not Given"].map((opt, i) => `
+          <label class="opt">
+            <input type="radio" name="tf_${q.question_id}" class="tfRadio" value="${i}" ${saved && saved[0]===i ? "checked" : ""}>
+            <span>${opt}</span>
+          </label>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  if (q.question_type === "fill_blank"){
+    const n = q.content.blanks_count || 1;
+    let blanks = "";
+    for (let i=0;i<n;i++){
+      const val = (saved && saved[i]) ? saved[i] : "";
+      blanks += `<div class="blank-line"><span>#${i+1}</span><input type="text" class="blankInput" value="${val}"></div>`;
+    }
+    return `
+      <div class="q-block" data-qid="${q.question_id}" data-type="fill_blank">
+        <div class="q-num">${num}-savol · ${q.points} ball</div>
+        <div style="margin-bottom:10px">${q.question_text}</div>
+        ${blanks}
+      </div>
+    `;
+  }
+
+  if (q.question_type === "matching"){
+    const map = saved || {};
+    return `
+      <div class="q-block" data-qid="${q.question_id}" data-type="matching">
+        <div class="q-num">${num}-savol · ${q.points} ball</div>
+        <div style="margin-bottom:10px">${q.question_text}</div>
+        ${q.content.items.map(item => `
+          <div class="match-line" data-item="${item}">
+            <div class="item">${item}</div>
+            <select class="matchSelect">
+              <option value="">— tanlang —</option>
+              ${q.content.options.map(o => `<option value="${o}" ${map[item]===o ? "selected":""}>${o}</option>`).join("")}
+            </select>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  return `<div class="q-block">Noma'lum savol turi</div>`;
+}
+
+function bindQuestion(q){
+  const block = document.querySelector(`.q-block[data-qid="${q.question_id}"]`);
+  if (!block) return;
+
+  const save = (answer) => {
+    clearTimeout(saveTimers["q_" + q.question_id]);
+    saveTimers["q_" + q.question_id] = setTimeout(() => saveAnswer(q.question_id, answer), 400);
+  };
+
+  if (q.question_type === "mcq"){
+    block.querySelectorAll(".optChk").forEach(chk => {
+      chk.onchange = () => {
+        const checked = [...block.querySelectorAll(".optChk")]
+          .filter(c => c.checked).map(c => parseInt(c.value));
+        save(checked);
+      };
+    });
+  }
+
+  if (q.question_type === "true_false"){
+    block.querySelectorAll(".tfRadio").forEach(r => {
+      r.onchange = () => save([parseInt(r.value)]);
+    });
+  }
+
+  if (q.question_type === "fill_blank"){
+    block.querySelectorAll(".blankInput").forEach(inp => {
+      inp.oninput = () => {
+        const vals = [...block.querySelectorAll(".blankInput")].map(i => i.value);
+        save(vals);
+      };
+    });
+  }
+
+  if (q.question_type === "matching"){
+    block.querySelectorAll(".matchSelect").forEach(sel => {
+      sel.onchange = () => {
+        const map = {};
+        block.querySelectorAll(".match-line").forEach(line => {
+          const v = line.querySelector(".matchSelect").value;
+          if (v) map[line.dataset.item] = v;
+        });
+        save(map);
+      };
+    });
+  }
+}
+
+async function saveAnswer(questionId, answer){
+  try{
+    await api(`/api/mock/attempt/${attemptId}/answer`, {
+      method:"POST", body: JSON.stringify({question_id: questionId, answer}),
+    });
+    bumpAnsweredCount();
+  }catch(e){ /* jim saqlanadi, internet tiklanganda keyingi o'zgarishda qayta urinadi */ }
+}
+
+async function saveEssay(sectionId, text){
+  try{
+    await api(`/api/mock/attempt/${attemptId}/essay`, {
+      method:"POST", body: JSON.stringify({section_id: sectionId, text}),
+    });
+    const dot = document.getElementById("saveDot");
+    if (dot){ dot.classList.add("show"); setTimeout(()=>dot.classList.remove("show"), 800); }
+  }catch(e){}
+}
+
+function bumpAnsweredCount(){
+  // tab'dagi savol sonini darhol qayta hisoblamasdan, sahifa keyingi safar ochilganda yangilanadi
+}
+
+document.getElementById("submitBtn").onclick = () => {
+  if (!confirm("Mockni yakunlab yubormoqchimisiz? Yuborilgandan keyin javoblarni o'zgartira olmaysiz.")) return;
+  doSubmit(false);
+};
+
+async function doSubmit(silent){
+  try{
+    await api(`/api/mock/attempt/${attemptId}/submit`, {method:"POST"});
+    if (!silent) alert("Mock muvaffaqiyatli yuborildi. Natijalar tekshirilgandan keyin botda ko'rinadi.");
+    location.href = "/mock/home";
+  }catch(e){
+    alert("Xato: " + e.message);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
