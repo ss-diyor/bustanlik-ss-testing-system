@@ -535,6 +535,24 @@ def attempt_holat_ol(attempt_id: int):
     return dict(row) if row else None
 
 
+def attempt_meta(attempt_id: int):
+    """Natija yakunlash uchun kerakli minimal ma'lumot: talaba_kod, exam_key, status."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """
+        SELECT a.id, a.talaba_kod, a.status, mt.exam_key
+        FROM mock_attempts a
+        JOIN mock_tests mt ON mt.id = a.test_id
+        WHERE a.id=%s
+        """,
+        (attempt_id,),
+    )
+    row = cur.fetchone()
+    cur.close(); release_connection(conn)
+    return dict(row) if row else None
+
+
 def talaba_attemptlari(talaba_kod: str) -> list:
     """Talabaning barcha urinishlari (status bilan birga)."""
     conn = get_connection()
