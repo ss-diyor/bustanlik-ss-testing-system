@@ -20,8 +20,14 @@ STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 
 async def _require_admin(request: web.Request):
     """check_admin_role orqali tekshiradi, faqat 'admin' rolini qabul qiladi."""
-    from server import check_admin_role
-    role, _, error_resp = await check_admin_role(request)
+    try:
+        from server import check_admin_role
+        role, _, error_resp = await check_admin_role(request)
+    except Exception as e:
+        logging.error(f"_require_admin check_admin_role xatosi: {e}")
+        return None, web.json_response(
+            {"error": f"Admin tekshiruvida server xatosi: {e}"}, status=500
+        )
     if error_resp:
         return None, error_resp
     if role != "admin":
