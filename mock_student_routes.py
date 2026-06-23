@@ -21,15 +21,15 @@ SESSION_COOKIE = "mock_session"
 #
 # Bitta Railway ilovasi bir nechta domenga (asosiy bot webapp + mock.sultanov.space)
 # xizmat ko'rsatadi. Asosiy "/" route Telegram WebApp uchun mo'ljallangan va
-# initData talab qiladi. mock.sultanov.space orqali kirilganda esa, "/" ni
-# talaba login sahifasiga (/mock) yo'naltiramiz — asosiy domenning ishlashiga
-# tegmaymiz.
+# initData talab qiladi. mock.sultanov.space orqali kirilganda esa, "/" da
+# mustaqil bosh sahifa (mock-landing.html) ko'rsatiladi — asosiy domenning
+# ishlashiga tegmaymiz.
 
 @web.middleware
 async def mock_domain_redirect_middleware(request: web.Request, handler):
     host = request.host.split(":")[0].lower()
     if host.startswith("mock.") and request.path == "/":
-        raise web.HTTPFound("/mock")
+        return web.FileResponse(os.path.join(STATIC_DIR, "mock-landing.html"))
     return await handler(request)
 
 
