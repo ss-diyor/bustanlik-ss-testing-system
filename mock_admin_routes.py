@@ -19,10 +19,20 @@ STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 # ─────────────────────────────────────────
 
 async def _require_admin(request: web.Request):
-    """check_admin_role orqali tekshiradi, faqat 'admin' rolini qabul qiladi."""
+    """
+    check_admin_role orqali tekshiradi, faqat 'admin' rolini qabul qiladi.
+    check_admin_role funksiyasi server.py tomonidan app["check_admin_role"]
+    ichiga joylab qo'yiladi — 'from server import ...' ishlatilmaydi, chunki
+    server.py asosiy ishga tushirish fayli bo'lgani uchun u alohida modul
+    sifatida import qilinmaydi.
+    """
     try:
-        from server import check_admin_role
+        check_admin_role = request.app["check_admin_role"]
         role, _, error_resp = await check_admin_role(request)
+    except KeyError:
+        return None, web.json_response(
+            {"error": "Server sozlamasi xato: check_admin_role ulanmagan"}, status=500
+        )
     except Exception as e:
         logging.error(f"_require_admin check_admin_role xatosi: {e}")
         return None, web.json_response(
@@ -39,12 +49,15 @@ async def _require_admin(request: web.Request):
 
 async def _get_admin_user_id(request: web.Request) -> int:
     """check_admin_role bilan bir xil naqsh — Telegram user_id'ni qayta olib chiqadi."""
-    from server import validate_telegram_init_data
-    bot_token = request.app["bot_token"]
-    init_data = request.headers.get("X-Telegram-Init-Data", "")
-    user, _ = validate_telegram_init_data(init_data, bot_token)
-    if user:
-        return user.get("id", 0)
+    try:
+        validate_telegram_init_data = request.app["validate_telegram_init_data"]
+        bot_token = request.app["bot_token"]
+        init_data = request.headers.get("X-Telegram-Init-Data", "")
+        user, _ = validate_telegram_init_data(init_data, bot_token)
+        if user:
+            return user.get("id", 0)
+    except Exception as e:
+        logging.error(f"_get_admin_user_id xatosi: {e}")
     try:
         return int(request.rel_url.query.get("user_id", 0))
     except ValueError:
