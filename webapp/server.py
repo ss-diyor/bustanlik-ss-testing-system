@@ -1543,6 +1543,12 @@ def create_app(bot_token: str) -> web.Application:
     # CSS / JS / assets
     app.router.add_static("/static", STATIC_DIR)
 
+    # Mock imtihon — kerakli funksiyalarni app obyektiga ulaymiz
+    # ('from server import ...' server.py asosiy fayl bo'lgani uchun ishlamaydi —
+    # u __main__ deb yuklanadi, 'server' nomli modul sifatida emas)
+    app["check_admin_role"] = check_admin_role
+    app["validate_telegram_init_data"] = validate_telegram_init_data
+
     # Mock imtihon — savollar boshqaruvi (admin) va onlayn topshirish (talaba)
     register_mock_admin_routes(app)
     register_mock_student_routes(app)
