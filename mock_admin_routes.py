@@ -6,12 +6,25 @@ to'liq mos qilib yozilgan. Routes `create_app()` ichida ro'yxatdan o'tkaziladi.
 """
 
 import os
+import json
 import logging
 from aiohttp import web
+from aiohttp.web import json_response as _aiohttp_json_response
 
 import mock_exam_engine as engine
 
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _json(data, status=200):
+    """
+    web.json_response o'rnini bosadi — datetime kabi standart JSON encoder
+    tushunmaydigan obyektlarni avtomatik matnga o'tkazadi (masalan
+    mock_tests.created_at, mock_attempts.started_at va h.k.).
+    """
+    return _aiohttp_json_response(
+        data, status=status, dumps=lambda d: json.dumps(d, default=str)
+    )
 
 
 # ─────────────────────────────────────────
@@ -30,18 +43,18 @@ async def _require_admin(request: web.Request):
         check_admin_role = request.app["check_admin_role"]
         role, _, error_resp = await check_admin_role(request)
     except KeyError:
-        return None, web.json_response(
+        return None, _json(
             {"error": "Server sozlamasi xato: check_admin_role ulanmagan"}, status=500
         )
     except Exception as e:
         logging.error(f"_require_admin check_admin_role xatosi: {e}")
-        return None, web.json_response(
+        return None, _json(
             {"error": f"Admin tekshiruvida server xatosi: {e}"}, status=500
         )
     if error_resp:
         return None, error_resp
     if role != "admin":
-        return None, web.json_response(
+        return None, _json(
             {"error": "Faqat adminlar mock imtihonlarni boshqara oladi"}, status=403
         )
     return role, None
@@ -76,10 +89,10 @@ async def admin_mock_exam_types_api(request: web.Request) -> web.Response:
     from mock_database import exam_types_ol
     try:
         types = exam_types_ol(faqat_aktiv=False)
-        return web.json_response({"exam_types": types})
+        return _json({"exam_types": types})
     except Exception as e:
         logging.error(f"admin_mock_exam_types_api error: {e}")
-        return web.json_response({"error": "Server xatosi"}, status=500)
+        return _json({"error": "Server xatosi"}, status=500)
 
 
 # ─────────────────────────────────────────
@@ -97,7 +110,7 @@ async def admin_mock_tests_api(request: web.Request) -> web.Response:
         if method == "GET":
             exam_key = request.rel_url.query.get("exam_key")
             tests = engine.testlar_royhati(exam_key=exam_key, faqat_aktiv=False)
-            return web.json_response({"tests": tests})
+            return _json({"tests": tests})
 
         elif method == "POST":
             data = await request.json()
@@ -106,16 +119,16 @@ async def admin_mock_tests_api(request: web.Request) -> web.Response:
             duration_minutes = int(data.get("duration_minutes", 60))
 
             if not exam_key or not title:
-                return web.json_response(
+                return _json(
                     {"error": "exam_key va title majburiy"}, status=400
                 )
 
             test_id = engine.test_yarat(exam_key, title, duration_minutes)
-            return web.json_response({"success": True, "id": test_id})
+            return _json({"success": True, "id": test_id})
 
     except Exception as e:
         logging.error(f"admin_mock_tests_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 async def admin_mock_test_detail_api(request: web.Request) -> web.Response:
@@ -130,22 +143,22 @@ async def admin_mock_test_detail_api(request: web.Request) -> web.Response:
         if method == "GET":
             test = engine.test_ol(test_id)
             if not test:
-                return web.json_response({"error": "Test topilmadi"}, status=404)
-            return web.json_response({"test": test})
+                return _json({"error": "Test topilmadi"}, status=404)
+            return _json({"test": test})
 
         elif method == "PUT":
             data = await request.json()
             if "is_active" in data:
                 engine.test_faollik(test_id, bool(data["is_active"]))
-            return web.json_response({"success": True})
+            return _json({"success": True})
 
         elif method == "DELETE":
             ok = engine.test_ochir(test_id)
-            return web.json_response({"success": ok})
+            return _json({"success": ok})
 
     except Exception as e:
         logging.error(f"admin_mock_test_detail_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 # ─────────────────────────────────────────
@@ -170,13 +183,13 @@ async def admin_mock_sections_api(request: web.Request) -> web.Response:
         section_id = engine.section_qosh(
             test_id, section_key, label, audio_url, instructions, sort_order
         )
-        return web.json_response({"success": True, "id": section_id})
+        return _json({"success": True, "id": section_id})
 
     except KeyError as e:
-        return web.json_response({"error": f"Maydon yetishmaydi: {e}"}, status=400)
+        return _json({"error": f"Maydon yetishmaydi: {e}"}, status=400)
     except Exception as e:
         logging.error(f"admin_mock_sections_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 async def admin_mock_section_detail_api(request: web.Request) -> web.Response:
@@ -189,12 +202,12 @@ async def admin_mock_section_detail_api(request: web.Request) -> web.Response:
     try:
         section = engine.section_ol(section_id)
         if not section:
-            return web.json_response({"error": "Bo'lim topilmadi"}, status=404)
+            return _json({"error": "Bo'lim topilmadi"}, status=404)
         section["questions"] = engine.savollar_ol(section_id, include_answers=True)
-        return web.json_response({"section": section})
+        return _json({"section": section})
     except Exception as e:
         logging.error(f"admin_mock_section_detail_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 # ─────────────────────────────────────────
@@ -218,19 +231,19 @@ async def admin_mock_questions_api(request: web.Request) -> web.Response:
         sort_order = int(data.get("sort_order", 0))
 
         if question_type not in ("mcq", "true_false", "fill_blank", "matching"):
-            return web.json_response({"error": "Noma'lum savol turi"}, status=400)
+            return _json({"error": "Noma'lum savol turi"}, status=400)
 
         q_id = engine.savol_qosh(
             section_id, question_type, question_text,
             content, correct_answer, points, sort_order,
         )
-        return web.json_response({"success": True, "id": q_id})
+        return _json({"success": True, "id": q_id})
 
     except KeyError as e:
-        return web.json_response({"error": f"Maydon yetishmaydi: {e}"}, status=400)
+        return _json({"error": f"Maydon yetishmaydi: {e}"}, status=400)
     except Exception as e:
         logging.error(f"admin_mock_questions_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 async def admin_mock_question_detail_api(request: web.Request) -> web.Response:
@@ -252,15 +265,15 @@ async def admin_mock_question_detail_api(request: web.Request) -> web.Response:
                 points=data.get("points"),
                 sort_order=data.get("sort_order"),
             )
-            return web.json_response({"success": ok})
+            return _json({"success": ok})
 
         elif method == "DELETE":
             ok = engine.savol_ochir(question_id)
-            return web.json_response({"success": ok})
+            return _json({"success": ok})
 
     except Exception as e:
         logging.error(f"admin_mock_question_detail_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 # ─────────────────────────────────────────
@@ -275,10 +288,10 @@ async def admin_mock_pending_api(request: web.Request) -> web.Response:
 
     try:
         pending = engine.tekshirish_kutayotganlar()
-        return web.json_response({"pending": pending})
+        return _json({"pending": pending})
     except Exception as e:
         logging.error(f"admin_mock_pending_api error: {e}")
-        return web.json_response({"error": "Server xatosi"}, status=500)
+        return _json({"error": "Server xatosi"}, status=500)
 
 
 async def admin_mock_attempt_detail_api(request: web.Request) -> web.Response:
@@ -291,11 +304,11 @@ async def admin_mock_attempt_detail_api(request: web.Request) -> web.Response:
     try:
         detail = engine.attempt_tafsilot(attempt_id)
         if not detail:
-            return web.json_response({"error": "Urinish topilmadi"}, status=404)
-        return web.json_response({"attempt": detail})
+            return _json({"error": "Urinish topilmadi"}, status=404)
+        return _json({"attempt": detail})
     except Exception as e:
         logging.error(f"admin_mock_attempt_detail_api error: {e}")
-        return web.json_response({"error": "Server xatosi"}, status=500)
+        return _json({"error": "Server xatosi"}, status=500)
 
 
 async def admin_mock_attempt_finalize_api(request: web.Request) -> web.Response:
@@ -319,13 +332,13 @@ async def admin_mock_attempt_finalize_api(request: web.Request) -> web.Response:
         notes = data.get("notes") or None
 
         if not sections:
-            return web.json_response({"error": "Kamida bitta bo'lim balli kiritilishi kerak"}, status=400)
+            return _json({"error": "Kamida bitta bo'lim balli kiritilishi kerak"}, status=400)
 
         meta = engine.attempt_meta(attempt_id)
         if not meta:
-            return web.json_response({"error": "Urinish topilmadi"}, status=404)
+            return _json({"error": "Urinish topilmadi"}, status=404)
         if meta["status"] not in ("submitted", "reviewed"):
-            return web.json_response(
+            return _json(
                 {"error": "Bu urinish hali yuborilmagan yoki allaqachon yakunlangan"}, status=400
             )
 
@@ -342,11 +355,11 @@ async def admin_mock_attempt_finalize_api(request: web.Request) -> web.Response:
         )
         engine.attempt_natija_biriktir(attempt_id, natija_id, admin_id)
 
-        return web.json_response({"success": True, "natija_id": natija_id})
+        return _json({"success": True, "natija_id": natija_id})
 
     except Exception as e:
         logging.error(f"admin_mock_attempt_finalize_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 async def mock_admin_page_handler(request: web.Request) -> web.Response:
