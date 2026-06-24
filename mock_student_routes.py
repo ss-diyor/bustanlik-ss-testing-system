@@ -6,13 +6,22 @@ autentifikatsiya alohida — httpOnly cookie ichidagi sessiya tokeni orqali.
 """
 
 import os
+import json
 import logging
 from aiohttp import web
+from aiohttp.web import json_response as _aiohttp_json_response
 
 import mock_exam_engine as engine
 
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 SESSION_COOKIE = "mock_session"
+
+
+def _json(data, status=200):
+    """web.json_response o'rnini bosadi — datetime maydonlarini xavfsiz serialize qiladi."""
+    return _aiohttp_json_response(
+        data, status=status, dumps=lambda d: json.dumps(d, default=str)
+    )
 
 
 # ─────────────────────────────────────────
@@ -43,7 +52,7 @@ def _get_talaba_kod(request: web.Request):
 
 
 def _unauthorized():
-    return web.json_response({"error": "Sessiya tugagan, qaytadan kiring"}, status=401)
+    return _json({"error": "Sessiya tugagan, qaytadan kiring"}, status=401)
 
 
 # ─────────────────────────────────────────
@@ -56,16 +65,16 @@ async def mock_login_api(request: web.Request) -> web.Response:
         data = await request.json()
         kod = (data.get("kod") or "").strip()
     except Exception:
-        return web.json_response({"error": "Noto'g'ri so'rov"}, status=400)
+        return _json({"error": "Noto'g'ri so'rov"}, status=400)
 
     if not kod:
-        return web.json_response({"error": "Kodni kiriting"}, status=400)
+        return _json({"error": "Kodni kiriting"}, status=400)
 
     token, talaba = engine.talaba_login(kod)
     if not token:
-        return web.json_response({"error": "Kod topilmadi yoki faol emas"}, status=404)
+        return _json({"error": "Kod topilmadi yoki faol emas"}, status=404)
 
-    resp = web.json_response({"success": True, "student": talaba})
+    resp = _json({"success": True, "student": talaba})
     resp.set_cookie(
         SESSION_COOKIE, token,
         max_age=6 * 3600, httponly=True, samesite="Lax", secure=True,
@@ -77,7 +86,7 @@ async def mock_logout_api(request: web.Request) -> web.Response:
     token = request.cookies.get(SESSION_COOKIE)
     if token:
         engine.session_ochir(token)
-    resp = web.json_response({"success": True})
+    resp = _json({"success": True})
     resp.del_cookie(SESSION_COOKIE)
     return resp
 
@@ -101,7 +110,7 @@ async def mock_me_api(request: web.Request) -> web.Response:
     cur.close(); release_connection(conn)
     if not talaba:
         return _unauthorized()
-    return web.json_response({"student": dict(talaba)})
+    return _json({"student": dict(talaba)})
 
 
 # ─────────────────────────────────────────
@@ -116,10 +125,10 @@ async def mock_tests_api(request: web.Request) -> web.Response:
     exam_key = request.rel_url.query.get("exam_key")
     try:
         tests = engine.talaba_uchun_testlar(exam_key=exam_key)
-        return web.json_response({"tests": tests})
+        return _json({"tests": tests})
     except Exception as e:
         logging.error(f"mock_tests_api error: {e}")
-        return web.json_response({"error": "Server xatosi"}, status=500)
+        return _json({"error": "Server xatosi"}, status=500)
 
 
 async def mock_my_attempts_api(request: web.Request) -> web.Response:
@@ -128,10 +137,10 @@ async def mock_my_attempts_api(request: web.Request) -> web.Response:
         return _unauthorized()
     try:
         attempts = engine.talaba_attemptlari(talaba_kod)
-        return web.json_response({"attempts": attempts})
+        return _json({"attempts": attempts})
     except Exception as e:
         logging.error(f"mock_my_attempts_api error: {e}")
-        return web.json_response({"error": "Server xatosi"}, status=500)
+        return _json({"error": "Server xatosi"}, status=500)
 
 
 # ─────────────────────────────────────────
@@ -148,10 +157,10 @@ async def mock_attempt_start_api(request: web.Request) -> web.Response:
         data = await request.json()
         test_id = int(data["test_id"])
         attempt_id = engine.attempt_boshla(talaba_kod, test_id)
-        return web.json_response({"attempt_id": attempt_id})
+        return _json({"attempt_id": attempt_id})
     except Exception as e:
         logging.error(f"mock_attempt_start_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 async def mock_attempt_status_api(request: web.Request) -> web.Response:
@@ -164,11 +173,11 @@ async def mock_attempt_status_api(request: web.Request) -> web.Response:
     try:
         status = engine.attempt_umumiy_holat(attempt_id, talaba_kod)
         if not status:
-            return web.json_response({"error": "Urinish topilmadi"}, status=404)
-        return web.json_response({"attempt": status})
+            return _json({"error": "Urinish topilmadi"}, status=404)
+        return _json({"attempt": status})
     except Exception as e:
         logging.error(f"mock_attempt_status_api error: {e}")
-        return web.json_response({"error": "Server xatosi"}, status=500)
+        return _json({"error": "Server xatosi"}, status=500)
 
 
 async def mock_section_questions_api(request: web.Request) -> web.Response:
@@ -182,11 +191,11 @@ async def mock_section_questions_api(request: web.Request) -> web.Response:
     try:
         section = engine.section_savollari_talabaga(attempt_id, section_id, talaba_kod)
         if not section:
-            return web.json_response({"error": "Topilmadi"}, status=404)
-        return web.json_response({"section": section})
+            return _json({"error": "Topilmadi"}, status=404)
+        return _json({"section": section})
     except Exception as e:
         logging.error(f"mock_section_questions_api error: {e}")
-        return web.json_response({"error": "Server xatosi"}, status=500)
+        return _json({"error": "Server xatosi"}, status=500)
 
 
 # ─────────────────────────────────────────
@@ -209,10 +218,10 @@ async def mock_answer_save_api(request: web.Request) -> web.Response:
             # ok=False bo'lishi mumkin chunki javob noto'g'ri (normal holat),
             # shuning uchun bu yerda xato deb hisoblamaymiz — faqat saqlanganini tasdiqlaymiz
             pass
-        return web.json_response({"success": True})
+        return _json({"success": True})
     except Exception as e:
         logging.error(f"mock_answer_save_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 async def mock_essay_save_api(request: web.Request) -> web.Response:
@@ -227,10 +236,10 @@ async def mock_essay_save_api(request: web.Request) -> web.Response:
         section_id = int(data["section_id"])
         text = data.get("text", "")
         engine.essay_saqla(attempt_id, section_id, text, talaba_kod=talaba_kod)
-        return web.json_response({"success": True, "word_count": len(text.split())})
+        return _json({"success": True, "word_count": len(text.split())})
     except Exception as e:
         logging.error(f"mock_essay_save_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 async def mock_attempt_submit_api(request: web.Request) -> web.Response:
@@ -242,10 +251,10 @@ async def mock_attempt_submit_api(request: web.Request) -> web.Response:
     attempt_id = int(request.match_info["id"])
     try:
         ok = engine.attempt_yubor(attempt_id, talaba_kod=talaba_kod)
-        return web.json_response({"success": ok})
+        return _json({"success": ok})
     except Exception as e:
         logging.error(f"mock_attempt_submit_api error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return _json({"error": str(e)}, status=500)
 
 
 # ─────────────────────────────────────────
