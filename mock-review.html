@@ -67,6 +67,8 @@
     <div id="lrList"></div>
   </div>
 
+  <div id="customSection" style="margin-top:16px"></div>
+
   <div id="essaySection" style="margin-top:16px">
     <h3 style="font-size:.92em; color:var(--muted)">✍️ Writing insholari</h3>
     <div id="essayList"></div>
@@ -207,6 +209,37 @@ async function renderDetail(){
         <div class="meta">${e.section_label} · ${e.word_count} so'z</div>
         <div class="text">${(e.essay_text || '').replace(/</g,'&lt;')}</div>
       </div>
+    `).join("");
+  }
+
+  const customBox = document.getElementById("customSection");
+  if (!a.custom_sections || !a.custom_sections.length){
+    customBox.innerHTML = "";
+  } else {
+    customBox.innerHTML = a.custom_sections.map(cs => `
+      <h3 style="font-size:.92em; color:var(--muted)">
+        🧩 ${cs.section_label} (tayyor HTML sahifa)
+        ${cs.has_key ? `<span class="badge">${cs.summary.togri_javob}/${cs.summary.jami_savol} to'g'ri</span>` : `<span class="badge" style="background:var(--amber)">javob kaliti yo'q — qo'lda tekshiring</span>`}
+      </h3>
+      ${!cs.rows.length ? `<div class="empty">Talaba bu bo'limga hali javob bermagan</div>` : `
+        <div style="max-height:340px; overflow:auto; border:1px solid var(--border); border-radius:8px; margin-bottom:10px">
+          <table style="width:100%; font-size:.85em; border-collapse:collapse">
+            <thead style="background:var(--card2)">
+              <tr><th style="text-align:left; padding:6px 10px">Maydon</th><th style="text-align:left; padding:6px 10px">Talaba javobi</th><th style="text-align:left; padding:6px 10px">To'g'ri javob</th><th style="padding:6px 10px"></th></tr>
+            </thead>
+            <tbody>
+              ${cs.rows.map(r => `
+                <tr style="border-top:1px solid var(--border)">
+                  <td style="padding:6px 10px">${r.key}</td>
+                  <td style="padding:6px 10px">${r.student_answer ?? '<i>bo\\'sh</i>'}</td>
+                  <td style="padding:6px 10px">${r.correct_answer ?? '—'}</td>
+                  <td style="padding:6px 10px">${r.is_correct === null ? '' : (r.is_correct ? '✅' : '❌')}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `}
     `).join("");
   }
 
