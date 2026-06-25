@@ -118,6 +118,21 @@ def create_mock_exam_engine_tables(cursor=None):
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_sessions_kod ON mock_web_sessions(talaba_kod)")
 
+    # Tayyor HTML sahifa (masalan tayyor IELTS Listening/Reading/Writing varog'i) rejimi
+    cur.execute("ALTER TABLE mock_test_sections ADD COLUMN IF NOT EXISTS custom_html TEXT")
+    cur.execute("ALTER TABLE mock_test_sections ADD COLUMN IF NOT EXISTS custom_answer_key JSONB")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS mock_attempt_custom_answers (
+            id           SERIAL PRIMARY KEY,
+            attempt_id   INTEGER NOT NULL REFERENCES mock_attempts(id) ON DELETE CASCADE,
+            section_id   INTEGER NOT NULL REFERENCES mock_test_sections(id) ON DELETE CASCADE,
+            raw_answers  JSONB NOT NULL DEFAULT '{}',
+            updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (attempt_id, section_id)
+        )
+    """)
+
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_attempts_kod ON mock_attempts(talaba_kod)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_attempts_status ON mock_attempts(status)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_answers_attempt ON mock_attempt_answers(attempt_id)")
@@ -232,6 +247,91 @@ def section_ol(section_id: int):
     sec = cur.fetchone()
     cur.close(); release_connection(conn)
     return dict(sec) if sec else None
+
+
+def section_custom_html_saqla(section_id: int, html: str) -> bool:
+    """
+    Bo'lim uchun tayyor HTML sahifa (masalan tayyor IELTS Listening varog'i) o'rnatadi.
+    Bu o'rnatilgan bo'lsa, talaba shu sahifani ko'radi — qo'lda kiritilgan savollar
+    o'rniga. Yangi html yuklanganda eski javob kaliti (custom_answer_key) tozalanadi,
+    chunki u eski faylga tegishli edi.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE mock_test_sections SET custom_html=%s, custom_answer_key=NULL WHERE id=%s",
+        (html, section_id),
+    )
+    ok = cur.rowcount > 0
+    conn.commit()
+    cur.close(); release_connection(conn)
+    return ok
+
+
+def section_custom_html_ochir(section_id: int) -> bool:
+    """Tayyor HTML rejimini bekor qiladi — bo'lim qaytadan oddiy savol-javob rejimiga o'tadi."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE mock_test_sections SET custom_html=NULL, custom_answer_key=NULL WHERE id=%s",
+        (section_id,),
+    )
+    ok = cur.rowcount > 0
+    conn.commit()
+    cur.close(); release_connection(conn)
+    return ok
+
+
+def custom_javob_saqla(attempt_id: int, section_id: int, raw_answers: dict,
+                        correct_answers: dict = None, question_types: dict = None,
+                        talaba_kod: str = None) -> bool:
+    """
+    Tayyor HTML sahifadan "ko'prik" skript orqali yig'ilgan xom javoblarni saqlaydi.
+    Agar sahifa o'zining javob kalitini (correctAnswers/questionTypes) ham yuborsa va
+    bu bo'lim uchun hali hech qachon saqlanmagan bo'lsa, shuni bo'limga bir martalik
+    "javob kaliti" sifatida yozib qo'yamiz — shu orqali keyinchalik tekshirish
+    sahifasida avtomatik to'g'ri/noto'g'ri belgilash imkoni paydo bo'ladi.
+    """
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    if talaba_kod is not None:
+        cur.execute(
+            "SELECT id FROM mock_attempts WHERE id=%s AND talaba_kod=%s AND status='in_progress'",
+            (attempt_id, talaba_kod),
+        )
+        if not cur.fetchone():
+            cur.close(); release_connection(conn)
+            return False
+
+    cur2 = conn.cursor()
+    cur2.execute(
+        """
+        INSERT INTO mock_attempt_custom_answers (attempt_id, section_id, raw_answers)
+        VALUES (%s,%s,%s)
+        ON CONFLICT (attempt_id, section_id) DO UPDATE SET
+            raw_answers = EXCLUDED.raw_answers,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (attempt_id, section_id, json.dumps(raw_answers or {})),
+    )
+
+    if correct_answers:
+        cur.execute(
+            "SELECT custom_answer_key FROM mock_test_sections WHERE id=%s",
+            (section_id,),
+        )
+        row = cur.fetchone()
+        if row and not row["custom_answer_key"]:
+            key = {"correct_answers": correct_answers, "question_types": question_types or {}}
+            cur2.execute(
+                "UPDATE mock_test_sections SET custom_answer_key=%s WHERE id=%s",
+                (json.dumps(key), section_id),
+            )
+
+    conn.commit()
+    cur.close(); cur2.close(); release_connection(conn)
+    return True
 
 
 def sectionlar_ol(test_id: int) -> list:
@@ -380,6 +480,21 @@ def _javobni_tekshir(question_type: str, student_answer, correct_answer: dict) -
         return False
     except Exception:
         return False
+
+
+def _compare_custom_value(student_val, correct_val):
+    """
+    Tayyor HTML sahifadan yig'ilgan javobni (masalan q7: 'cats') o'zining
+    correctAnswers kalitidagi qiymat bilan solishtiradi. Bunday shablonlarda
+    ko'pincha javob yo'q savollar '???' bilan belgilanadi — ularni hisobga
+    olmaymiz (None qaytaradi, ya'ni "baholanmagan").
+    """
+    if correct_val is None or correct_val == "???":
+        return None
+    accepted = correct_val if isinstance(correct_val, list) else [correct_val]
+    if student_val is None or str(student_val).strip() == "":
+        return False
+    return str(student_val).strip().lower() in [str(a).strip().lower() for a in accepted]
 
 
 # ─── ATTEMPT (URINISH) ──────────────────────────────────────────
@@ -660,6 +775,54 @@ def attempt_tafsilot(attempt_id: int):
     )
     attempt["essays"] = [dict(r) for r in cur.fetchall()]
 
+    # Tayyor HTML bo'limlari (custom_html o'rnatilgan bo'limlar)
+    cur.execute(
+        """
+        SELECT s.id AS section_id, s.section_key, s.label AS section_label,
+               s.custom_answer_key, ca.raw_answers
+        FROM mock_test_sections s
+        LEFT JOIN mock_attempt_custom_answers ca
+               ON ca.section_id = s.id AND ca.attempt_id = %s
+        WHERE s.test_id = %s AND s.custom_html IS NOT NULL
+        ORDER BY s.sort_order
+        """,
+        (attempt_id, attempt["test_id"]),
+    )
+    custom_sections = []
+    for r in cur.fetchall():
+        d = dict(r)
+        for key in ("custom_answer_key", "raw_answers"):
+            if isinstance(d.get(key), str):
+                d[key] = json.loads(d[key])
+        raw_answers = d.get("raw_answers") or {}
+        key_data = d.get("custom_answer_key") or {}
+        correct_answers = key_data.get("correct_answers") or {}
+
+        all_keys = sorted(set(list(raw_answers.keys()) + list(correct_answers.keys())))
+        rows, correct_count, total_scored = [], 0, 0
+        for qk in all_keys:
+            student_val = raw_answers.get(qk)
+            correct_val = correct_answers.get(qk)
+            is_correct = _compare_custom_value(student_val, correct_val)
+            if is_correct is not None:
+                total_scored += 1
+                if is_correct:
+                    correct_count += 1
+            rows.append({
+                "key": qk, "student_answer": student_val,
+                "correct_answer": correct_val, "is_correct": is_correct,
+            })
+
+        custom_sections.append({
+            "section_id": d["section_id"],
+            "section_key": d["section_key"],
+            "section_label": d["section_label"],
+            "rows": rows,
+            "has_key": bool(correct_answers),
+            "summary": {"jami_savol": total_scored, "togri_javob": correct_count},
+        })
+    attempt["custom_sections"] = custom_sections
+
     cur.close(); release_connection(conn)
     return attempt
 
@@ -850,6 +1013,20 @@ def section_savollari_talabaga(attempt_id: int, section_id: int, talaba_kod: str
         cur.close(); release_connection(conn)
         return None
     section = dict(section)
+
+    if section.get("custom_html"):
+        cur.execute(
+            "SELECT raw_answers FROM mock_attempt_custom_answers WHERE attempt_id=%s AND section_id=%s",
+            (attempt_id, section_id),
+        )
+        existing = cur.fetchone()
+        section["is_custom"] = True
+        raw = (existing["raw_answers"] if existing else {}) or {}
+        if isinstance(raw, str):
+            raw = json.loads(raw)
+        section["raw_answers"] = raw
+        cur.close(); release_connection(conn)
+        return section
 
     if section["section_key"] == "writing":
         cur.execute(
