@@ -242,6 +242,38 @@ async def mock_essay_save_api(request: web.Request) -> web.Response:
         return _json({"error": str(e)}, status=500)
 
 
+async def mock_custom_answer_save_api(request: web.Request) -> web.Response:
+    """
+    POST { section_id, answers, correct_answers, question_types }
+
+    Tayyor HTML sahifa ichidagi "ko'prik" skriptdan keladi — talabaning sahifadagi
+    barcha input/select qiymatlarini xom holda saqlaydi. Agar sahifa o'z javob
+    kalitini ham yuborsa (correct_answers), bu bo'lim uchun birinchi marta
+    keladigan bo'lsa saqlanadi va keyinchalik tekshirish sahifasida avtomatik
+    to'g'ri/noto'g'ri belgilash uchun ishlatiladi.
+    """
+    talaba_kod = _get_talaba_kod(request)
+    if not talaba_kod:
+        return _unauthorized()
+
+    attempt_id = int(request.match_info["id"])
+    try:
+        data = await request.json()
+        section_id = int(data["section_id"])
+        answers = data.get("answers") or {}
+        correct_answers = data.get("correct_answers") or None
+        question_types = data.get("question_types") or None
+        ok = engine.custom_javob_saqla(
+            attempt_id, section_id, answers,
+            correct_answers=correct_answers, question_types=question_types,
+            talaba_kod=talaba_kod,
+        )
+        return _json({"success": ok})
+    except Exception as e:
+        logging.error(f"mock_custom_answer_save_api error: {e}")
+        return _json({"error": str(e)}, status=500)
+
+
 async def mock_attempt_submit_api(request: web.Request) -> web.Response:
     """POST -> mockni yakunlab yuboradi. Natija hali ko'rsatilmaydi."""
     talaba_kod = _get_talaba_kod(request)
@@ -295,6 +327,7 @@ def register_mock_student_routes(app: web.Application) -> None:
     )
     app.router.add_post("/api/mock/attempt/{id}/answer", mock_answer_save_api)
     app.router.add_post("/api/mock/attempt/{id}/essay", mock_essay_save_api)
+    app.router.add_post("/api/mock/attempt/{id}/custom-answer", mock_custom_answer_save_api)
     app.router.add_post("/api/mock/attempt/{id}/submit", mock_attempt_submit_api)
 
     app.router.add_get("/mock", mock_login_page)
