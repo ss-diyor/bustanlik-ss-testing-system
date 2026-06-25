@@ -210,6 +210,34 @@ async def admin_mock_section_detail_api(request: web.Request) -> web.Response:
         return _json({"error": str(e)}, status=500)
 
 
+async def admin_mock_section_custom_html_api(request: web.Request) -> web.Response:
+    """
+    POST { html } : bo'lim uchun tayyor HTML sahifa o'rnatadi (qo'lda savol
+    kiritish o'rniga). DELETE: tayyor HTML rejimini bekor qiladi.
+    """
+    _, error_resp = await _require_admin(request)
+    if error_resp:
+        return error_resp
+
+    section_id = int(request.match_info["id"])
+    try:
+        if request.method == "POST":
+            data = await request.json()
+            html = data.get("html", "").strip()
+            if not html:
+                return _json({"error": "HTML matni bo'sh"}, status=400)
+            ok = engine.section_custom_html_saqla(section_id, html)
+            return _json({"success": ok})
+
+        elif request.method == "DELETE":
+            ok = engine.section_custom_html_ochir(section_id)
+            return _json({"success": ok})
+
+    except Exception as e:
+        logging.error(f"admin_mock_section_custom_html_api error: {e}")
+        return _json({"error": str(e)}, status=500)
+
+
 # ─────────────────────────────────────────
 # Savollar (mock_test_questions)
 # ─────────────────────────────────────────
@@ -389,6 +417,8 @@ def register_mock_admin_routes(app: web.Application) -> None:
 
     app.router.add_post("/api/admin/mock/sections", admin_mock_sections_api)
     app.router.add_get("/api/admin/mock/sections/{id}", admin_mock_section_detail_api)
+    app.router.add_post("/api/admin/mock/sections/{id}/custom-html", admin_mock_section_custom_html_api)
+    app.router.add_delete("/api/admin/mock/sections/{id}/custom-html", admin_mock_section_custom_html_api)
 
     app.router.add_post("/api/admin/mock/questions", admin_mock_questions_api)
     app.router.add_put("/api/admin/mock/questions/{id}", admin_mock_question_detail_api)
