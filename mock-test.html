@@ -175,6 +175,11 @@ async function selectSection(sectionId){
 function renderSection(section){
   const box = document.getElementById("sectionContent");
 
+  if (section.is_custom){
+    renderCustomSection(section);
+    return;
+  }
+
   if (section.section_key === "writing"){
     box.innerHTML = `
       ${section.instructions ? `<div class="card" style="padding:14px"><b>Topshiriq:</b><br>${section.instructions}</div>` : ""}
@@ -348,10 +353,12 @@ function bumpAnsweredCount(){
   // tab'dagi savol sonini darhol qayta hisoblamasdan, sahifa keyingi safar ochilganda yangilanadi
 }
 
-document.getElementById("submitBtn").onclick = () => {
+document.getElementById("submitBtn").onclick = confirmAndSubmit;
+
+function confirmAndSubmit(){
   if (!confirm("Mockni yakunlab yubormoqchimisiz? Yuborilgandan keyin javoblarni o'zgartira olmaysiz.")) return;
   doSubmit(false);
-};
+}
 
 async function doSubmit(silent){
   try{
@@ -362,6 +369,97 @@ async function doSubmit(silent){
     alert("Xato: " + e.message);
   }
 }
+
+// ─── Tayyor HTML bo'lim (custom_html) ───
+let customIframeEl = null;
+let customSyncTimer = null;
+
+const BRIDGE_SCRIPT = `
+<script>
+(function(){
+  function harvest(){
+    var data = {};
+    document.querySelectorAll('input[name], textarea[name], select[name]').forEach(function(el){
+      if (el.type === 'radio' || el.type === 'checkbox'){
+        if (el.checked) data[el.name] = el.value;
+      } else {
+        data[el.name] = el.value;
+      }
+    });
+    return data;
+  }
+  function sync(){
+    try{
+      parent.postMessage({
+        type: 'mock_sync',
+        answers: harvest(),
+        correctAnswers: (typeof correctAnswers !== 'undefined') ? correctAnswers : null,
+        questionTypes: (typeof questionTypes !== 'undefined') ? questionTypes : null
+      }, '*');
+    }catch(e){}
+  }
+  document.addEventListener('input', sync, true);
+  document.addEventListener('change', sync, true);
+  window.addEventListener('load', sync);
+  setInterval(sync, 8000);
+
+  window.addEventListener('message', function(ev){
+    if (!ev.data || ev.data.type !== 'mock_prefill') return;
+    var answers = ev.data.answers || {};
+    Object.keys(answers).forEach(function(name){
+      var val = answers[name];
+      var radio = document.querySelector('input[name="' + name + '"][value="' + val + '"]');
+      if (radio){ radio.checked = true; return; }
+      var el = document.querySelector('[name="' + name + '"]');
+      if (el) el.value = val;
+    });
+  });
+
+  var btn = document.createElement('button');
+  btn.textContent = 'Yakunlab yuborish →';
+  btn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:999999;background:#2a4fd6;color:#fff;border:none;border-radius:10px;padding:14px 22px;font-weight:700;font-family:sans-serif;font-size:14px;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,.25)';
+  btn.onclick = function(){
+    sync();
+    parent.postMessage({type:'mock_request_submit'}, '*');
+  };
+  document.body.appendChild(btn);
+})();
+<\/script>
+`;
+
+function renderCustomSection(section){
+  const box = document.getElementById("sectionContent");
+  box.innerHTML = `<iframe id="customFrame" style="width:100%; min-height:75vh; border:none; border-radius:12px; background:#fff"></iframe>`;
+  const iframe = document.getElementById("customFrame");
+  customIframeEl = iframe;
+  iframe.addEventListener("load", () => {
+    if (section.raw_answers && Object.keys(section.raw_answers).length){
+      iframe.contentWindow.postMessage({type:"mock_prefill", answers: section.raw_answers}, "*");
+    }
+  });
+  iframe.srcdoc = section.custom_html + BRIDGE_SCRIPT;
+}
+
+window.addEventListener("message", (event) => {
+  if (!customIframeEl || event.source !== customIframeEl.contentWindow) return;
+  if (event.data?.type === "mock_sync"){
+    clearTimeout(customSyncTimer);
+    customSyncTimer = setTimeout(() => {
+      api(`/api/mock/attempt/${attemptId}/custom-answer`, {
+        method: "POST",
+        body: JSON.stringify({
+          section_id: currentSectionId,
+          answers: event.data.answers,
+          correct_answers: event.data.correctAnswers,
+          question_types: event.data.questionTypes,
+        }),
+      }).catch(() => {});
+    }, 500);
+  }
+  if (event.data?.type === "mock_request_submit"){
+    confirmAndSubmit();
+  }
+});
 
 init();
 </script>
