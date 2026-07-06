@@ -13,6 +13,7 @@ from database import (
     sinf_ol_batafsil,
     kalit_ol,
     oqituvchilar_hammasi,
+    get_setting,
 )
 
 
@@ -716,6 +717,14 @@ def user_menu_keyboard(
     if mini_test_enabled == "True":
         keyboard.append([KeyboardButton(text="📦 Mini-testlar")])
 
+    # Arxiv va Eksport (admin sozlamalari orqali yoqib/o'chiriladi)
+    # Eslatma: qolgan bayroqlardan farqli o'laroq, bu yerda sozlama
+    # to'g'ridan-to'g'ri o'zi tekshiriladi — chunki user_menu_keyboard()
+    # ko'plab joylarda chaqiriladi va har birini yangi parametr bilan
+    # yangilash o'rniga shu yerda markazlashtirilgan tekshiruv qulayroq.
+    if get_setting("export_enabled", "True") == "True":
+        keyboard.append([KeyboardButton(text="📦 Arxiv")])
+
     # QR-kod va Admin bilan bog'lanish
     qr_row = []
     if student_qr_enabled == "True":
@@ -904,6 +913,12 @@ def talaba_edit_options_keyboard(kod):
                 InlineKeyboardButton(
                     text="🎯 Yo'nalishni o'zgartirish",
                     callback_data=f"talaba_edit_yonalish:{kod}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📦 Natijalar arxivi (ZIP)",
+                    callback_data=f"talaba_arxiv:{kod}",
                 )
             ],
             [
@@ -1586,6 +1601,7 @@ def settings_keyboard(
     mini_test_enabled="True",
     payment_enabled="False",
     student_qr_enabled="True",
+    export_enabled="True",
 ):
     """Bot sozlamalari klaviaturasi."""
     ranking_text = (
@@ -1627,6 +1643,11 @@ def settings_keyboard(
         "✅ Mening QR-kodim (O'quvchi): Yoqilgan"
         if student_qr_enabled == "True"
         else "❌ Mening QR-kodim (O'quvchi): O'chirilgan"
+    )
+    export_text = (
+        "✅ Arxiv va Eksport (O'quvchi): Yoqilgan"
+        if export_enabled == "True"
+        else "❌ Arxiv va Eksport (O'quvchi): O'chirilgan"
     )
 
     return InlineKeyboardMarkup(
@@ -1677,6 +1698,12 @@ def settings_keyboard(
                 InlineKeyboardButton(
                     text=student_qr_text,
                     callback_data="toggle_setting:student_qr_enabled",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=export_text,
+                    callback_data="toggle_setting:export_enabled",
                 )
             ],
             [
