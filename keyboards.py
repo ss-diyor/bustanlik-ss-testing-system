@@ -31,6 +31,7 @@ def admin_menu_keyboard():
                 KeyboardButton(text="📥 Excel import"),
                 KeyboardButton(text="📄 Shablon yuklab olish"),
             ],
+            [KeyboardButton(text="📤 Mock eksport")],
             [KeyboardButton(text="⚙️ Mock fanlar boshqaruvi")],
             [KeyboardButton(text="✏️ O'quvchi ma'lumotlarini tahrirlash")],
             [KeyboardButton(text="🗑️ Bitta natijani o'chirish")],
