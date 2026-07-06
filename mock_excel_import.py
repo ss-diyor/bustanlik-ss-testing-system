@@ -54,6 +54,7 @@ SHEET_CONFIGS = {
             ("Writing",   "writing",   9.0),
             ("Speaking",  "speaking",  9.0),
         ],
+        "optional_sections": True,   # Bo'lim ballari ixtiyoriy
         "level_col":   "Daraja",
         "subject_col": None,
         "notes_col":   "Izoh",
@@ -67,6 +68,7 @@ SHEET_CONFIGS = {
             ("Writing",   "writing",   75.0),
             ("Speaking",  "speaking",  75.0),
         ],
+        "optional_sections": True,   # Bo'lim ballari ixtiyoriy
         "level_col":   "Daraja",
         "subject_col": None,
         "notes_col":   "Izoh",
@@ -88,7 +90,7 @@ SHEET_CONFIGS = {
         "section_cols": [
             ("Ball", "ball", 100.0),
         ],
-        "level_col":   None,
+        "level_col":   "Daraja",   # C, C+, B, B+, A, A+
         "subject_col": "Fan nomi",
         "notes_col":   "Izoh",
     },
@@ -230,14 +232,19 @@ def _parse_sheet(sheet, sheet_name: str) -> tuple[list[dict], list[str]]:
         if cfg["section_cols"] is not None:
             sections = {}
             skip = False
+            optional_secs = cfg.get("optional_sections", False)
             for (col_name, sec_key, max_val) in cfg["section_cols"]:
                 col_idx = _find_col(headers, col_name.split("(")[0].strip())
                 if col_idx is None:
-                    errors.append(f"[{sheet_name}] Qator {row_num}: '{col_name}' ustuni topilmadi")
-                    skip = True
+                    if not optional_secs:
+                        errors.append(f"[{sheet_name}] Qator {row_num}: '{col_name}' ustuni topilmadi")
+                        skip = True
                     break
                 val = _safe_float(row[col_idx] if col_idx < len(row) else None)
                 if val is None:
+                    # Ixtiyoriy bo'limlarda bo'sh qiymat — o'tkazib yuboriladi
+                    if optional_secs:
+                        continue
                     errors.append(f"[{sheet_name}] Qator {row_num}: '{col_name}' bo'sh yoki noto'g'ri ({row[col_idx] if col_idx < len(row) else '?'})")
                     skip = True
                     break
@@ -250,6 +257,11 @@ def _parse_sheet(sheet, sheet_name: str) -> tuple[list[dict], list[str]]:
                 sections[sec_key] = {"label": col_name, "value": val, "max": max_val}
             if skip:
                 continue
+            # optional_sections=True bo'lsa — Daraja kiritilgan bo'lsa sections bo'sh ham bo'lishi mumkin
+            if optional_secs and not sections:
+                # Level mavjudligini level_col dan tekshiramiz (hali o'qilmagan, keyinroq tekshiriladi)
+                # Bu qatorda hech qanday ball yo'q, lekin Daraja bor bo'lishi mumkin — davom etish
+                pass
         else:
             # BOSHQA — dinamik bo'limlar (Bo'lim 1 nomi / qiymati, Bo'lim 2 nomi / qiymati, ...)
             sections = {}
