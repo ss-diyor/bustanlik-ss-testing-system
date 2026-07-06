@@ -23,6 +23,7 @@ import email_import
 import mock_admin
 import mock_student
 import mock_excel_import
+import mock_excel_export
 import cert_admin
 import chatbot
 import group_commands
@@ -71,6 +72,7 @@ dp.include_router(email_import.router)
 dp.include_router(mock_admin.router)
 dp.include_router(mock_student.router)
 dp.include_router(mock_excel_import.router)
+dp.include_router(mock_excel_export.router)
 dp.include_router(otm_handler.router)
 dp.include_router(audit_log_admin.router)
 
