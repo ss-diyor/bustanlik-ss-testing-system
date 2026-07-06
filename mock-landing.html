@@ -316,9 +316,48 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
+
+  /* ── DEMO MARQUEE BANNER ── */
+  .demo-marquee {
+    position: relative; z-index: 51;
+    background: #fde68a;
+    color: #78350f;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    border-bottom: 1px solid #fcd34d;
+  }
+  .demo-marquee-track {
+    display: inline-block;
+    animation: demo-marquee-scroll 22s linear infinite;
+  }
+  .demo-marquee-track:hover { animation-play-state: paused; }
+  .demo-marquee-item {
+    margin-right: 64px;
+  }
+  .demo-marquee-item::before {
+    content: "⚠\FE0F  ";
+  }
+  @keyframes demo-marquee-scroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
 </style>
 </head>
 <body>
+
+<!-- ── DEMO MARQUEE BANNER ── -->
+<div class="demo-marquee" role="marquee" aria-label="Demo xabari">
+  <div class="demo-marquee-track">
+    <span class="demo-marquee-item">Saytda texnik ishlar davom etmoqda, saytdan foydalanib ko'rishingiz mumkin.</span>
+    <span class="demo-marquee-item">Saytda texnik ishlar davom etmoqda, saytdan foydalanib ko'rishingiz mumkin.</span>
+    <span class="demo-marquee-item">Saytda texnik ishlar davom etmoqda, saytdan foydalanib ko'rishingiz mumkin.</span>
+    <span class="demo-marquee-item">Saytda texnik ishlar davom etmoqda, saytdan foydalanib ko'rishingiz mumkin.</span>
+  </div>
+</div>
 
 <!-- ── NAV ── -->
 <nav>
@@ -448,7 +487,7 @@
       </div>
       <div>
         <div class="contact-label">Telegram Bot</div>
-        <div class="contact-value">Bustanlik SS Testing</div>
+        <div class="contact-value">Bustanlik SS Testing System</div>
         <div class="contact-sub">@BustanlikSStestingsystembot</div>
       </div>
     </a>
