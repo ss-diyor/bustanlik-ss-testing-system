@@ -3331,6 +3331,7 @@ async def settings_start(message: Message, state: FSMContext):
     mini_test_enabled = get_setting("mini_test_enabled", "True")
     payment_enabled = get_setting("payment_enabled", "False")
     student_qr_enabled = get_setting("student_qr_enabled", "True")
+    export_enabled = get_setting("export_enabled", "True")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
@@ -3341,13 +3342,14 @@ async def settings_start(message: Message, state: FSMContext):
         f"📝 Mashq qilish (Quiz): <b>{'✅ Yoqilgan' if quiz_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"🆔 Mening QR-kodim (O'quvchi): <b>{'✅ Yoqilgan' if student_qr_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"🆔 Mening QR-kodim (O'quvchi): <b>{'✅ Yoqilgan' if student_qr_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"📦 Arxiv va Eksport (O'quvchi): <b>{'✅ Yoqilgan' if export_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await message.answer(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled, student_qr_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled, student_qr_enabled, export_enabled),
     )
 
 
@@ -3376,6 +3378,7 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
     mini_test_enabled = get_setting("mini_test_enabled", "True")
     payment_enabled = get_setting("payment_enabled", "False")
     student_qr_enabled = get_setting("student_qr_enabled", "True")
+    export_enabled = get_setting("export_enabled", "True")
 
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
@@ -3386,13 +3389,14 @@ async def toggle_setting_handler(callback: CallbackQuery, state: FSMContext):
         f"📝 Mashq qilish (Quiz): <b>{'✅ Yoqilgan' if quiz_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"🆔 Mening QR-kodim (O'quvchi): <b>{'✅ Yoqilgan' if student_qr_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"🆔 Mening QR-kodim (O'quvchi): <b>{'✅ Yoqilgan' if student_qr_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"📦 Arxiv va Eksport (O'quvchi): <b>{'✅ Yoqilgan' if export_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled, student_qr_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled, student_qr_enabled, export_enabled),
     )
     await callback.answer("✅ Sozlama yangilandi")
 
@@ -3411,6 +3415,7 @@ async def payment_settings_back(callback: CallbackQuery, state: FSMContext):
     mini_test_enabled = get_setting("mini_test_enabled", "True")
     payment_enabled = get_setting("payment_enabled", "False")
     student_qr_enabled = get_setting("student_qr_enabled", "True")
+    export_enabled = get_setting("export_enabled", "True")
     text = (
         "⚙️ <b>Bot sozlamalari:</b>\n\n"
         f"🏆 Reyting (Top-50): <b>{'✅ Yoqilgan' if ranking_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
@@ -3420,13 +3425,14 @@ async def payment_settings_back(callback: CallbackQuery, state: FSMContext):
         f"📝 Mashq qilish (Quiz): <b>{'✅ Yoqilgan' if quiz_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"📦 Mini-testlar: <b>{'✅ Yoqilgan' if mini_test_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
         f"💳 Obuna to'lov tizimi: <b>{'✅ Yoqilgan' if payment_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
-        f"🆔 Mening QR-kodim (O'quvchi): <b>{'✅ Yoqilgan' if student_qr_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
+        f"🆔 Mening QR-kodim (O'quvchi): <b>{'✅ Yoqilgan' if student_qr_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n"
+        f"📦 Arxiv va Eksport (O'quvchi): <b>{'✅ Yoqilgan' if export_enabled == 'True' else '❌ O' + chr(39) + 'chirilgan'}</b>\n\n"
         "O'zgartirish uchun tugmalarni bosing:"
     )
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled, student_qr_enabled),
+        reply_markup=settings_keyboard(ranking_enabled, stats_enabled, chatbot_enabled, mock_enabled, quiz_enabled, mini_test_enabled, payment_enabled, student_qr_enabled, export_enabled),
     )
     await callback.answer()
 
