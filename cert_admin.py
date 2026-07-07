@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import os
 import io
+import base64
 
 from aiogram import Router, F, Bot
 from aiogram.types import (
@@ -379,25 +380,71 @@ async def cert_logo_upload_start(cb: CallbackQuery, state: FSMContext):
 
 def _save_logo_as_png(raw_bytes: bytes, logo_path: str) -> str:
     """
-    Rasmni PNG formatida saqlaydi.
+    Rasmni PNG formatida saqlaydi (diskka).
     Transparent (RGBA) fon saqlanadi — FPDF uchun RGB ga o'tkazilmaydi,
     chunki fpdf2 PNG transparency ni to'g'ri handle qiladi.
     Agar Pillow mavjud bo'lmasa, xom baytlarni to'g'ridan-to'g'ri yozadi.
     """
     try:
         from PIL import Image
-        import io
         img = Image.open(io.BytesIO(raw_bytes))
-        # RGBA yoki P (palette + transparency) ni to'g'ridan-to'g'ri saqlash
-        # fpdf2 PNG transparency ni qo'llab-quvvatlaydi
         if img.mode not in ("RGBA", "RGB", "L", "LA"):
             img = img.convert("RGBA")
         img.save(logo_path, format="PNG")
     except ImportError:
-        # Pillow yo'q — xom baytlarni yoz (agar original PNG bo'lsa)
         with open(logo_path, "wb") as f:
             f.write(raw_bytes)
     return logo_path
+
+
+def _save_logo_to_db_and_disk(raw_bytes: bytes) -> str:
+    """
+    Logoni ikki joyga saqlaydi:
+      1. Diskka (cert_assets/cert_logo.png) — joriy sessiya uchun
+      2. Database'ga base64 sifatida (cert_logo_base64) — deploy'dan keyin ham saqlanadi
+
+    Returns: disk logo_path
+    """
+    logo_dir = "cert_assets"
+    os.makedirs(logo_dir, exist_ok=True)
+    logo_path = os.path.join(logo_dir, "cert_logo.png")
+
+    # 1. Diskka saqlash
+    _save_logo_as_png(raw_bytes, logo_path)
+
+    # 2. Database'ga base64 sifatida saqlash (deploy'da yo'qolmaydi)
+    b64 = base64.b64encode(raw_bytes).decode("utf-8")
+    set_setting("cert_logo_base64", b64)
+    set_setting("cert_logo_path", logo_path)
+
+    return logo_path
+
+
+def restore_logo_from_db() -> str | None:
+    """
+    Agar disk'da logo yo'q bo'lsa, database'dagi base64 dan qayta tiklaydi.
+    certificate.py da ishlatish uchun.
+    Returns: logo_path yoki None
+    """
+    logo_path = get_setting("cert_logo_path", "")
+    if logo_path and os.path.exists(logo_path):
+        return logo_path  # Disk'da bor, qayta tiklash shart emas
+
+    b64 = get_setting("cert_logo_base64", "")
+    if not b64:
+        return None  # DB da ham yo'q
+
+    try:
+        raw_bytes = base64.b64decode(b64)
+        logo_dir = "cert_assets"
+        os.makedirs(logo_dir, exist_ok=True)
+        logo_path = os.path.join(logo_dir, "cert_logo.png")
+        with open(logo_path, "wb") as f:
+            f.write(raw_bytes)
+        set_setting("cert_logo_path", logo_path)
+        return logo_path
+    except Exception:
+        return None
 
 
 @router.message(CertSozlama.logo_kutish, F.photo)
@@ -406,25 +453,20 @@ async def cert_logo_received(message: Message, state: FSMContext, bot: Bot):
     if not await _admin_tekshir(state, message.from_user.id):
         return
 
-    logo_dir = "cert_assets"
-    os.makedirs(logo_dir, exist_ok=True)
-    logo_path = os.path.join(logo_dir, "cert_logo.png")
-
-    # Eng katta o'lchamdagi rasmni olish
     photo = message.photo[-1]
     file = await bot.get_file(photo.file_id)
-
-    import io
     buf = io.BytesIO()
     await bot.download_file(file.file_path, destination=buf)
-    _save_logo_as_png(buf.getvalue(), logo_path)
 
-    set_setting("cert_logo_path", logo_path)
+    # Diskka VA database'ga saqlash (deploy'dan keyin ham saqlanadi)
+    _save_logo_to_db_and_disk(buf.getvalue())
+
     await state.clear()
 
     s = _get_all_settings()
     await message.answer(
         "✅ Logo yuklandi va saqlandi!\n\n"
+        "🗄 <b>Database'ga ham saqlandi</b> — deploy'dan keyin ham yo'qolmaydi.\n\n"
         "⚠️ <i>Eslatma: Shaffof (transparent) logoni saqlash uchun rasmni "
         "<b>fayl sifatida</b> yuboring (📎 → Fayl), chunki Telegram oddiy "
         "rasm yuborganda transparency ni yo'qotadi.</i>\n\n" + _menu_text(s),
@@ -450,22 +492,19 @@ async def cert_logo_received_as_file(message: Message, state: FSMContext, bot: B
         )
         return
 
-    logo_dir = "cert_assets"
-    os.makedirs(logo_dir, exist_ok=True)
-    logo_path = os.path.join(logo_dir, "cert_logo.png")
-
-    import io
     file = await bot.get_file(doc.file_id)
     buf = io.BytesIO()
     await bot.download_file(file.file_path, destination=buf)
-    _save_logo_as_png(buf.getvalue(), logo_path)
 
-    set_setting("cert_logo_path", logo_path)
+    # Diskka VA database'ga saqlash (deploy'dan keyin ham saqlanadi)
+    _save_logo_to_db_and_disk(buf.getvalue())
+
     await state.clear()
 
     s = _get_all_settings()
     await message.answer(
-        "✅ Logo (fayl) yuklandi va saqlandi! Transparency saqlanadi.\n\n" + _menu_text(s),
+        "✅ Logo (fayl) yuklandi va saqlandi! Transparency saqlanadi.\n"
+        "🗄 <b>Database'ga ham saqlandi</b> — deploy'dan keyin ham yo'qolmaydi.\n\n" + _menu_text(s),
         parse_mode="HTML",
         reply_markup=_menu_keyboard(),
     )
