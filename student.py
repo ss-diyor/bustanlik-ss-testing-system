@@ -296,14 +296,30 @@ async def send_full_results(message: Message, kod: str):
     # Preview PNG yaratish
     preview_path = cert_gen.generate_preview(cert_path)
 
+    # Ulashish tugmasi uchun matn
+    _ball_val = natija.get("umumiy_ball", "")
+    share_text = (
+        f"🏆 Men Bo'stonliq ixtisoslashtirilgan maktabida "
+        f"{_ball_val} ball to'pladim! 📜 #BustanlikSS"
+    )
+    share_url = f"https://t.me/share/url?url=%20&text={share_text.replace(' ', '%20')}"
+    share_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="📤 Ulashish (Share)",
+            url=share_url,
+        )
+    ]])
+
     # Sertifikatni rasm (grafik) bilan birga yuborish
     try:
-        # 1. Sertifikat preview — rasm sifatida (Telegram'da to'g'ridan ko'rinadi)
+        # 1. Sertifikat preview — rasm sifatida + ulashish tugmasi
         if preview_path and os.path.exists(preview_path):
             await message.answer_photo(
                 FSInputFile(preview_path),
-                caption="📜 <b>Sertifikatingiz</b>\n\nPDF versiyasi quyida 👇",
+                caption="📜 <b>Sertifikatingiz</b>\n\nPDF versiyasi quyida 👇\n\n"
+                        "📤 <i>Sertifikatni do'stlaringiz bilan ulashing!</i>",
                 parse_mode="HTML",
+                reply_markup=share_keyboard,
             )
 
         # 2. Sertifikat PDF (yuklab olish uchun)
