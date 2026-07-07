@@ -123,6 +123,13 @@ class CertificateGenerator:
         PAGE_W, PAGE_H = 297, 210
 
         logo_path = s.get("cert_logo_path", "").strip()
+        # Agar disk'da yo'q bo'lsa, DB dan tiklash
+        if not logo_path or not os.path.exists(logo_path):
+            try:
+                from cert_admin import restore_logo_from_db
+                logo_path = restore_logo_from_db() or ""
+            except Exception:
+                logo_path = ""
         has_logo  = bool(logo_path and os.path.exists(logo_path))
         logo_h_mm = 40 if has_logo else 0
         logo_gap  = 6  if has_logo else 0
@@ -223,6 +230,13 @@ class CertificateGenerator:
                 pass
 
         logo_path = s.get("cert_logo_path", "").strip()
+        # Agar disk'da yo'q bo'lsa, DB dan tiklash
+        if not logo_path or not os.path.exists(logo_path):
+            try:
+                from cert_admin import restore_logo_from_db
+                logo_path = restore_logo_from_db() or ""
+            except Exception:
+                logo_path = ""
         has_logo  = bool(logo_path and os.path.exists(logo_path))
         logo_h_mm = 35 if has_logo else 0
         logo_gap  = 5  if has_logo else 0
