@@ -116,7 +116,10 @@ async function init(){
 
 function renderTabs(){
   const box = document.getElementById("tabsBox");
-  const icons = {listening:"🎧", reading:"📖", writing:"✍️"};
+  const icons = {
+    listening:"🎧", reading:"📖", writing:"✍️",
+    majburiy:"📘", asosiy_1:"📗", asosiy_2:"📙",
+  };
   box.innerHTML = attemptInfo.sections.map(s => `
     <div class="tab" data-id="${s.id}">
       ${icons[s.section_key] || ""} ${s.label}
@@ -215,13 +218,14 @@ function renderQuestion(q, num){
   const saved = q.student_answer;
 
   if (q.question_type === "mcq"){
+    const singleChoice = attemptInfo?.exam_key === "DTM_MOCK";
     return `
       <div class="q-block" data-qid="${q.question_id}" data-type="mcq">
         <div class="q-num">${num}-savol · ${q.points} ball</div>
         <div style="margin-bottom:10px">${q.question_text}</div>
         ${q.content.options.map((opt, i) => `
           <label class="opt">
-            <input type="checkbox" class="optChk" value="${i}" ${saved && saved.includes(i) ? "checked" : ""}>
+            <input type="${singleChoice ? "radio" : "checkbox"}" name="mcq_${q.question_id}" class="${singleChoice ? "optRadio" : "optChk"}" value="${i}" ${saved && saved.includes(i) ? "checked" : ""}>
             <span>${opt}</span>
           </label>
         `).join("")}
@@ -292,6 +296,9 @@ function bindQuestion(q){
   };
 
   if (q.question_type === "mcq"){
+    block.querySelectorAll(".optRadio").forEach(radio => {
+      radio.onchange = () => save([parseInt(radio.value)]);
+    });
     block.querySelectorAll(".optChk").forEach(chk => {
       chk.onchange = () => {
         const checked = [...block.querySelectorAll(".optChk")]
@@ -362,8 +369,18 @@ function confirmAndSubmit(){
 
 async function doSubmit(silent){
   try{
-    await api(`/api/mock/attempt/${attemptId}/submit`, {method:"POST"});
-    if (!silent) alert("Mock muvaffaqiyatli yuborildi. Natijalar tekshirilgandan keyin botda ko'rinadi.");
+    const data = await api(`/api/mock/attempt/${attemptId}/submit`, {method:"POST"});
+    if (data.result){
+      const s = data.result.sections || {};
+      alert(
+        `DTM natijangiz: ${data.result.umumiy_ball} / 189 ball\n\n` +
+        `Majburiy: ${s.majburiy?.value ?? 0}/30\n` +
+        `1-asosiy: ${s.asosiy_1?.value ?? 0}/30\n` +
+        `2-asosiy: ${s.asosiy_2?.value ?? 0}/30`
+      );
+    } else if (!silent){
+      alert("Mock muvaffaqiyatli yuborildi. Natijalar tekshirilgandan keyin botda ko'rinadi.");
+    }
     location.href = "/mock/home";
   }catch(e){
     alert("Xato: " + e.message);

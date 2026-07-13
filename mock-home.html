@@ -392,6 +392,7 @@ async function loadHistory(){
             <span class="badge">${a.exam_key}</span>
           </div>
           <div class="item-sub">${new Date(a.submitted_at || a.started_at).toLocaleDateString("uz-UZ")}</div>
+          ${a.umumiy_ball != null ? `<div class="item-sub" style="color:var(--blue);font-weight:700;margin-top:5px">${a.umumiy_ball}${a.exam_key === "DTM_MOCK" ? " / 189 ball" : " ball"}</div>` : ""}
         </div>
         ${STATUS_LABELS[a.status] || ""}
       </div>

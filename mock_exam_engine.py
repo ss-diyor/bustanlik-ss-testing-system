@@ -22,6 +22,12 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime, timedelta
 from database import get_connection, release_connection
+from dtm_scoring import (
+    DTM_EXAM_KEY,
+    DTM_SECTION_RULES,
+    dtm_ball_hisobla,
+    dtm_sections_natijasi,
+)
 
 
 # ─── JADVALLAR ─────────────────────────────────────────────────
@@ -147,11 +153,17 @@ def create_mock_exam_engine_tables(cursor=None):
 # ─── TEST CRUD ──────────────────────────────────────────────────
 
 def test_yarat(exam_key: str, title: str, duration_minutes: int = 60) -> int:
+    if duration_minutes <= 0:
+        raise ValueError("Imtihon davomiyligi 0 dan katta bo'lishi kerak")
     conn = get_connection()
     cur = conn.cursor()
+    is_active = exam_key != DTM_EXAM_KEY
     cur.execute(
-        "INSERT INTO mock_tests (exam_key, title, duration_minutes) VALUES (%s,%s,%s) RETURNING id",
-        (exam_key, title, duration_minutes),
+        """
+        INSERT INTO mock_tests (exam_key, title, duration_minutes, is_active)
+        VALUES (%s,%s,%s,%s) RETURNING id
+        """,
+        (exam_key, title, duration_minutes, is_active),
     )
     new_id = cur.fetchone()[0]
     conn.commit()
@@ -194,7 +206,49 @@ def test_ol(test_id: int):
     return test
 
 
+def dtm_test_tayyorligi(test_id: int) -> tuple[bool, str]:
+    """DTM testida aynan 30+30+30 savol va xavfsiz server savollari borligini tekshiradi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT exam_key FROM mock_tests WHERE id=%s", (test_id,))
+    test = cur.fetchone()
+    if not test:
+        cur.close(); release_connection(conn)
+        return False, "Test topilmadi"
+    if test["exam_key"] != DTM_EXAM_KEY:
+        cur.close(); release_connection(conn)
+        return True, "ok"
+
+    cur.execute(
+        """
+        SELECT s.section_key, s.custom_html, COUNT(q.id) AS questions_count
+        FROM mock_test_sections s
+        LEFT JOIN mock_test_questions q ON q.section_id=s.id
+        WHERE s.test_id=%s
+        GROUP BY s.id
+        """,
+        (test_id,),
+    )
+    sections = {r["section_key"]: dict(r) for r in cur.fetchall()}
+    cur.close(); release_connection(conn)
+
+    for key, rule in DTM_SECTION_RULES.items():
+        section = sections.get(key)
+        if not section:
+            return False, f"{rule['label']} bo'limi yaratilmagan"
+        if section.get("custom_html"):
+            return False, f"{rule['label']} uchun tayyor HTML ishlatib bo'lmaydi"
+        actual = int(section["questions_count"])
+        if actual != rule["questions"]:
+            return False, f"{rule['label']}: {rule['questions']} ta savol kerak, hozir {actual} ta"
+    return True, "ok"
+
+
 def test_faollik(test_id: int, aktiv: bool) -> bool:
+    if aktiv:
+        ready, message = dtm_test_tayyorligi(test_id)
+        if not ready:
+            raise ValueError(message)
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("UPDATE mock_tests SET is_active=%s WHERE id=%s", (aktiv, test_id))
@@ -297,8 +351,15 @@ def custom_javob_saqla(attempt_id: int, section_id: int, raw_answers: dict,
 
     if talaba_kod is not None:
         cur.execute(
-            "SELECT id FROM mock_attempts WHERE id=%s AND talaba_kod=%s AND status='in_progress'",
-            (attempt_id, talaba_kod),
+            """
+            SELECT a.id
+            FROM mock_attempts a
+            JOIN mock_tests mt ON mt.id=a.test_id
+            JOIN mock_test_sections s ON s.test_id=a.test_id AND s.id=%s
+            WHERE a.id=%s AND a.talaba_kod=%s AND a.status='in_progress'
+              AND a.started_at + mt.duration_minutes * INTERVAL '1 minute' > CURRENT_TIMESTAMP
+            """,
+            (section_id, attempt_id, talaba_kod),
         )
         if not cur.fetchone():
             cur.close(); release_connection(conn)
@@ -505,6 +566,13 @@ def attempt_boshla(talaba_kod: str, test_id: int) -> int:
     urinish bo'lsa, o'shani qaytaradi (qayta yaratmaydi) — sahifa qayta yuklansa
     ham talaba bir xil urinishda davom etadi.
     """
+    test = test_ol(test_id)
+    if not test or not test.get("is_active"):
+        raise ValueError("Bu test hozir faol emas")
+    ready, message = dtm_test_tayyorligi(test_id)
+    if not ready:
+        raise ValueError(message)
+
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -539,18 +607,18 @@ def javob_saqla(attempt_id: int, question_id: int, student_answer, talaba_kod: s
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    if talaba_kod is not None:
-        cur.execute(
-            "SELECT id FROM mock_attempts WHERE id=%s AND talaba_kod=%s AND status='in_progress'",
-            (attempt_id, talaba_kod),
-        )
-        if not cur.fetchone():
-            cur.close(); release_connection(conn)
-            return False
-
     cur.execute(
-        "SELECT question_type, correct_answer FROM mock_test_questions WHERE id=%s",
-        (question_id,),
+        """
+        SELECT q.question_type, q.correct_answer
+        FROM mock_test_questions q
+        JOIN mock_test_sections s ON s.id=q.section_id
+        JOIN mock_attempts a ON a.test_id=s.test_id
+        JOIN mock_tests mt ON mt.id=a.test_id
+        WHERE q.id=%s AND a.id=%s AND a.status='in_progress'
+          AND (%s IS NULL OR a.talaba_kod=%s)
+          AND a.started_at + mt.duration_minutes * INTERVAL '1 minute' > CURRENT_TIMESTAMP
+        """,
+        (question_id, attempt_id, talaba_kod, talaba_kod),
     )
     q = cur.fetchone()
     if not q:
@@ -587,8 +655,15 @@ def essay_saqla(attempt_id: int, section_id: int, essay_text: str, talaba_kod: s
     if talaba_kod is not None:
         cur0 = conn.cursor()
         cur0.execute(
-            "SELECT id FROM mock_attempts WHERE id=%s AND talaba_kod=%s AND status='in_progress'",
-            (attempt_id, talaba_kod),
+            """
+            SELECT a.id
+            FROM mock_attempts a
+            JOIN mock_tests mt ON mt.id=a.test_id
+            JOIN mock_test_sections s ON s.test_id=a.test_id AND s.id=%s
+            WHERE a.id=%s AND a.talaba_kod=%s AND a.status='in_progress'
+              AND a.started_at + mt.duration_minutes * INTERVAL '1 minute' > CURRENT_TIMESTAMP
+            """,
+            (section_id, attempt_id, talaba_kod),
         )
         owns = cur0.fetchone()
         cur0.close()
@@ -656,7 +731,7 @@ def attempt_meta(attempt_id: int):
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(
         """
-        SELECT a.id, a.talaba_kod, a.status, mt.exam_key
+        SELECT a.id, a.talaba_kod, a.status, a.mock_natija_id, mt.exam_key
         FROM mock_attempts a
         JOIN mock_tests mt ON mt.id = a.test_id
         WHERE a.id=%s
@@ -674,9 +749,11 @@ def talaba_attemptlari(talaba_kod: str) -> list:
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(
         """
-        SELECT a.*, mt.title AS test_title, mt.exam_key
+        SELECT a.*, mt.title AS test_title, mt.exam_key,
+               mn.umumiy_ball, mn.sections AS result_sections
         FROM mock_attempts a
         JOIN mock_tests mt ON mt.id = a.test_id
+        LEFT JOIN mock_natijalari mn ON mn.id = a.mock_natija_id
         WHERE a.talaba_kod=%s
         ORDER BY a.started_at DESC
         """,
@@ -836,10 +913,74 @@ def attempt_natija_biriktir(attempt_id: int, mock_natija_id: int, admin_id: int)
     """
     conn = get_connection()
     cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE mock_attempts
+        SET mock_natija_id=%s, admin_id=%s, status='released', reviewed_at=CURRENT_TIMESTAMP
+        WHERE id=%s AND status IN ('submitted', 'reviewed')
+        """,
+        (mock_natija_id, admin_id, attempt_id),
+    )
     ok = cur.rowcount > 0
     conn.commit()
     cur.close(); release_connection(conn)
     return ok
+
+
+def dtm_attempt_avto_yakunla(attempt_id: int):
+    """Yuborilgan DTM urinishini avtomatik hisoblab, natijani darhol e'lon qiladi."""
+    meta = attempt_meta(attempt_id)
+    if not meta or meta["exam_key"] != DTM_EXAM_KEY:
+        return None
+    if meta.get("mock_natija_id"):
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT umumiy_ball, sections FROM mock_natijalari WHERE id=%s", (meta["mock_natija_id"],))
+        row = cur.fetchone()
+        cur.close(); release_connection(conn)
+        return dict(row) if row else None
+    if meta["status"] != "submitted":
+        return None
+
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """
+        SELECT s.section_key, COUNT(q.id) AS questions_count,
+               COUNT(q.id) FILTER (WHERE aa.is_correct=TRUE) AS correct_count
+        FROM mock_test_sections s
+        LEFT JOIN mock_test_questions q ON q.section_id=s.id
+        LEFT JOIN mock_attempt_answers aa
+               ON aa.question_id=q.id AND aa.attempt_id=%s
+        JOIN mock_attempts a ON a.id=%s AND a.test_id=s.test_id
+        GROUP BY s.id
+        """,
+        (attempt_id, attempt_id),
+    )
+    rows = {r["section_key"]: dict(r) for r in cur.fetchall()}
+    cur.close(); release_connection(conn)
+
+    counts = {}
+    for key, rule in DTM_SECTION_RULES.items():
+        row = rows.get(key)
+        actual = int(row["questions_count"]) if row else 0
+        if actual != rule["questions"]:
+            raise ValueError(f"{rule['label']}: {rule['questions']} ta savol bo'lishi kerak")
+        counts[key] = int(row["correct_count"] or 0)
+
+    sections = dtm_sections_natijasi(counts)
+    total = dtm_ball_hisobla(counts)
+    from mock_database import mock_natija_qosh
+    natija_id = mock_natija_qosh(
+        talaba_kod=meta["talaba_kod"],
+        exam_key=DTM_EXAM_KEY,
+        sections=sections,
+        umumiy_ball=total,
+        notes="Avtomatik hisoblangan DTM simulator natijasi",
+    )
+    if not attempt_natija_biriktir(attempt_id, natija_id, admin_id=None):
+        raise RuntimeError("DTM natijasini urinishga biriktirib bo'lmadi")
+    return {"natija_id": natija_id, "umumiy_ball": total, "sections": sections}
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -939,7 +1080,13 @@ def talaba_uchun_testlar(exam_key: str = None) -> list:
     cur.execute(sql, params)
     rows = cur.fetchall()
     cur.close(); release_connection(conn)
-    return [dict(r) for r in rows]
+    result = []
+    for row in rows:
+        item = dict(row)
+        ready, _ = dtm_test_tayyorligi(item["id"])
+        if ready:
+            result.append(item)
+    return result
 
 
 def attempt_umumiy_holat(attempt_id: int, talaba_kod: str):
@@ -998,21 +1145,21 @@ def section_savollari_talabaga(attempt_id: int, section_id: int, talaba_kod: str
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    # Ownership tekshiruvi
     cur.execute(
-        "SELECT id FROM mock_attempts WHERE id=%s AND talaba_kod=%s",
-        (attempt_id, talaba_kod),
+        """
+        SELECT s.*
+        FROM mock_test_sections s
+        JOIN mock_attempts a ON a.test_id=s.test_id
+        WHERE s.id=%s AND a.id=%s AND a.talaba_kod=%s AND a.status='in_progress'
+        """,
+        (section_id, attempt_id, talaba_kod),
     )
-    if not cur.fetchone():
-        cur.close(); release_connection(conn)
-        return None
-
-    cur.execute("SELECT * FROM mock_test_sections WHERE id=%s", (section_id,))
     section = cur.fetchone()
     if not section:
         cur.close(); release_connection(conn)
         return None
     section = dict(section)
+    section.pop("custom_answer_key", None)
 
     if section.get("custom_html"):
         cur.execute(

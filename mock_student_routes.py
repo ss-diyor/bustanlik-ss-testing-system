@@ -8,6 +8,8 @@ autentifikatsiya alohida — httpOnly cookie ichidagi sessiya tokeni orqali.
 import os
 import json
 import logging
+import time
+from collections import defaultdict, deque
 from aiohttp import web
 from aiohttp.web import json_response as _aiohttp_json_response
 
@@ -15,6 +17,9 @@ import mock_exam_engine as engine
 
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 SESSION_COOKIE = "mock_session"
+LOGIN_LIMIT = 8
+LOGIN_WINDOW_SECONDS = 15 * 60
+_login_attempts = defaultdict(deque)
 
 
 def _json(data, status=200):
@@ -55,12 +60,32 @@ def _unauthorized():
     return _json({"error": "Sessiya tugagan, qaytadan kiring"}, status=401)
 
 
+def _client_key(request: web.Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+    return forwarded or request.remote or "unknown"
+
+
+def _login_rate_limited(request: web.Request) -> bool:
+    now = time.monotonic()
+    attempts = _login_attempts[_client_key(request)]
+    cutoff = now - LOGIN_WINDOW_SECONDS
+    while attempts and attempts[0] < cutoff:
+        attempts.popleft()
+    return len(attempts) >= LOGIN_LIMIT
+
+
 # ─────────────────────────────────────────
 # Login / Logout
 # ─────────────────────────────────────────
 
 async def mock_login_api(request: web.Request) -> web.Response:
     """POST { kod: 'SS001' } -> sessiya cookie o'rnatadi."""
+    if _login_rate_limited(request):
+        return _json(
+            {"error": "Juda ko'p urinish. 15 daqiqadan keyin qayta urinib ko'ring"},
+            status=429,
+        )
+    _login_attempts[_client_key(request)].append(time.monotonic())
     try:
         data = await request.json()
         kod = (data.get("kod") or "").strip()
@@ -275,7 +300,7 @@ async def mock_custom_answer_save_api(request: web.Request) -> web.Response:
 
 
 async def mock_attempt_submit_api(request: web.Request) -> web.Response:
-    """POST -> mockni yakunlab yuboradi. Natija hali ko'rsatilmaydi."""
+    """POST -> mockni yakunlaydi; DTM natijasi avtomatik hisoblanadi."""
     talaba_kod = _get_talaba_kod(request)
     if not talaba_kod:
         return _unauthorized()
@@ -283,7 +308,12 @@ async def mock_attempt_submit_api(request: web.Request) -> web.Response:
     attempt_id = int(request.match_info["id"])
     try:
         ok = engine.attempt_yubor(attempt_id, talaba_kod=talaba_kod)
-        return _json({"success": ok})
+        if not ok:
+            meta = engine.attempt_meta(attempt_id)
+            if not meta or meta.get("talaba_kod") != talaba_kod or meta.get("exam_key") != "DTM_MOCK":
+                return _json({"error": "Urinish allaqachon yuborilgan yoki topilmadi"}, status=409)
+        result = engine.dtm_attempt_avto_yakunla(attempt_id)
+        return _json({"success": True, "result": result})
     except Exception as e:
         logging.error(f"mock_attempt_submit_api error: {e}")
         return _json({"error": str(e)}, status=500)

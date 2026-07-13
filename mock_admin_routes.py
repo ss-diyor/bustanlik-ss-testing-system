@@ -86,9 +86,12 @@ async def admin_mock_exam_types_api(request: web.Request) -> web.Response:
     if error_resp:
         return error_resp
 
-    from mock_database import exam_types_ol
+    from mock_database import exam_types_ol, exam_type_ol
     try:
         types = exam_types_ol(faqat_aktiv=False)
+        for exam_type in types:
+            detail = exam_type_ol(exam_type["exam_key"])
+            exam_type["sections"] = (detail or {}).get("sections", [])
         return _json({"exam_types": types})
     except Exception as e:
         logging.error(f"admin_mock_exam_types_api error: {e}")
@@ -156,6 +159,8 @@ async def admin_mock_test_detail_api(request: web.Request) -> web.Response:
             ok = engine.test_ochir(test_id)
             return _json({"success": ok})
 
+    except ValueError as e:
+        return _json({"error": str(e)}, status=400)
     except Exception as e:
         logging.error(f"admin_mock_test_detail_api error: {e}")
         return _json({"error": str(e)}, status=500)
@@ -226,6 +231,13 @@ async def admin_mock_section_custom_html_api(request: web.Request) -> web.Respon
             html = data.get("html", "").strip()
             if not html:
                 return _json({"error": "HTML matni bo'sh"}, status=400)
+            section = engine.section_ol(section_id)
+            test = engine.test_ol(section["test_id"]) if section else None
+            if test and test.get("exam_key") == "DTM_MOCK":
+                return _json(
+                    {"error": "DTM testida javob kaliti brauzerga chiqmasligi uchun tayyor HTML taqiqlangan"},
+                    status=400,
+                )
             ok = engine.section_custom_html_saqla(section_id, html)
             return _json({"success": ok})
 
@@ -260,6 +272,19 @@ async def admin_mock_questions_api(request: web.Request) -> web.Response:
 
         if question_type not in ("mcq", "true_false", "fill_blank", "matching"):
             return _json({"error": "Noma'lum savol turi"}, status=400)
+
+        section = engine.section_ol(section_id)
+        test = engine.test_ol(section["test_id"]) if section else None
+        if test and test.get("exam_key") == "DTM_MOCK":
+            if question_type != "mcq":
+                return _json({"error": "DTM uchun faqat bitta javobli test savoli ishlatiladi"}, status=400)
+            if len(correct_answer.get("correct") or []) != 1:
+                return _json({"error": "DTM savolida aynan bitta to'g'ri javob bo'lishi kerak"}, status=400)
+            from dtm_scoring import DTM_SECTION_RULES
+            rule = DTM_SECTION_RULES.get(section["section_key"])
+            if not rule:
+                return _json({"error": "Noma'lum DTM bo'limi"}, status=400)
+            points = rule["coefficient"]
 
         q_id = engine.savol_qosh(
             section_id, question_type, question_text,

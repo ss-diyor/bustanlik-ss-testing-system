@@ -14,6 +14,7 @@ import psycopg2
 import psycopg2.extras
 import json
 from database import get_connection, release_connection
+from dtm_scoring import dtm_ball_hisobla
 
 BUILTIN_EXAM_TYPES = [
     {
@@ -398,7 +399,6 @@ def mock_natija_qosh(
     if umumiy_ball is None and et.get("total_max"):
         if exam_key == "DTM_MOCK":
             try:
-                from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
                 maj = _num(sections.get("majburiy")) or 0
                 as1 = _num(sections.get("asosiy_1")) or 0
                 as2 = _num(sections.get("asosiy_2")) or 0
@@ -419,12 +419,11 @@ def mock_natija_qosh(
                 if is_weighted_input:
                     umumiy_ball = round(maj + as1 + as2, 2)
                 else:
-                    umumiy_ball = round(
-                        maj * MAJBURIY_KOEFF
-                        + as1 * ASOSIY_1_KOEFF
-                        + as2 * ASOSIY_2_KOEFF,
-                        2,
-                    )
+                    umumiy_ball = dtm_ball_hisobla({
+                        "majburiy": maj,
+                        "asosiy_1": as1,
+                        "asosiy_2": as2,
+                    })
             except Exception:
                 pass
         elif exam_key == "IELTS":

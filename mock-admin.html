@@ -83,7 +83,7 @@
 <body>
 
 <h1>🎯 Mock Imtihon — Savollar boshqaruvi</h1>
-<div class="sub">IELTS / CEFR uchun test, bo'lim va savollarni shu yerdan qo'shasiz</div>
+<div class="sub">IELTS, CEFR, DTM va boshqa mock testlarni shu yerdan boshqarasiz</div>
 
 <!-- Yangi test yaratish -->
 <div class="card">
@@ -122,11 +122,7 @@
     </div>
   </div>
 
-  <div class="tabs">
-    <div class="tab" data-key="listening">🎧 Listening</div>
-    <div class="tab" data-key="reading">📖 Reading</div>
-    <div class="tab" data-key="writing">✍️ Writing</div>
-  </div>
+  <div class="tabs" id="sectionTabs"></div>
 
   <div id="sectionArea"></div>
 </div>
@@ -159,19 +155,31 @@ async function api(path, opts={}){
 }
 
 let currentTest = null;
-let currentSectionKey = "listening";
+let currentSectionKey = null;
 let sectionsCache = {}; // section_key -> section object (with questions) or null
+let examTypesByKey = {};
 
-const SECTION_LABELS = {listening:"Listening", reading:"Reading", writing:"Writing"};
+function examSectionDefinitions(){
+  return examTypesByKey[currentTest?.exam_key]?.sections || [];
+}
+
+function sectionLabel(sectionKey){
+  const found = examSectionDefinitions().find(s => s.section_key === sectionKey);
+  return found?.label || sectionKey;
+}
 
 // ─── Imtihon turlari ───
 async function loadExamTypes(){
   try{
     const data = await api("/api/admin/mock/exam-types");
+    examTypesByKey = Object.fromEntries((data.exam_types || []).map(t => [t.exam_key, t]));
     const sel = document.getElementById("examTypeSelect");
     sel.innerHTML = (data.exam_types || []).map(t =>
       `<option value="${t.exam_key}">${t.label || t.exam_key}</option>`
     ).join("") || `<option value="IELTS">IELTS</option><option value="CEFR">CEFR</option>`;
+    sel.onchange = () => {
+      if (sel.value === "DTM_MOCK") document.getElementById("testDurationInput").value = "180";
+    };
   }catch(e){
     document.getElementById("examTypeSelect").innerHTML =
       `<option value="IELTS">IELTS</option><option value="CEFR">CEFR</option>`;
@@ -239,9 +247,9 @@ async function selectTest(id){
     document.getElementById("testDetailTitle").textContent =
       `${currentTest.title} (${currentTest.exam_key})`;
 
-    currentSectionKey = "listening";
+    currentSectionKey = examSectionDefinitions()[0]?.section_key || currentTest.sections?.[0]?.section_key || null;
     renderTabs();
-    await renderSection(currentSectionKey);
+    if (currentSectionKey) await renderSection(currentSectionKey);
   }catch(e){
     alert("Xato: " + e.message);
   }
@@ -249,11 +257,15 @@ async function selectTest(id){
 
 document.getElementById("toggleActiveBtn").onclick = async () => {
   if (!currentTest) return;
-  await api("/api/admin/mock/tests/" + currentTest.id, {
-    method:"PUT", body: JSON.stringify({is_active: !currentTest.is_active})
-  });
-  loadTests();
-  selectTest(currentTest.id);
+  try{
+    await api("/api/admin/mock/tests/" + currentTest.id, {
+      method:"PUT", body: JSON.stringify({is_active: !currentTest.is_active})
+    });
+    loadTests();
+    selectTest(currentTest.id);
+  }catch(e){
+    alert("Testni faollashtirib bo'lmadi: " + e.message);
+  }
 };
 document.getElementById("deleteTestBtn").onclick = async () => {
   if (!currentTest) return;
@@ -265,7 +277,14 @@ document.getElementById("deleteTestBtn").onclick = async () => {
 };
 
 function renderTabs(){
-  document.querySelectorAll(".tab").forEach(tab => {
+  const definitions = examSectionDefinitions();
+  const fallback = currentTest?.sections || [];
+  const tabs = definitions.length ? definitions : fallback;
+  const box = document.getElementById("sectionTabs");
+  box.innerHTML = tabs.map(section =>
+    `<div class="tab" data-key="${section.section_key}">${section.label || section.section_key}</div>`
+  ).join("");
+  box.querySelectorAll(".tab").forEach(tab => {
     tab.classList.toggle("active", tab.dataset.key === currentSectionKey);
     tab.onclick = () => { currentSectionKey = tab.dataset.key; renderTabs(); renderSection(currentSectionKey); };
   });
@@ -379,7 +398,7 @@ async function renderSection(sectionKey){
 }
 
 function renderCreateSectionForm(sectionKey){
-  const label = SECTION_LABELS[sectionKey];
+  const label = sectionLabel(sectionKey);
   const isListening = sectionKey === "listening";
   return `
     <div class="empty" style="margin-bottom:10px">Bu test uchun "${label}" bo'limi hali yaratilmagan</div>
@@ -398,7 +417,8 @@ function bindCreateSectionForm(sectionKey){
       method:"POST",
       body: JSON.stringify({
         test_id: currentTest.id, section_key: sectionKey,
-        label: SECTION_LABELS[sectionKey], audio_url, instructions,
+        label: sectionLabel(sectionKey), audio_url, instructions,
+        sort_order: Math.max(0, examSectionDefinitions().findIndex(s => s.section_key === sectionKey)),
       }),
     });
     sectionsCache[sectionKey] = {id: data.id, section_key: sectionKey, audio_url, instructions, questions: []};
@@ -415,6 +435,12 @@ async function deleteQuestion(qid){
 
 // ─── Savol qo'shish formasi ───
 function renderQuestionForm(){
+  const dtmRule = {
+    majburiy: 1.1,
+    asosiy_1: 3.1,
+    asosiy_2: 2.1,
+  };
+  const defaultPoints = currentTest?.exam_key === "DTM_MOCK" ? (dtmRule[currentSectionKey] || 1) : 1;
   return `
     <div class="card" style="background:var(--bg); border-color:var(--accent)">
       <label>Savol turi</label>
@@ -431,7 +457,7 @@ function renderQuestionForm(){
       <div id="qTypeFields"></div>
 
       <label>Ball</label>
-      <input id="qPoints" type="number" step="0.5" value="1" style="max-width:120px">
+      <input id="qPoints" type="number" step="0.1" value="${defaultPoints}" style="max-width:120px">
 
       <button id="saveQuestionBtn" style="margin-top:12px">Savolni saqlash</button>
       <div id="qSaveMsg" class="msg"></div>
@@ -445,8 +471,9 @@ function bindQuestionForm(sectionId){
 
   function renderFieldsFor(type){
     if (type === "mcq"){
+      const dtmSingle = currentTest?.exam_key === "DTM_MOCK";
       fieldsBox.innerHTML = `
-        <label>Variantlar (har biri yonidagi katakcha — to'g'ri javob)</label>
+        <label>Variantlar (${dtmSingle ? "bitta to'g'ri javobni tanlang" : "to'g'ri javob(lar)ni belgilang"})</label>
         <div id="optRows"></div>
         <button type="button" class="secondary small" id="addOptBtn">+ Variant qo'shish</button>
       `;
@@ -454,7 +481,7 @@ function bindQuestionForm(sectionId){
       const addRow = (val="") => {
         const row = document.createElement("div");
         row.className = "opt-row";
-        row.innerHTML = `<input type="checkbox" class="optCorrect"><input type="text" class="optText" value="${val}" placeholder="Variant matni"><button type="button" class="danger small" onclick="this.parentElement.remove()">×</button>`;
+        row.innerHTML = `<input type="${dtmSingle ? "radio" : "checkbox"}" ${dtmSingle ? 'name="dtmCorrect"' : ""} class="optCorrect"><input type="text" class="optText" value="${val}" placeholder="Variant matni"><button type="button" class="danger small" onclick="this.parentElement.remove()">×</button>`;
         rows.appendChild(row);
       };
       addRow(); addRow(); addRow(); addRow();
