@@ -83,6 +83,13 @@ if _verify_raw and not _verify_raw.startswith("http"):
     _verify_raw = "https://" + _verify_raw
 VERIFY_BASE_URL = _verify_raw.rstrip("/")
 
+# Public sertifikat sahifalari uchun asosiy URL.
+# Railway'da masalan: CERTIFICATE_BASE_URL=https://mock.sultanov.space
+_certificate_raw = _env("CERTIFICATE_BASE_URL", VERIFY_BASE_URL)
+if _certificate_raw and not _certificate_raw.startswith("http"):
+    _certificate_raw = "https://" + _certificate_raw
+CERTIFICATE_BASE_URL = _certificate_raw.rstrip("/")
+
 # Google Sheets eksport sozlamalari
 # Railway Variables da GOOGLE_CREDENTIALS_JSON va GOOGLE_SHEETS_ID ni qo'shing
 GOOGLE_SHEETS_ID = _env("GOOGLE_SHEETS_ID", "")

@@ -4,7 +4,9 @@ import hmac
 import hashlib
 import logging
 import asyncio
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, quote
+from html import escape
+import re
 
 from aiohttp import web
 import psycopg2
@@ -1071,6 +1073,136 @@ def _get_verify_config() -> tuple[str, str]:
     return bot_user, logo_url
 
 
+def _public_certificate_not_found() -> web.Response:
+    return web.Response(
+        status=404,
+        content_type="text/html",
+        text="""<!doctype html><html lang="uz"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sertifikat topilmadi</title><body style="margin:0;display:grid;place-items:center;min-height:100vh;font-family:system-ui;background:#f5f8ff;color:#16213e"><main style="max-width:360px;text-align:center;padding:32px"><div style="font-size:52px">🔎</div><h1>Sertifikat topilmadi</h1><p>Havola noto‘g‘ri yoki sertifikat bekor qilingan bo‘lishi mumkin.</p></main></body></html>""",
+    )
+
+
+def _public_certificate_record(request: web.Request) -> dict | None:
+    token = request.match_info.get("token", "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,100}", token):
+        return None
+    from database import sertifikat_public_ol
+    return sertifikat_public_ol(token)
+
+
+async def public_certificate_pdf_handler(request: web.Request) -> web.Response:
+    record = _public_certificate_record(request)
+    if not record:
+        return _public_certificate_not_found()
+
+    pdf_data = record.get("pdf_data")
+    if not pdf_data:
+        return _public_certificate_not_found()
+    return web.Response(
+        body=bytes(pdf_data),
+        content_type="application/pdf",
+        headers={
+            "Content-Disposition": 'inline; filename="sertifikat.pdf"',
+            "Cache-Control": "public, max-age=31536000, immutable",
+        },
+    )
+
+
+async def public_certificate_preview_handler(request: web.Request) -> web.Response:
+    record = _public_certificate_record(request)
+    if not record or not record.get("preview_data"):
+        return _public_certificate_not_found()
+    return web.Response(
+        body=bytes(record["preview_data"]),
+        content_type="image/png",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
+async def public_certificate_handler(request: web.Request) -> web.Response:
+    """Token asosidagi, PDF preview va social share tugmali sertifikat sahifasi."""
+    record = _public_certificate_record(request)
+    if not record:
+        return _public_certificate_not_found()
+
+    from config import CERTIFICATE_BASE_URL
+
+    token = record["public_token"]
+    public_url = f"{CERTIFICATE_BASE_URL}/cert/{token}"
+    pdf_url = f"{public_url}/file.pdf"
+    preview_url = f"{public_url}/preview.png"
+    student_name = escape(str(record.get("ismlar") or "O‘quvchi"))
+    school = escape(str(record.get("maktab") or "—"))
+    score = record.get("umumiy_ball", "—")
+    test_date = record.get("test_sanasi")
+    date_text = test_date.strftime("%d.%m.%Y") if test_date else "—"
+    title = f"{student_name} — {score} ball | DTM sertifikati"
+    share_text = f"DTM natijam: {score} ball. Sertifikatni ko‘ring."
+    encoded_url = quote(public_url, safe="")
+    telegram_url = f"https://t.me/share/url?url={encoded_url}&text={quote(share_text, safe='')}"
+    whatsapp_url = f"https://wa.me/?text={quote(share_text + ' ' + public_url, safe='')}"
+    linkedin_url = f"https://www.linkedin.com/sharing/share-offsite/?url={encoded_url}"
+    og_image = (
+        f'<meta property="og:image" content="{escape(preview_url)}">'
+        if record.get("preview_data") else ""
+    )
+
+    page = f"""<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title}</title>
+  <meta name="description" content="Bo‘stonliq ITMA DTM natijalari sertifikati">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{title}">
+  <meta property="og:description" content="Bo‘stonliq ITMA — DTM natijalari sertifikati">
+  <meta property="og:url" content="{escape(public_url)}">
+  {og_image}
+  <style>
+    :root {{ color-scheme: light; --blue:#315de8; --ink:#13213f; --muted:#60708e; --line:#dde5f3; }}
+    * {{ box-sizing:border-box; }} body {{ margin:0; font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; background:#f4f7fc; color:var(--ink); }}
+    .page {{ max-width:980px; margin:auto; padding:24px 16px 40px; }}
+    .head {{ display:flex; gap:14px; align-items:center; margin-bottom:18px; }}
+    .seal {{ width:48px; height:48px; display:grid; place-items:center; border-radius:14px; background:linear-gradient(135deg,#315de8,#6f8cff); color:white; font-size:25px; }}
+    h1 {{ font-size:clamp(1.15rem,4vw,1.55rem); margin:0; }} .sub {{ color:var(--muted); margin:4px 0 0; font-size:.92rem; }}
+    .card {{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:18px; box-shadow:0 8px 28px rgba(31,62,119,.08); }}
+    .summary {{ display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }}
+    .name {{ font-weight:800; font-size:1.15rem; }} .meta {{ color:var(--muted); margin-top:4px; }}
+    .score {{ color:var(--blue); font-weight:800; font-size:1.2rem; white-space:nowrap; }}
+    .actions {{ display:flex; flex-wrap:wrap; gap:9px; margin:0 0 16px; }}
+    .btn {{ border:0; border-radius:10px; padding:10px 13px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; background:#edf2ff; color:#244fcf; }}
+    .btn.primary {{ background:var(--blue); color:white; }}
+    .pdf {{ width:100%; height:min(78vh,900px); border:1px solid var(--line); border-radius:12px; background:#eef2f8; }}
+    .notice {{ margin:14px 0 0; color:var(--muted); font-size:.84rem; text-align:center; }}
+    @media (max-width:540px) {{ .page {{ padding:16px 10px 28px; }} .card {{ padding:12px; }} .pdf {{ height:72vh; }} .btn {{ flex:1; text-align:center; }} }}
+  </style>
+</head>
+<body><main class="page">
+  <header class="head"><div class="seal">✓</div><div><h1>DTM natijalari sertifikati</h1><p class="sub">✅ Sertifikat haqiqiy va tizimda tasdiqlangan</p></div></header>
+  <section class="card">
+    <div class="summary"><div><div class="name">{student_name}</div><div class="meta">{school} · {date_text}</div></div><div class="score">{score} / 189 ball</div></div>
+    <nav class="actions" aria-label="Sertifikat amallari">
+      <a class="btn primary" href="{escape(pdf_url)}" download>⬇️ PDF yuklab olish</a>
+      <button class="btn" type="button" onclick="shareCertificate()">🔗 Ulashish</button>
+      <a class="btn" href="{telegram_url}" target="_blank" rel="noopener">Telegram</a>
+      <a class="btn" href="{whatsapp_url}" target="_blank" rel="noopener">WhatsApp</a>
+      <a class="btn" href="{linkedin_url}" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+    <iframe class="pdf" title="DTM natijalari sertifikati PDF" src="{escape(pdf_url)}#view=FitH"><a href="{escape(pdf_url)}">PDF sertifikatni oching</a></iframe>
+    <p class="notice">Instagram Story uchun PDF’ni yuklab olib, Instagram ilovasidan ulashing.</p>
+  </section>
+</main>
+<script>
+  async function shareCertificate() {{
+    const shareData = {{ title: 'DTM natijalari sertifikati', text: '{share_text}', url: '{public_url}' }};
+    if (navigator.share) {{ try {{ await navigator.share(shareData); return; }} catch (_) {{}} }}
+    await navigator.clipboard?.writeText(shareData.url);
+    alert('Sertifikat havolasi nusxalandi.');
+  }}
+</script></body></html>"""
+    return web.Response(content_type="text/html", text=page)
+
+
 _VERIFY_CSS = """
 :root {
   --primary: #1a5276;
@@ -1510,6 +1642,9 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/health", health_handler)
     app.router.add_get("/verify/{kod}", verify_handler)
     app.router.add_get("/scan/{kod}", verify_handler)  # QR-kod uchun alias
+    app.router.add_get("/cert/{token}", public_certificate_handler)
+    app.router.add_get("/cert/{token}/file.pdf", public_certificate_pdf_handler)
+    app.router.add_get("/cert/{token}/preview.png", public_certificate_preview_handler)
     app.router.add_get("/api/student", student_api)
     app.router.add_get("/api/student/mock", student_mock_api)
     

@@ -4,6 +4,7 @@ from psycopg2 import pool
 import os
 import json
 import logging
+import secrets
 from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -245,6 +246,35 @@ def init_db():
     """)
     cur.execute(
         "CREATE INDEX IF NOT EXISTS idx_test_natijalari_kod ON test_natijalari(talaba_kod)"
+    )
+
+    # Public sertifikatlar: PDF va preview bazada saqlanadi. Bu Railway qayta
+    # ishga tushganda ham sertifikat havolasi ishlashini ta'minlaydi.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS public_sertifikatlar (
+            id SERIAL PRIMARY KEY,
+            public_token TEXT UNIQUE NOT NULL,
+            certificate_hash TEXT NOT NULL,
+            talaba_kod TEXT NOT NULL REFERENCES talabalar(kod) ON DELETE CASCADE,
+            natija_id INTEGER REFERENCES test_natijalari(id) ON DELETE SET NULL,
+            ismlar TEXT NOT NULL,
+            maktab TEXT,
+            sinf TEXT,
+            yonalish TEXT,
+            umumiy_ball REAL NOT NULL,
+            majburiy INTEGER NOT NULL,
+            asosiy_1 INTEGER NOT NULL,
+            asosiy_2 INTEGER NOT NULL,
+            test_sanasi TIMESTAMP,
+            pdf_data BYTEA NOT NULL,
+            preview_data BYTEA,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            revoked BOOLEAN NOT NULL DEFAULT FALSE
+        )
+    """)
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_public_sertifikatlar_token "
+        "ON public_sertifikatlar(public_token)"
     )
 
     cur.execute("""
@@ -2822,6 +2852,79 @@ def maktab_topici_ochir(chat_id: int, maktab_id: int) -> None:
         )
         conn.commit()
         cur.close()
+    finally:
+        release_connection(conn)
+
+
+def sertifikat_public_saqlash(
+    *,
+    certificate_hash: str,
+    talaba_kod: str,
+    natija_id: int | None,
+    ismlar: str,
+    maktab: str,
+    sinf: str,
+    yonalish: str,
+    umumiy_ball: float,
+    majburiy: int,
+    asosiy_1: int,
+    asosiy_2: int,
+    test_sanasi,
+    pdf_data: bytes,
+    preview_data: bytes | None,
+) -> str:
+    """Public sertifikat fayllarini saqlab, taxmin qilib bo'lmaydigan URL token qaytaradi."""
+    if not pdf_data:
+        raise ValueError("Sertifikat PDF ma'lumoti bo'sh")
+
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        # 192 bitlik token URL uchun yetarlicha xavfsiz va qisqa.
+        public_token = secrets.token_urlsafe(24)
+        cur.execute(
+            """
+            INSERT INTO public_sertifikatlar (
+                public_token, certificate_hash, talaba_kod, natija_id,
+                ismlar, maktab, sinf, yonalish,
+                umumiy_ball, majburiy, asosiy_1, asosiy_2, test_sanasi,
+                pdf_data, preview_data
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s
+            )
+            """,
+            (
+                public_token, certificate_hash, talaba_kod.upper(), natija_id,
+                ismlar, maktab, sinf, yonalish,
+                umumiy_ball, majburiy, asosiy_1, asosiy_2, test_sanasi,
+                psycopg2.Binary(pdf_data),
+                psycopg2.Binary(preview_data) if preview_data else None,
+            ),
+        )
+        conn.commit()
+        return public_token
+    except Exception:
+        conn.rollback()
+        logging.exception("Public sertifikatni saqlashda xato")
+        raise
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+def sertifikat_public_ol(public_token: str) -> dict | None:
+    """Token bo'yicha faqat faol public sertifikatni qaytaradi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            "SELECT * FROM public_sertifikatlar WHERE public_token = %s AND revoked = FALSE",
+            (public_token,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
     finally:
         release_connection(conn)
 

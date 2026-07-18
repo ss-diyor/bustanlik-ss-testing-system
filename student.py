@@ -1,6 +1,7 @@
 import os
 import re
 import asyncio
+import logging
 from html import escape
 import matplotlib
 
@@ -48,6 +49,7 @@ from database import (
     get_notification_settings,
     update_notification_setting,
     maktablar_ol,
+    sertifikat_public_saqlash,
 )
 from keyboards import (
     user_menu_keyboard,
@@ -59,7 +61,7 @@ from keyboards import (
     profile_keyboard,
     notification_settings_keyboard,
 )
-from config import ADMIN_IDS, AI_DAILY_LIMIT
+from config import ADMIN_IDS, AI_DAILY_LIMIT, CERTIFICATE_BASE_URL
 from certificate import CertificateGenerator
 from audit_log import log_action
 
@@ -249,7 +251,7 @@ async def send_full_results(message: Message, kod: str):
         sana,
         kod,
         talaba.get("sinf", ""),
-        talaba.get("maktab", ""),
+        _talaba_maktab_nomi(talaba),
     )
 
     # Hash'ni database'ga saqlaymiz
@@ -296,14 +298,52 @@ async def send_full_results(message: Message, kod: str):
     # Preview PNG yaratish
     preview_path = cert_gen.generate_preview(cert_path)
 
+    # PDF va preview public sertifikat sahifasi uchun bazaga saqlanadi.
+    # Token hashdan alohida va uni taxmin qilish mumkin emas.
+    share_url = None
+    try:
+        with open(cert_path, "rb") as pdf_file:
+            pdf_data = pdf_file.read()
+        preview_data = None
+        if preview_path and os.path.exists(preview_path):
+            with open(preview_path, "rb") as preview_file:
+                preview_data = preview_file.read()
+
+        public_token = sertifikat_public_saqlash(
+            certificate_hash=cert_hash,
+            talaba_kod=kod,
+            natija_id=natija.get("id"),
+            ismlar=talaba.get("ismlar", ""),
+            maktab=_talaba_maktab_nomi(talaba),
+            sinf=talaba.get("sinf", ""),
+            yonalish=talaba.get("yonalish", ""),
+            umumiy_ball=natija["umumiy_ball"],
+            majburiy=natija["majburiy"],
+            asosiy_1=natija["asosiy_1"],
+            asosiy_2=natija["asosiy_2"],
+            test_sanasi=natija.get("test_sanasi"),
+            pdf_data=pdf_data,
+            preview_data=preview_data,
+        )
+        share_url = f"{CERTIFICATE_BASE_URL}/cert/{public_token}"
+    except Exception as share_error:
+        # Public havola xato bersa ham Telegramdagi sertifikat yuboriladi.
+        logging.exception("Public sertifikat tayyorlashda xato: %s", share_error)
+
     # Sertifikatni rasm (grafik) bilan birga yuborish
     try:
         # 1. Sertifikat preview — rasm sifatida
         if preview_path and os.path.exists(preview_path):
+            share_keyboard = None
+            if share_url:
+                share_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="🔗 Ulashish", url=share_url)
+                ]])
             await message.answer_photo(
                 FSInputFile(preview_path),
                 caption="📜 <b>Sertifikatingiz</b>\n\nPDF versiyasi quyida 👇",
                 parse_mode="HTML",
+                reply_markup=share_keyboard,
             )
 
         # 2. Sertifikat PDF (yuklab olish uchun)
@@ -326,6 +366,8 @@ async def send_full_results(message: Message, kod: str):
         # Fayllarni tozalash
         if cert_path and os.path.exists(cert_path):
             os.remove(cert_path)
+        if preview_path and os.path.exists(preview_path):
+            os.remove(preview_path)
         if chart_path and os.path.exists(chart_path):
             os.remove(chart_path)
 
