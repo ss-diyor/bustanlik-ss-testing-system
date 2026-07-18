@@ -12,7 +12,7 @@ from aiohttp import web
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
-from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF
+from config import MAJBURIY_KOEFF, ASOSIY_1_KOEFF, ASOSIY_2_KOEFF, BOT_USERNAME
 from mock_admin_routes import register_mock_admin_routes
 from mock_student_routes import register_mock_student_routes
 
@@ -132,10 +132,10 @@ async def student_qr_api(request: web.Request) -> web.Response:
         return web.json_response({"error": "Sessiya tugagan"}, status=401)
     from certificate import CertificateGenerator
     qr_buf = CertificateGenerator.from_db().generate_id_qr(talaba["kod"])
-    return web.Response(
-        body=qr_buf.getvalue(), content_type="image/png",
-        headers={"Cache-Control": "no-store"},
-    )
+    headers = {"Cache-Control": "no-store"}
+    if request.rel_url.query.get("download") == "1":
+        headers["Content-Disposition"] = f'attachment; filename="qr_{talaba["kod"]}.png"'
+    return web.Response(body=qr_buf.getvalue(), content_type="image/png", headers=headers)
 
 
 async def student_notification_settings_api(request: web.Request) -> web.Response:
@@ -327,6 +327,17 @@ async def student_api(request: web.Request) -> web.Response:
         )
         classmates = cur.fetchall()
 
+        telegram_info = None
+        if talaba.get("user_id"):
+            cur.execute(
+                """
+                SELECT username, phone_number
+                FROM users WHERE user_id = %s
+                """,
+                (talaba["user_id"],),
+            )
+            telegram_info = cur.fetchone()
+
         cur.close()
 
         results_list = [
@@ -358,6 +369,11 @@ async def student_api(request: web.Request) -> web.Response:
                     "sinf": talaba["sinf"],
                     "maktab": talaba.get("maktab_nomi", "Noma'lum maktab"),
                     "yonalish": talaba["yonalish"],
+                    "telegram": {
+                        "linked": bool(talaba.get("user_id")),
+                        "username": telegram_info.get("username") if telegram_info else None,
+                        "phone": telegram_info.get("phone_number") if telegram_info else None,
+                    },
                 },
                 "stats": {
                     "avg": avg,
@@ -379,6 +395,7 @@ async def student_api(request: web.Request) -> web.Response:
                     "MAJBURIY_KOEFF": MAJBURIY_KOEFF,
                     "ASOSIY_1_KOEFF": ASOSIY_1_KOEFF,
                     "ASOSIY_2_KOEFF": ASOSIY_2_KOEFF,
+                    "BOT_USERNAME": (BOT_USERNAME or "bustanlik_ss_bot").lstrip("@"),
                 }
             },
             headers={"Access-Control-Allow-Origin": "*"},
