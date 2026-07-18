@@ -283,7 +283,7 @@ async def bind_user_to_kod(message: Message):
         text = (
             "🔗 <b>O'quvchi profilini uladi!</b>\n\n"
             f"👤 Ismi: <b>{talaba['ismlar']}</b>\n"
-            f"🏫 Maktab: {talaba.get('maktab', '—')}\n"
+            f"🏫 Maktab: {talaba.get('maktab_nomi') or talaba.get('maktab') or '—'}\n"
             f"📚 Sinf: {talaba.get('sinf') or '—'}\n"
             f"📌 Yo'nalish: {talaba.get('yonalish') or '—'}\n"
             f"🔑 Kod: <code>{kod}</code>\n"
@@ -301,7 +301,7 @@ async def bind_user_to_kod(message: Message):
                 title="🔗 O'quvchi profilini uladi!",
                 description=(
                     f"👤 Ismi: **{talaba['ismlar']}**\n"
-                    f"🏫 Maktab: {talaba.get('maktab', '—')}\n"
+                    f"🏫 Maktab: {talaba.get('maktab_nomi') or talaba.get('maktab') or '—'}\n"
                     f"📚 Sinf: {talaba.get('sinf') or '—'}\n"
                     f"📌 Yo'nalish: {talaba.get('yonalish') or '—'}\n"
                     f"🔑 Kod: `{kod}`\n"
