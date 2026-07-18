@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import ChatMemberUpdated, Message, ReplyKeyboardRemove
 from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 
@@ -159,6 +159,11 @@ dp.include_router(export.export_router)
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     """/start buyrug'i"""
+    if message.chat.type in {"group", "supergroup"}:
+        guruh_qosh(message.chat.id, message.chat.title)
+        await message.answer("✅ Bu guruh botning bildirishnomalar ro'yxatiga qo'shildi.")
+        return
+
     user = get_user(message.from_user.id)
 
     # Agar foydalanuvchi birinchi marta kirayotgan bo'lsa yoki telefon raqami bo'lmasa
@@ -336,6 +341,22 @@ async def logout_handler(message: Message):
 async def handle_group_message(message: Message):
     """Guruhga bot qo'shilganda yoki xabar yozilganda guruhni bazaga qo'shadi."""
     guruh_qosh(message.chat.id, message.chat.title)
+
+
+@dp.my_chat_member()
+async def bot_guruh_holati_ozgardi(update: ChatMemberUpdated):
+    """Bot guruhga qo'shilishi bilan guruhni avtomatik ro'yxatga oladi."""
+    if update.chat.type not in {"group", "supergroup"}:
+        return
+
+    status = getattr(update.new_chat_member.status, "value", update.new_chat_member.status)
+    if status in {"member", "administrator"}:
+        guruh_qosh(update.chat.id, update.chat.title)
+        logging.getLogger(__name__).info(
+            "Guruh avtomatik qo'shildi: chat_id=%s, nomi=%s",
+            update.chat.id,
+            update.chat.title,
+        )
 
 
 @dp.message(F.text.startswith("ULASH_"))
