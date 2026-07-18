@@ -90,7 +90,7 @@ async def index_handler(request: web.Request) -> web.Response:
 
 async def student_cabinet_handler(request: web.Request) -> web.Response:
     """mock.sultanov.space dagi tasdiqlangan o'quvchi kabineti."""
-    html_path = os.path.join(STATIC_DIR, "index.html")
+    html_path = os.path.join(STATIC_DIR, "cabinet.html")
     return web.FileResponse(html_path)
 
 
@@ -1839,6 +1839,7 @@ def create_app(bot_token: str) -> web.Application:
 
     app.router.add_get("/", index_handler)
     app.router.add_get("/cabinet", student_cabinet_handler)
+    app.router.add_get("/cabinet/{section}", student_cabinet_handler)
     app.router.add_get("/health", health_handler)
     app.router.add_get("/verify/{kod}", verify_handler)
     app.router.add_get("/scan/{kod}", verify_handler)  # QR-kod uchun alias

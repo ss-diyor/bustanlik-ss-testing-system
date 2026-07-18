@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f8ff">
+  <title>O‘quvchi kabineti — Bustanlik SS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/cabinet.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/cabinet">
+        <img src="/static/logo.png" alt="Maktab logosi">
+        <span><strong>Bustanlik SS</strong><small>Testing System</small></span>
+      </a>
+
+      <nav class="side-nav" aria-label="Kabinet bo‘limlari">
+        <a data-page="home" href="/cabinet"><span>⌂</span><b>Bosh sahifa</b></a>
+        <a data-page="dtm" href="/cabinet/dtm"><span>▥</span><b>DTM natijalar</b></a>
+        <a data-page="mock" href="/cabinet/mock"><span>◎</span><b>Mock natijalar</b></a>
+        <a data-page="ranking" href="/cabinet/ranking"><span>♜</span><b>Reyting</b></a>
+        <a data-page="learning" href="/cabinet/learning"><span>◇</span><b>O‘qish</b></a>
+        <a data-page="services" href="/cabinet/services"><span>⌘</span><b>Xizmatlar</b></a>
+      </nav>
+
+      <div class="sidebar-student">
+        <div class="avatar" id="sideAvatar">—</div>
+        <div><strong id="sideName">Yuklanmoqda...</strong><small id="sideCode">—</small></div>
+      </div>
+      <button class="logout" id="logoutButton">Chiqish <span>→</span></button>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div><div class="eyebrow" id="pageEyebrow">O‘QUVCHI KABINETI</div><h1 id="pageTitle">Bosh sahifa</h1></div>
+        <a class="mock-button" href="/mock/home"><span>＋</span> Test ishlash</a>
+      </header>
+
+      <div id="pageLoader" class="page-loader"><span></span><p>Ma’lumotlar yuklanmoqda...</p></div>
+      <section id="pageContent" class="page-content" hidden></section>
+      <section id="pageError" class="error-state" hidden>
+        <div>!</div><h2>Ma’lumot yuklanmadi</h2><p id="pageErrorText">Qayta urinib ko‘ring.</p>
+        <button onclick="location.reload()">Qayta yuklash</button>
+      </section>
+    </main>
+  </div>
+
+  <nav class="mobile-nav" aria-label="Mobil navigatsiya">
+    <a data-page="home" href="/cabinet"><span>⌂</span><small>Bosh sahifa</small></a>
+    <a data-page="dtm" href="/cabinet/dtm"><span>▥</span><small>DTM</small></a>
+    <a data-page="mock" href="/cabinet/mock"><span>◎</span><small>Mock</small></a>
+    <a data-page="ranking" href="/cabinet/ranking"><span>♜</span><small>Reyting</small></a>
+    <a data-page="learning" href="/cabinet/learning"><span>◇</span><small>O‘qish</small></a>
+    <a data-page="services" href="/cabinet/services"><span>⌘</span><small>Xizmatlar</small></a>
+  </nav>
+  <script src="/static/cabinet.js"></script>
+</body>
+</html>
