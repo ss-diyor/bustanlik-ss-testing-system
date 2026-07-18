@@ -3910,15 +3910,31 @@ async def filter_page_process(callback: CallbackQuery, state: FSMContext):
     except ValueError:
         page = 1
 
+    data = await state.get_data()
+    maktab_id = data.get("students_selected_maktab_id")
+    maktab_nomi = data.get("students_selected_maktab_nomi", "Maktab")
+
     if ftype == "all":
-        talabalar = talaba_hammasi()
-        title = "📋 <b>Barcha o'quvchilar</b>"
+        if maktab_id:
+            talabalar = talaba_hammasi_by_maktab(maktab_id)
+            title = f"📋 <b>{maktab_nomi} - Barcha o'quvchilar</b>"
+        else:
+            talabalar = talaba_hammasi()
+            title = "📋 <b>Barcha o'quvchilar</b>"
     elif ftype == "sinf":
-        talabalar = talaba_filtrlangan(sinf=fval)
-        title = "📋 <b>Filtrlangan ro'yxat</b>"
+        if maktab_id:
+            talabalar = talaba_filtrlangan_by_maktab(maktab_id, sinf=fval)
+            title = f"📋 <b>{maktab_nomi} - Filtrlangan ro'yxat</b>"
+        else:
+            talabalar = talaba_filtrlangan(sinf=fval)
+            title = "📋 <b>Filtrlangan ro'yxat</b>"
     else:
-        talabalar = talaba_filtrlangan(yonalish=fval)
-        title = "📋 <b>Filtrlangan ro'yxat</b>"
+        if maktab_id:
+            talabalar = talaba_filtrlangan_by_maktab(maktab_id, yonalish=fval)
+            title = f"📋 <b>{maktab_nomi} - Filtrlangan ro'yxat</b>"
+        else:
+            talabalar = talaba_filtrlangan(yonalish=fval)
+            title = "📋 <b>Filtrlangan ro'yxat</b>"
 
     if not talabalar:
         await callback.answer("⚠️ Ma'lumot topilmadi.", show_alert=True)
@@ -4026,16 +4042,31 @@ async def filter_excel_process(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
     ftype = parts[1]
     fval = parts[2]
+    state_data = await state.get_data()
+    maktab_id = state_data.get("students_selected_maktab_id")
+    maktab_nomi = state_data.get("students_selected_maktab_nomi", "Maktab")
 
     if ftype == "all":
-        data = get_all_students_for_excel()
-        filename_suffix = "barchasi"
+        if maktab_id:
+            data = talaba_hammasi_by_maktab(maktab_id)
+            filename_suffix = f"maktab_{maktab_id}_barchasi"
+        else:
+            data = get_all_students_for_excel()
+            filename_suffix = "barchasi"
     elif ftype == "sinf":
-        data = talaba_filtrlangan(sinf=fval)
-        filename_suffix = f"sinf_{fval}"
+        if maktab_id:
+            data = talaba_filtrlangan_by_maktab(maktab_id, sinf=fval)
+            filename_suffix = f"maktab_{maktab_id}_sinf_{fval}"
+        else:
+            data = talaba_filtrlangan(sinf=fval)
+            filename_suffix = f"sinf_{fval}"
     else:
-        data = talaba_filtrlangan(yonalish=fval)
-        filename_suffix = f"yonalish_{fval}"
+        if maktab_id:
+            data = talaba_filtrlangan_by_maktab(maktab_id, yonalish=fval)
+            filename_suffix = f"maktab_{maktab_id}_yonalish_{fval}"
+        else:
+            data = talaba_filtrlangan(yonalish=fval)
+            filename_suffix = f"yonalish_{fval}"
 
     if not data:
         await callback.answer(
@@ -4047,7 +4078,11 @@ async def filter_excel_process(callback: CallbackQuery, state: FSMContext):
     pd.DataFrame(data).to_excel(path, index=False)
     try:
         await callback.message.answer_document(
-            FSInputFile(path), caption="📊 Filtrlangan ro'yxat (Excel)"
+            FSInputFile(path),
+            caption=(
+                f"📊 {maktab_nomi} — filtrlangan ro'yxat (Excel)"
+                if maktab_id else "📊 Filtrlangan ro'yxat (Excel)"
+            ),
         )
     finally:
         if os.path.exists(path):
