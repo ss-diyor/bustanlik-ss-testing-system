@@ -18,7 +18,7 @@ from aiogram.types import (
 )
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 
 from config import ADMIN_PASSWORD, MAX_SAVOL, ADMIN_IDS
 from audit_log import log_action
@@ -5424,20 +5424,38 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
         for guruh in guruhlar:
             for row in maktab_topiclari_ol(guruh["chat_id"]):
                 try:
-                    sent = await call.bot.send_message(
-                        guruh["chat_id"],
-                        "📌 <b>Maktab topic ma'lumotnomasi</b>\n\n"
-                        f"🏫 Maktab: <b>{row['maktab_nomi']}</b>\n"
-                        f"👥 O'quvchilar: <b>{row['oquvchilar_soni']}</b> ta\n"
-                        f"🔗 Ulangan profillar: <b>{row['ulanganlar_soni']}</b> ta\n\n"
-                        "Bu topicga shu maktab o'quvchilarining profil ulash xabarlari keladi.",
-                        parse_mode="HTML",
-                        message_thread_id=row["message_thread_id"],
-                    )
-                    await call.bot.pin_chat_message(
-                        guruh["chat_id"], sent.message_id, disable_notification=True
-                    )
+                    while True:
+                        try:
+                            sent = await call.bot.send_message(
+                                guruh["chat_id"],
+                                "📌 <b>Maktab topic ma'lumotnomasi</b>\n\n"
+                                f"🏫 Maktab: <b>{row['maktab_nomi']}</b>\n"
+                                f"👥 O'quvchilar: <b>{row['oquvchilar_soni']}</b> ta\n"
+                                f"🔗 Ulangan profillar: <b>{row['ulanganlar_soni']}</b> ta\n\n"
+                                "Bu topicga shu maktab o'quvchilarining profil ulash xabarlari keladi.",
+                                parse_mode="HTML",
+                                message_thread_id=row["message_thread_id"],
+                            )
+                            break
+                        except TelegramRetryAfter as exc:
+                            logging.info(
+                                "Topic xabari cheklovi: %s soniya kutilyapti", exc.retry_after
+                            )
+                            await asyncio.sleep(exc.retry_after + 1)
+                    while True:
+                        try:
+                            await call.bot.pin_chat_message(
+                                guruh["chat_id"], sent.message_id, disable_notification=True
+                            )
+                            break
+                        except TelegramRetryAfter as exc:
+                            logging.info(
+                                "Topic pin cheklovi: %s soniya kutilyapti", exc.retry_after
+                            )
+                            await asyncio.sleep(exc.retry_after + 1)
                     pinned += 1
+                    # Telegram'dagi pin chekloviga tushmaslik uchun so'rovlarni sekinlashtiramiz.
+                    await asyncio.sleep(0.5)
                 except Exception as exc:
                     errors += 1
                     logging.warning("Topicga pin xabari yuborilmadi: %s", exc)
