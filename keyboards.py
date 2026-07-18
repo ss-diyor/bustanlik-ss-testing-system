@@ -2005,6 +2005,12 @@ def guruh_boshqarish_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    text="🏷 Maktablar uchun topic yaratish",
+                    callback_data="guruh:topiclar_yarat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="🗑 Guruhni o'chirish",
                     callback_data="guruh:ochirish_royxat",
                 )

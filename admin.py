@@ -273,6 +273,8 @@ from database import (
     guruhlar_ol,
     guruh_qosh,
     guruh_ochir,
+    maktab_topici_ol,
+    maktab_topici_saqlash,
     appeal_qosh,
     appeal_javob_ber,
     appeals_ol,
@@ -5351,6 +5353,56 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
 
         await call.answer(
             f"✅ Backup {sent} ta guruhga yuborildi.", show_alert=True
+        )
+        return
+
+    elif action == "topiclar_yarat":
+        if not guruhlar:
+            await call.answer("⚠️ Avval kamida bitta guruh ulang.", show_alert=True)
+            return
+
+        maktablar = maktablar_ol()
+        if not maktablar:
+            await call.answer("⚠️ Maktablar topilmadi.", show_alert=True)
+            return
+
+        await call.answer("⏳ Topiclar tekshirilmoqda...")
+        yaratilgan = 0
+        mavjud = 0
+        xatolar = 0
+
+        for guruh in guruhlar:
+            chat_id = guruh["chat_id"]
+            for maktab in maktablar:
+                maktab_id = maktab["id"]
+                if maktab_topici_ol(chat_id, maktab_id):
+                    mavjud += 1
+                    continue
+
+                try:
+                    topic = await call.bot.create_forum_topic(
+                        chat_id=chat_id,
+                        name=f"🏫 {maktab['nomi']}"[:128],
+                        icon_color=0x6FB9F0,
+                    )
+                    maktab_topici_saqlash(chat_id, maktab_id, topic.message_thread_id)
+                    yaratilgan += 1
+                except Exception as exc:
+                    xatolar += 1
+                    logging.warning(
+                        "Maktab topici yaratilmagan (chat_id=%s, maktab_id=%s): %s",
+                        chat_id,
+                        maktab_id,
+                        exc,
+                    )
+
+        await call.message.edit_text(
+            "🏷 <b>Maktab topiclari tekshirildi.</b>\n\n"
+            f"✅ Yaratildi: <b>{yaratilgan}</b> ta\n"
+            f"⏭ Mavjud topiclar: <b>{mavjud}</b> ta\n"
+            f"⚠️ Xatolar: <b>{xatolar}</b> ta",
+            parse_mode="HTML",
+            reply_markup=guruh_boshqarish_keyboard(),
         )
         return
 
