@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import tempfile
+from html import escape
 from aiogram import Router, F, Bot
 from discord_notify import (
     notify_new_result, notify_new_student,
@@ -5987,16 +5988,141 @@ async def kod_qidirish_process(message: Message, state: FSMContext):
         await message.answer("O'quvchi topilmadi.")
     else:
         last_result = talaba_songi_natija(kod)
-        text = (
-            f"O'quvchi ma'lumotlari:\n\n"
-            f"Kod: {talaba['kod']}\n"
-            f"Ism: {talaba['ismlar']}\n"
-            f"Sinf: {talaba['sinf']}\n"
-            f"Yo'nalish: {talaba['yonalish']}\n"
-            f"Ball: {last_result['umumiy_ball'] if last_result else 'Mavjud emas'}"
+        results = talaba_natijalari(kod, limit=1000)
+        values = [float(r["umumiy_ball"]) for r in results]
+        school = talaba.get("maktab_nomi") or talaba.get("maktab") or "—"
+        registered_at = talaba.get("registered_at")
+        registered_text = (
+            registered_at.strftime("%d.%m.%Y %H:%M")
+            if registered_at else "—"
         )
-        await message.answer(text, parse_mode="HTML")
+        last_date = "—"
+        if last_result and last_result.get("test_sanasi"):
+            last_date = last_result["test_sanasi"].strftime("%d.%m.%Y")
+        diff = get_score_difference(kod)
+        diff_text = "—" if diff is None else f"{diff:+.1f} ball"
+        ranks = get_student_rank(kod) if last_result else {"class": None, "overall": None}
+        class_rank = ranks.get("class")
+        overall_rank = ranks.get("overall")
+        rank_text = (
+            f"Sinf: {class_rank}-o'rin"
+            if class_rank else "Mavjud emas"
+        )
+        if overall_rank:
+            rank_text += f" | Parallel: {overall_rank}-o'rin"
+        linked_text = "✅ Ulangan" if talaba.get("user_id") else "❌ Ulanmagan"
+        telegram_id = talaba.get("user_id") or "—"
+        text = (
+            f"🔎 <b>O'quvchi profili</b>\n\n"
+            f"🆔 Kod: <code>{escape(str(talaba['kod']))}</code>\n"
+            f"👤 Ism: <b>{escape(str(talaba.get('ismlar') or '—'))}</b>\n"
+            f"🏫 Maktab: <b>{escape(str(school))}</b>\n"
+            f"📚 Sinf: <b>{escape(str(talaba.get('sinf') or '—'))}</b>\n"
+            f"🎯 Yo'nalish: <b>{escape(str(talaba.get('yonalish') or '—'))}</b>\n\n"
+            f"🔗 Telegram: <b>{linked_text}</b>\n"
+            f"🆔 Telegram ID: <code>{telegram_id}</code>\n"
+            f"📅 Ro'yxatdan o'tgan: <b>{registered_text}</b>\n\n"
+        )
+        if values:
+            text += (
+                f"📊 <b>DTM natijalari</b>\n"
+                f"• Oxirgi: <b>{last_result['umumiy_ball']}</b> ball — {last_date}\n"
+                f"• Eng yuqori: <b>{max(values)}</b> ball\n"
+                f"• O'rtacha: <b>{sum(values) / len(values):.1f}</b> ball\n"
+                f"• Jami urinishlar: <b>{len(values)} ta</b>\n"
+                f"• Oldingi natijaga nisbatan: <b>{diff_text}</b>\n"
+                f"• Reyting: <b>{rank_text}</b>"
+            )
+        else:
+            text += "📊 <b>DTM natijalari</b>\n• Hali natijalar mavjud emas"
+        actions = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="🧪 Mock natijalari", callback_data=f"kod_qidir_mock:{kod}"),
+            InlineKeyboardButton(text="📄 DTM sertifikati", callback_data=f"kod_qidir_cert:{kod}"),
+        ]])
+        await message.answer(text, parse_mode="HTML", reply_markup=actions)
     await state.set_state(None)
+
+
+@router.callback_query(F.data.startswith("kod_qidir_mock:"))
+async def kod_qidirish_mock_natijalari(callback: CallbackQuery, state: FSMContext):
+    """Kod bo'yicha qidiruv kartasidan o'quvchining so'nggi mock natijalarini chiqaradi."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    await callback.answer()
+    kod = callback.data.split(":", 1)[1].upper()
+    talaba = talaba_topish(kod)
+    if not talaba:
+        await callback.message.answer("❌ O'quvchi topilmadi.")
+        return
+
+    from mock_database import mock_natijalari_ol
+
+    natijalar = mock_natijalari_ol(kod, limit=10)
+    if not natijalar:
+        await callback.message.answer(
+            f"🧪 <b>{escape(str(talaba.get('ismlar') or kod))}</b> uchun mock natijalari yo'q.",
+            parse_mode="HTML",
+        )
+        return
+
+    lines = [f"🧪 <b>{escape(str(talaba.get('ismlar') or kod))}</b> — Mock natijalari\n"]
+    for index, natija in enumerate(natijalar, start=1):
+        label = escape(str(natija.get("exam_label") or natija.get("exam_key") or "Mock"))
+        ball = natija.get("umumiy_ball")
+        sana = natija.get("test_sanasi")
+        sana_text = sana.strftime("%d.%m.%Y") if hasattr(sana, "strftime") else str(sana or "—")
+        level = natija.get("level_label")
+        level_text = f" · {escape(str(level))}" if level else ""
+        lines.append(
+            f"{index}. <b>{label}</b>{level_text}\n"
+            f"   📊 Ball: <b>{ball if ball is not None else '—'}</b> · 📅 {sana_text}"
+        )
+    await callback.message.answer("\n\n".join(lines), parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("kod_qidir_cert:"))
+async def kod_qidirish_dtm_sertifikat(callback: CallbackQuery, state: FSMContext):
+    """Kod bo'yicha qidiruv kartasidan oxirgi DTM sertifikatini PDF qilib yuboradi."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+    await callback.answer("Sertifikat tayyorlanmoqda…")
+    kod = callback.data.split(":", 1)[1].upper()
+    talaba = talaba_topish(kod)
+    natija = talaba_songi_natija(kod)
+    if not talaba or not natija:
+        await callback.message.answer("❌ Sertifikat uchun DTM natijasi topilmadi.")
+        return
+
+    maktab = talaba.get("maktab_nomi") or talaba.get("maktab") or ""
+    sana = str(natija.get("test_sanasi") or "")[:10]
+    cert_gen = CertificateGenerator.from_db()
+    cert_path = None
+    try:
+        cert_path, _ = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: cert_gen.generate(
+                talaba.get("ismlar", ""),
+                natija["umumiy_ball"],
+                sana,
+                kod,
+                sinf=talaba.get("sinf", ""),
+                maktab=maktab,
+            ),
+        )
+        await callback.message.answer_document(
+            FSInputFile(cert_path),
+            caption=(
+                f"📄 <b>{escape(str(talaba.get('ismlar') or kod))}</b> "
+                "uchun DTM sertifikati"
+            ),
+            parse_mode="HTML",
+        )
+    except Exception:
+        logging.exception("Admin qidiruvidan sertifikat yaratishda xato")
+        await callback.message.answer("❌ Sertifikat yaratishda xatolik yuz berdi.")
+    finally:
+        if cert_path and os.path.exists(cert_path):
+            os.remove(cert_path)
 
 
 @router.message(F.text == "🆔 QR-kod yaratish")
