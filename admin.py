@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import tempfile
 from aiogram import Router, F, Bot
 from discord_notify import (
     notify_new_result, notify_new_student,
@@ -5436,6 +5437,105 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
         await call.message.edit_text(
             "📋 <b>Profil ulanish holati yuborildi.</b>\n\n"
             f"✅ Topiclar: <b>{sent}</b> ta\n⚠️ Xatolar: <b>{errors}</b> ta",
+            parse_mode="HTML",
+            reply_markup=topic_boshqarish_keyboard(),
+        )
+        return
+
+    elif action == "topic_excel_report":
+        if not guruhlar:
+            await call.answer("⚠️ Avval kamida bitta guruh ulang.", show_alert=True)
+            return
+
+        await call.answer("⏳ Excel hisoboti yaratilmoqda...")
+        from datetime import datetime
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = "Profil ulanish holati"
+        worksheet.sheet_view.showGridLines = False
+        worksheet.merge_cells("A1:F1")
+        worksheet["A1"] = "Maktablar bo'yicha Telegram profil ulanish holati"
+        worksheet["A1"].font = Font(name="Arial", bold=True, size=14, color="FFFFFF")
+        worksheet["A1"].fill = PatternFill("solid", fgColor="1F4E78")
+        worksheet["A1"].alignment = Alignment(horizontal="center", vertical="center")
+        worksheet.row_dimensions[1].height = 28
+        worksheet.merge_cells("A2:F2")
+        worksheet["A2"] = f"Hisobot sanasi: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        worksheet["A2"].font = Font(name="Arial", italic=True, color="666666")
+        worksheet["A2"].alignment = Alignment(horizontal="center")
+
+        headers = [
+            "Maktablar", "O'quvchilar soni", "Ism-familya", "Shaxsiy kod",
+            "Profilini ulaganlar", "Hali ulamaganlar",
+        ]
+        header_fill = PatternFill("solid", fgColor="5B9BD5")
+        header_font = Font(name="Arial", bold=True, color="FFFFFF")
+        thin = Side(style="thin", color="D9E2F3")
+        border = Border(bottom=thin)
+        for column, header in enumerate(headers, 1):
+            cell = worksheet.cell(row=4, column=column, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        worksheet.row_dimensions[4].height = 28
+        worksheet.freeze_panes = "A5"
+
+        row_number = 5
+        for maktab in maktablar_ol():
+            ulanganlar, ulanmaganlar = maktab_profil_ulanish_holati(maktab["id"])
+            students = [(student, True) for student in ulanganlar] + [
+                (student, False) for student in ulanmaganlar
+            ]
+            total = len(students)
+            if not students:
+                students = [(None, False)]
+            for student, is_linked in students:
+                values = [
+                    maktab["nomi"], total,
+                    student["ismlar"] if student else "—",
+                    student["kod"] if student else "—",
+                    "✅ Ulangan" if is_linked and student else "",
+                    "⏳ Ulanmagan" if not is_linked and student else "",
+                ]
+                for column, value in enumerate(values, 1):
+                    cell = worksheet.cell(row=row_number, column=column, value=value)
+                    cell.font = Font(name="Arial", size=10)
+                    cell.border = border
+                    cell.alignment = Alignment(vertical="center", wrap_text=True)
+                    if column == 5 and value:
+                        cell.fill = PatternFill("solid", fgColor="E2F0D9")
+                    elif column == 6 and value:
+                        cell.fill = PatternFill("solid", fgColor="FCE4D6")
+                row_number += 1
+
+        worksheet.auto_filter.ref = f"A4:F{row_number - 1}"
+        for column, width in {"A": 28, "B": 18, "C": 30, "D": 16, "E": 22, "F": 22}.items():
+            worksheet.column_dimensions[column].width = width
+
+        file_handle, report_path = tempfile.mkstemp(prefix="profil_ulanish_", suffix=".xlsx")
+        os.close(file_handle)
+        workbook.save(report_path)
+        sent = 0
+        try:
+            for guruh in guruhlar:
+                try:
+                    await call.bot.send_document(
+                        guruh["chat_id"],
+                        FSInputFile(report_path, filename="profil_ulanish_holati.xlsx"),
+                        caption="📊 Maktablar bo'yicha Telegram profil ulanish holati",
+                    )
+                    sent += 1
+                except Exception as exc:
+                    logging.warning("Excel hisoboti Generalga yuborilmadi: %s", exc)
+        finally:
+            if os.path.exists(report_path):
+                os.remove(report_path)
+
+        await call.message.edit_text(
+            f"📥 <b>Excel hisoboti {sent} ta guruhning General qismiga yuborildi.</b>",
             parse_mode="HTML",
             reply_markup=topic_boshqarish_keyboard(),
         )

@@ -2041,6 +2041,7 @@ def topic_boshqarish_keyboard():
         inline_keyboard=[
             [InlineKeyboardButton(text="📊 Topic statistikasi", callback_data="guruh:topic_stats")],
             [InlineKeyboardButton(text="📋 Profil ulanish holati", callback_data="guruh:topic_profile_status")],
+            [InlineKeyboardButton(text="📥 Generalga Excel hisoboti", callback_data="guruh:topic_excel_report")],
             [InlineKeyboardButton(text="🔗 Topic havolalari", callback_data="guruh:topic_links")],
             [InlineKeyboardButton(text="📌 Topicga pin xabari", callback_data="guruh:topic_pin")],
             [InlineKeyboardButton(text="🔄 O'chirilgan topiclarni tiklash", callback_data="guruh:topic_restore")],
