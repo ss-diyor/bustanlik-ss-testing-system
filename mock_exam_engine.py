@@ -124,6 +124,22 @@ def create_mock_exam_engine_tables(cursor=None):
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_sessions_kod ON mock_web_sessions(talaba_kod)")
 
+    # Tashqi saytdan kirishda shaxsiy kod faqat so'rovni boshlaydi; yakuniy
+    # tasdiq o'quvchining Telegram akkauntidan olinadi.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS mock_web_login_requests (
+            request_token      TEXT PRIMARY KEY,
+            talaba_kod         TEXT NOT NULL REFERENCES talabalar(kod) ON DELETE CASCADE,
+            telegram_user_id   BIGINT NOT NULL,
+            status             TEXT NOT NULL DEFAULT 'pending',
+            web_session_token  TEXT,
+            created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at         TIMESTAMP NOT NULL,
+            approved_at        TIMESTAMP
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_login_requests_token ON mock_web_login_requests(request_token)")
+
     # Tayyor HTML sahifa (masalan tayyor IELTS Listening/Reading/Writing varog'i) rejimi
     cur.execute("ALTER TABLE mock_test_sections ADD COLUMN IF NOT EXISTS custom_html TEXT")
     cur.execute("ALTER TABLE mock_test_sections ADD COLUMN IF NOT EXISTS custom_answer_key JSONB")
@@ -1020,6 +1036,106 @@ def talaba_login(kod: str):
     conn.commit()
     cur.close(); cur2.close(); release_connection(conn)
     return token, dict(talaba)
+
+
+def web_session_yarat(talaba_kod: str, hours: int = 6) -> str:
+    """Tasdiqlangan o'quvchi uchun httpOnly cookie ga yoziladigan sessiya tokeni."""
+    token = secrets.token_urlsafe(32)
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO mock_web_sessions (token, talaba_kod, expires_at) VALUES (%s, %s, %s)",
+        (token, talaba_kod, datetime.now() + timedelta(hours=hours)),
+    )
+    conn.commit()
+    cur.close(); release_connection(conn)
+    return token
+
+
+def web_login_sorov_yarat(kod: str):
+    """Kod bo'yicha Telegram tasdiqlash so'rovini yaratadi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            "SELECT kod, ismlar, user_id FROM talabalar WHERE kod=%s AND status='aktiv'",
+            (kod.strip().upper(),),
+        )
+        talaba = cur.fetchone()
+        if not talaba:
+            return None, "Kod topilmadi yoki o'quvchi faol emas"
+        if not talaba.get("user_id"):
+            return None, "Avval botda ULASH_KOD orqali profilingizni ulang"
+
+        request_token = secrets.token_urlsafe(18)
+        cur.execute(
+            """
+            INSERT INTO mock_web_login_requests
+                (request_token, talaba_kod, telegram_user_id, expires_at)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (request_token, talaba["kod"], talaba["user_id"], datetime.now() + timedelta(minutes=5)),
+        )
+        conn.commit()
+        return {"request_token": request_token, "talaba": dict(talaba)}, None
+    finally:
+        cur.close(); release_connection(conn)
+
+
+def web_login_sorov_holati(request_token: str):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("SELECT * FROM mock_web_login_requests WHERE request_token=%s", (request_token,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        data = dict(row)
+        if data["status"] == "pending" and data["expires_at"] <= datetime.now():
+            cur.execute("UPDATE mock_web_login_requests SET status='expired' WHERE request_token=%s", (request_token,))
+            conn.commit()
+            data["status"] = "expired"
+        return data
+    finally:
+        cur.close(); release_connection(conn)
+
+
+def web_login_sorov_javob(request_token: str, telegram_user_id: int, approved: bool):
+    """Telegram inline tugmasidan kelgan javobni qabul qiladi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            "SELECT * FROM mock_web_login_requests WHERE request_token=%s FOR UPDATE",
+            (request_token,),
+        )
+        row = cur.fetchone()
+        if not row or row["telegram_user_id"] != telegram_user_id:
+            return None, "So'rov topilmadi"
+        if row["status"] != "pending" or row["expires_at"] <= datetime.now():
+            return None, "So'rovning muddati tugagan"
+        if not approved:
+            cur.execute("UPDATE mock_web_login_requests SET status='rejected' WHERE request_token=%s", (request_token,))
+            conn.commit()
+            return False, None
+
+        session_token = secrets.token_urlsafe(32)
+        cur.execute(
+            "INSERT INTO mock_web_sessions (token, talaba_kod, expires_at) VALUES (%s, %s, %s)",
+            (session_token, row["talaba_kod"], datetime.now() + timedelta(hours=6)),
+        )
+        cur.execute(
+            """
+            UPDATE mock_web_login_requests
+            SET status='approved', web_session_token=%s, approved_at=CURRENT_TIMESTAMP
+            WHERE request_token=%s
+            """,
+            (session_token, request_token),
+        )
+        conn.commit()
+        return True, None
+    finally:
+        cur.close(); release_connection(conn)
 
 
 def session_talaba_kod(token: str):

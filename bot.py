@@ -38,6 +38,7 @@ import payment
 import otm_handler
 import audit_log_admin
 import export
+import web_login
 from audit_log import log_action
 
 # ── Discord notify moduli ─────────────────────────────────────
@@ -181,6 +182,7 @@ dp.include_router(mock_excel_export.router)
 dp.include_router(otm_handler.router)
 dp.include_router(audit_log_admin.router)
 dp.include_router(export.export_router)
+dp.include_router(web_login.router)
 
 
 @dp.message(CommandStart())

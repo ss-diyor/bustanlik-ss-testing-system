@@ -281,12 +281,44 @@ async function doLogin() {
       btn.disabled = false; btn.textContent = "Kirish →";
       return;
     }
-    location.href = "/mock/home";
+    if (!data.pending || !data.request_token) {
+      throw new Error("Tasdiqlash so'rovi yaratilmadi");
+    }
+    msg.textContent = "Telegram botiga tasdiqlash xabari yuborildi. Tasdiqlangandan so'ng sahifa ochiladi.";
+    msg.className = "msg";
+    btn.textContent = "Telegramda tasdiqlang...";
+    await waitForTelegramApproval(data.request_token);
   } catch(e) {
     msg.textContent = "Server bilan bog\'lanishda xato";
     msg.className = "msg err";
     btn.disabled = false; btn.textContent = "Kirish →";
   }
+}
+
+async function waitForTelegramApproval(token) {
+  const deadline = Date.now() + 5 * 60 * 1000;
+  while (Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    try {
+      const res = await fetch(`/api/mock/login/${encodeURIComponent(token)}`, {cache: "no-store"});
+      const data = await res.json();
+      if (data.status === "approved") {
+        location.href = "/mock/home";
+        return;
+      }
+      if (["rejected", "expired"].includes(data.status)) {
+        msg.textContent = data.status === "rejected" ? "Kirish so'rovi rad etildi." : "So'rov muddati tugadi. Qayta urinib ko'ring.";
+        msg.className = "msg err";
+        btn.disabled = false; btn.textContent = "Kirish →";
+        return;
+      }
+    } catch (_) {
+      // Vaqtinchalik tarmoq uzilishida polling davom etadi.
+    }
+  }
+  msg.textContent = "So'rov muddati tugadi. Qayta urinib ko'ring.";
+  msg.className = "msg err";
+  btn.disabled = false; btn.textContent = "Kirish →";
 }
 
 btn.onclick = doLogin;

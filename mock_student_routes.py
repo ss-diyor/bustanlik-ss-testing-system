@@ -12,6 +12,8 @@ import time
 from collections import defaultdict, deque
 from aiohttp import web
 from aiohttp.web import json_response as _aiohttp_json_response
+from aiogram import Bot
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import mock_exam_engine as engine
 
@@ -79,7 +81,7 @@ def _login_rate_limited(request: web.Request) -> bool:
 # ─────────────────────────────────────────
 
 async def mock_login_api(request: web.Request) -> web.Response:
-    """POST { kod: 'SS001' } -> sessiya cookie o'rnatadi."""
+    """POST { kod } -> Telegram tasdiqlash so'rovini yuboradi."""
     if _login_rate_limited(request):
         return _json(
             {"error": "Juda ko'p urinish. 15 daqiqadan keyin qayta urinib ko'ring"},
@@ -95,15 +97,52 @@ async def mock_login_api(request: web.Request) -> web.Response:
     if not kod:
         return _json({"error": "Kodni kiriting"}, status=400)
 
-    token, talaba = engine.talaba_login(kod)
-    if not token:
-        return _json({"error": "Kod topilmadi yoki faol emas"}, status=404)
+    login, error = engine.web_login_sorov_yarat(kod)
+    if error:
+        return _json({"error": error}, status=404)
 
-    resp = _json({"success": True, "student": talaba})
-    resp.set_cookie(
-        SESSION_COOKIE, token,
-        max_age=6 * 3600, httponly=True, samesite="Lax", secure=True,
-    )
+    request_token = login["request_token"]
+    talaba = login["talaba"]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"web_login:approve:{request_token}"),
+        InlineKeyboardButton(text="❌ Rad etish", callback_data=f"web_login:reject:{request_token}"),
+    ]])
+    bot = Bot(token=request.app["bot_token"])
+    try:
+        await bot.send_message(
+            talaba["user_id"],
+            "🌐 <b>Saytga kirish so'rovi</b>\n\n"
+            f"👤 O'quvchi: <b>{talaba['ismlar']}</b>\n"
+            f"🆔 Kod: <code>{talaba['kod']}</code>\n\n"
+            "mock.sultanov.space saytiga kirishni tasdiqlaysizmi?\n"
+            "So'rov 5 daqiqa davomida amal qiladi.",
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
+    except Exception:
+        return _json({"error": "Telegramga xabar yuborilmadi. Botni ochib, qayta urinib ko'ring"}, status=409)
+    finally:
+        await bot.session.close()
+
+    return _json({"pending": True, "request_token": request_token})
+
+
+async def mock_login_status_api(request: web.Request) -> web.Response:
+    """Brauzer Telegram tasdiqlash holatini polling orqali tekshiradi."""
+    request_token = request.match_info.get("token", "")
+    if len(request_token) < 20:
+        return _json({"error": "Noto'g'ri so'rov"}, status=400)
+    login = engine.web_login_sorov_holati(request_token)
+    if not login:
+        return _json({"error": "So'rov topilmadi"}, status=404)
+
+    status = login["status"]
+    resp = _json({"status": status})
+    if status == "approved" and login.get("web_session_token"):
+        resp.set_cookie(
+            SESSION_COOKIE, login["web_session_token"],
+            max_age=6 * 3600, httponly=True, samesite="Lax", secure=True,
+        )
     return resp
 
 
@@ -343,6 +382,7 @@ def register_mock_student_routes(app: web.Application) -> None:
     app.middlewares.append(mock_domain_redirect_middleware)
 
     app.router.add_post("/api/mock/login", mock_login_api)
+    app.router.add_get("/api/mock/login/{token}", mock_login_status_api)
     app.router.add_post("/api/mock/logout", mock_logout_api)
     app.router.add_get("/api/mock/me", mock_me_api)
 

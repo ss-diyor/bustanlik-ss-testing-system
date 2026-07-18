@@ -88,6 +88,21 @@ async def index_handler(request: web.Request) -> web.Response:
     return web.FileResponse(html_path)
 
 
+async def student_cabinet_handler(request: web.Request) -> web.Response:
+    """mock.sultanov.space dagi tasdiqlangan o'quvchi kabineti."""
+    html_path = os.path.join(STATIC_DIR, "index.html")
+    return web.FileResponse(html_path)
+
+
+def _mock_session_talaba_kod(request: web.Request) -> str | None:
+    """Tashqi saytdagi Telegram-tasdiqlangan mock sessiyasini tekshiradi."""
+    try:
+        import mock_exam_engine
+        return mock_exam_engine.session_talaba_kod(request.cookies.get("mock_session"))
+    except Exception:
+        return None
+
+
 async def student_api(request: web.Request) -> web.Response:
     """O'quvchi ma'lumotlarini JSON formatida qaytaradi."""
     from database import get_connection, release_connection
@@ -98,7 +113,8 @@ async def student_api(request: web.Request) -> web.Response:
     init_data = request.headers.get("X-Telegram-Init-Data", "")
     user, err_msg = validate_telegram_init_data(init_data, bot_token)
 
-    if not user:
+    session_kod = _mock_session_talaba_kod(request)
+    if not user and not session_kod:
         # Debug rejimida query param orqali ham ishlaydi
         debug = os.getenv("WEBAPP_DEBUG", "")
         if debug:
@@ -108,10 +124,13 @@ async def student_api(request: web.Request) -> web.Response:
                 return web.json_response({"error": "Invalid user_id"}, status=400)
         else:
             return web.json_response({"error": f"Unauthorized: {err_msg}"}, status=401)
-    else:
+    elif user:
         user_id = user.get("id", 0)
 
-    if not user_id:
+    if session_kod:
+        user_id = None
+
+    if not user_id and not session_kod:
         return web.json_response({"error": "No user_id"}, status=400)
 
     conn = None
@@ -120,16 +139,23 @@ async def student_api(request: web.Request) -> web.Response:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         # O'quvchi ma'lumotlari (real yoki demo sessiya orqali)
-        cur.execute("""
-            SELECT t.*, COALESCE(m.nomi, 'Noaniq maktab') as maktab_nomi
-            FROM talabalar t
-            LEFT JOIN maktablar m ON t.maktab_id = m.id
-            WHERE t.user_id = %s
-        """, (user_id,))
+        if session_kod:
+            cur.execute("""
+                SELECT t.*, COALESCE(m.nomi, 'Noaniq maktab') as maktab_nomi
+                FROM talabalar t LEFT JOIN maktablar m ON t.maktab_id = m.id
+                WHERE t.kod = %s AND t.status = 'aktiv'
+            """, (session_kod,))
+        else:
+            cur.execute("""
+                SELECT t.*, COALESCE(m.nomi, 'Noaniq maktab') as maktab_nomi
+                FROM talabalar t
+                LEFT JOIN maktablar m ON t.maktab_id = m.id
+                WHERE t.user_id = %s
+            """, (user_id,))
         talaba = cur.fetchone()
 
         # Demo sessiyadan qidirish
-        if not talaba or talaba.get("is_demo"):
+        if not session_kod and (not talaba or talaba.get("is_demo")):
             cur.execute("""
                 SELECT t.* FROM talabalar t
                 JOIN demo_sessions d ON d.kod = t.kod
@@ -309,7 +335,8 @@ async def attendance_record_api(request: web.Request) -> web.Response:
     init_data = request.headers.get("X-Telegram-Init-Data", "")
     user, err_msg = validate_telegram_init_data(init_data, bot_token)
 
-    if not user:
+    session_kod = _mock_session_talaba_kod(request)
+    if not user and not session_kod:
         debug = os.getenv("WEBAPP_DEBUG", "")
         if debug:
             try:
@@ -458,8 +485,11 @@ async def check_admin_role(request: web.Request):
                 return None, None, web.json_response({"error": "Invalid user_id"}, status=400)
         else:
             return None, None, web.json_response({"error": f"Unauthorized: {err_msg}"}, status=401)
-    else:
+    elif user:
         user_id = user.get("id", 0)
+
+    if session_kod:
+        user_id = None
 
     conn = get_connection()
     try:
@@ -942,7 +972,7 @@ async def student_mock_api(request: web.Request) -> web.Response:
     else:
         user_id = user.get("id", 0)
 
-    if not user_id:
+    if not user_id and not session_kod:
         return web.json_response({"error": "No user_id"}, status=400)
 
     try:
@@ -950,9 +980,12 @@ async def student_mock_api(request: web.Request) -> web.Response:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         # Talaba kodini topish (demo sessiyani ham qo'llab-quvvatlash)
-        cur.execute("SELECT kod FROM talabalar WHERE user_id = %s", (user_id,))
+        if session_kod:
+            cur.execute("SELECT kod FROM talabalar WHERE kod = %s AND status = 'aktiv'", (session_kod,))
+        else:
+            cur.execute("SELECT kod FROM talabalar WHERE user_id = %s", (user_id,))
         row = cur.fetchone()
-        if not row:
+        if not session_kod and not row:
             cur.execute("""
                 SELECT t.kod FROM talabalar t
                 JOIN demo_sessions d ON d.kod = t.kod
@@ -1706,6 +1739,7 @@ def create_app(bot_token: str) -> web.Application:
     app["bot_token"] = bot_token
 
     app.router.add_get("/", index_handler)
+    app.router.add_get("/cabinet", student_cabinet_handler)
     app.router.add_get("/health", health_handler)
     app.router.add_get("/verify/{kod}", verify_handler)
     app.router.add_get("/scan/{kod}", verify_handler)  # QR-kod uchun alias
