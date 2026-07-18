@@ -15,6 +15,7 @@ from database import (
     guruhlar_ol, create_chatbot_logs_table,
     royxatdan_otish_topici_ol, royxatdan_otish_topici_saqlash,
     maktab_topici_ol, maktab_topici_saqlash,
+    maxsus_topic_ol, maxsus_topic_saqlash,
 )
 from aiogram import F
 from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_keyboard, phone_number_keyboard
@@ -81,8 +82,10 @@ async def _topic_ol_yoki_yarat(chat_id: int, topic_nomi: str, mavzu_turi: str, m
     """Forum guruhida kerakli topicni topadi yoki bot huquqi bo'lsa yaratadi."""
     if mavzu_turi == "royxatdan_otish":
         thread_id = royxatdan_otish_topici_ol(chat_id)
-    else:
+    elif mavzu_turi == "maktab":
         thread_id = maktab_topici_ol(chat_id, maktab_id) if maktab_id else None
+    else:
+        thread_id = maxsus_topic_ol(chat_id, mavzu_turi)
 
     if thread_id:
         return thread_id
@@ -99,6 +102,8 @@ async def _topic_ol_yoki_yarat(chat_id: int, topic_nomi: str, mavzu_turi: str, m
             royxatdan_otish_topici_saqlash(chat_id, thread_id)
         elif maktab_id:
             maktab_topici_saqlash(chat_id, maktab_id, thread_id)
+        else:
+            maxsus_topic_saqlash(chat_id, mavzu_turi, thread_id)
         return thread_id
     except Exception as exc:
         # Oddiy guruh yoki ruxsati yetarli bo'lmagan forumda eski usulda yuboramiz.
@@ -139,6 +144,10 @@ async def _guruhga_profil_ulash_xabari(text: str, talaba: dict) -> None:
         if maktab_id and maktab_nomi:
             thread_id = await _topic_ol_yoki_yarat(
                 chat_id, f"🏫 {maktab_nomi}", "maktab", int(maktab_id)
+            )
+        else:
+            thread_id = await _topic_ol_yoki_yarat(
+                chat_id, "⚠️ Maktabi aniqlanmaganlar", "maktabi_aniqlanmagan"
             )
         try:
             await bot.send_message(

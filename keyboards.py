@@ -2017,6 +2017,12 @@ def guruh_boshqarish_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    text="🗂 Topiclarni boshqarish",
+                    callback_data="guruh:topic_menu",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="🗑 Guruhni o'chirish",
                     callback_data="guruh:ochirish_royxat",
                 )
@@ -2026,6 +2032,18 @@ def guruh_boshqarish_keyboard():
                     text="🔙 Orqaga", callback_data="admin_menu"
                 )
             ],
+        ]
+    )
+
+
+def topic_boshqarish_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📊 Topic statistikasi", callback_data="guruh:topic_stats")],
+            [InlineKeyboardButton(text="🔗 Topic havolalari", callback_data="guruh:topic_links")],
+            [InlineKeyboardButton(text="📌 Topicga pin xabari", callback_data="guruh:topic_pin")],
+            [InlineKeyboardButton(text="🔄 O'chirilgan topiclarni tiklash", callback_data="guruh:topic_restore")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="guruh:ro'yxat_menu")],
         ]
     )
 

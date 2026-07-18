@@ -275,6 +275,8 @@ from database import (
     guruh_ochir,
     maktab_topici_ol,
     maktab_topici_saqlash,
+    maktab_topici_ochir,
+    maktab_topiclari_ol,
     appeal_qosh,
     appeal_javob_ber,
     appeals_ol,
@@ -356,6 +358,7 @@ from keyboards import (
     reminder_boshqarish_keyboard,
     maktab_boshqarish_keyboard,
     guruh_boshqarish_keyboard,
+    topic_boshqarish_keyboard,
     guruh_ochirish_keyboard,
     reminder_list_keyboard,
     maktab_list_keyboard,
@@ -5353,6 +5356,131 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
 
         await call.answer(
             f"✅ Backup {sent} ta guruhga yuborildi.", show_alert=True
+        )
+        return
+
+    elif action == "topic_menu":
+        await call.message.edit_text(
+            "🗂 <b>Topiclarni boshqarish</b>\n\n"
+            "Maktab topiclari uchun kerakli amalni tanlang.",
+            parse_mode="HTML",
+            reply_markup=topic_boshqarish_keyboard(),
+        )
+        await call.answer()
+        return
+
+    elif action == "topic_stats":
+        if not guruhlar:
+            await call.answer("⚠️ Avval kamida bitta guruh ulang.", show_alert=True)
+            return
+        lines = ["📊 <b>Topic statistikasi</b>\n"]
+        for guruh in guruhlar:
+            rows = maktab_topiclari_ol(guruh["chat_id"])
+            lines.append(f"<b>{guruh.get('nomi') or 'Guruh'}:</b>")
+            if not rows:
+                lines.append("• Hali maktab topici yaratilmagan.")
+            for row in rows:
+                lines.append(
+                    f"• {row['maktab_nomi']}: <b>{row['oquvchilar_soni']}</b> o'quvchi, "
+                    f"<b>{row['ulanganlar_soni']}</b> profil ulangan"
+                )
+            lines.append("")
+        await call.message.edit_text(
+            "\n".join(lines), parse_mode="HTML", reply_markup=topic_boshqarish_keyboard()
+        )
+        await call.answer()
+        return
+
+    elif action == "topic_links":
+        if not guruhlar:
+            await call.answer("⚠️ Avval kamida bitta guruh ulang.", show_alert=True)
+            return
+        lines = ["🔗 <b>Maktab topiclari havolalari</b>\n"]
+        for guruh in guruhlar:
+            chat_id = str(guruh["chat_id"])
+            rows = maktab_topiclari_ol(guruh["chat_id"])
+            lines.append(f"<b>{guruh.get('nomi') or 'Guruh'}:</b>")
+            if not chat_id.startswith("-100"):
+                lines.append("• Bu guruh uchun ichki havola yaratilmaydi.")
+            else:
+                internal_id = chat_id[4:]
+                for row in rows:
+                    url = f"https://t.me/c/{internal_id}/{row['message_thread_id']}"
+                    lines.append(f"• <a href=\"{url}\">{row['maktab_nomi']}</a>")
+            lines.append("")
+        await call.message.edit_text(
+            "\n".join(lines),
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+            reply_markup=topic_boshqarish_keyboard(),
+        )
+        await call.answer()
+        return
+
+    elif action == "topic_pin":
+        await call.answer("⏳ Pin xabarlari yuborilmoqda...")
+        pinned = 0
+        errors = 0
+        for guruh in guruhlar:
+            for row in maktab_topiclari_ol(guruh["chat_id"]):
+                try:
+                    sent = await call.bot.send_message(
+                        guruh["chat_id"],
+                        "📌 <b>Maktab topic ma'lumotnomasi</b>\n\n"
+                        f"🏫 Maktab: <b>{row['maktab_nomi']}</b>\n"
+                        f"👥 O'quvchilar: <b>{row['oquvchilar_soni']}</b> ta\n"
+                        f"🔗 Ulangan profillar: <b>{row['ulanganlar_soni']}</b> ta\n\n"
+                        "Bu topicga shu maktab o'quvchilarining profil ulash xabarlari keladi.",
+                        parse_mode="HTML",
+                        message_thread_id=row["message_thread_id"],
+                    )
+                    await call.bot.pin_chat_message(
+                        guruh["chat_id"], sent.message_id, disable_notification=True
+                    )
+                    pinned += 1
+                except Exception as exc:
+                    errors += 1
+                    logging.warning("Topicga pin xabari yuborilmadi: %s", exc)
+        await call.message.edit_text(
+            "📌 <b>Topic ma'lumotnomalari yuborildi.</b>\n\n"
+            f"✅ Pin qilindi: <b>{pinned}</b> ta\n⚠️ Xatolar: <b>{errors}</b> ta",
+            parse_mode="HTML",
+            reply_markup=topic_boshqarish_keyboard(),
+        )
+        return
+
+    elif action == "topic_restore":
+        await call.answer("⏳ O'chirilgan topiclar tekshirilmoqda...")
+        restored = 0
+        active = 0
+        errors = 0
+        for guruh in guruhlar:
+            chat_id = guruh["chat_id"]
+            for row in maktab_topiclari_ol(chat_id):
+                try:
+                    # Bo'sh nom Telegram'da amaldagi nomni saqlaydi, ammo topic mavjudligini tekshiradi.
+                    await call.bot.edit_forum_topic(
+                        chat_id=chat_id, message_thread_id=row["message_thread_id"], name=""
+                    )
+                    active += 1
+                except Exception:
+                    try:
+                        maktab_topici_ochir(chat_id, row["maktab_id"])
+                        topic = await call.bot.create_forum_topic(
+                            chat_id=chat_id, name=f"🏫 {row['maktab_nomi']}"[:128], icon_color=0x6FB9F0
+                        )
+                        maktab_topici_saqlash(chat_id, row["maktab_id"], topic.message_thread_id)
+                        restored += 1
+                    except Exception as exc:
+                        errors += 1
+                        logging.warning("Topic tiklanmadi: %s", exc)
+        await call.message.edit_text(
+            "🔄 <b>Topiclar tekshirildi.</b>\n\n"
+            f"✅ Faol topiclar: <b>{active}</b> ta\n"
+            f"♻️ Tiklandi: <b>{restored}</b> ta\n"
+            f"⚠️ Xatolar: <b>{errors}</b> ta",
+            parse_mode="HTML",
+            reply_markup=topic_boshqarish_keyboard(),
         )
         return
 

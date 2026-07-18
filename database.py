@@ -583,6 +583,15 @@ def init_db():
             PRIMARY KEY (chat_id, maktab_id)
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS guruh_maxsus_topiclari (
+            chat_id BIGINT NOT NULL,
+            turi TEXT NOT NULL,
+            message_thread_id INTEGER NOT NULL,
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (chat_id, turi)
+        )
+    """)
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS appeals (
@@ -2722,6 +2731,7 @@ def guruh_ochir(chat_id: int):
     cur = conn.cursor()
     cur.execute("DELETE FROM guruh_royxatdan_otish_topiclari WHERE chat_id = %s", (chat_id,))
     cur.execute("DELETE FROM guruh_maktab_topiclari WHERE chat_id = %s", (chat_id,))
+    cur.execute("DELETE FROM guruh_maxsus_topiclari WHERE chat_id = %s", (chat_id,))
     cur.execute("DELETE FROM guruhlar WHERE chat_id = %s", (chat_id,))
     conn.commit()
     cur.close()
@@ -2797,6 +2807,81 @@ def maktab_topici_saqlash(chat_id: int, maktab_id: int, message_thread_id: int) 
         )
         conn.commit()
         cur.close()
+    finally:
+        release_connection(conn)
+
+
+def maktab_topici_ochir(chat_id: int, maktab_id: int) -> None:
+    """O'chirilgan Telegram topici uchun eski bog'lanishni olib tashlaydi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM guruh_maktab_topiclari WHERE chat_id = %s AND maktab_id = %s",
+            (chat_id, maktab_id),
+        )
+        conn.commit()
+        cur.close()
+    finally:
+        release_connection(conn)
+
+
+def maxsus_topic_ol(chat_id: int, turi: str) -> int | None:
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT message_thread_id FROM guruh_maxsus_topiclari WHERE chat_id = %s AND turi = %s",
+            (chat_id, turi),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return row[0] if row else None
+    finally:
+        release_connection(conn)
+
+
+def maxsus_topic_saqlash(chat_id: int, turi: str, message_thread_id: int) -> None:
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO guruh_maxsus_topiclari (chat_id, turi, message_thread_id)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (chat_id, turi) DO UPDATE
+            SET message_thread_id = EXCLUDED.message_thread_id
+            """,
+            (chat_id, turi, message_thread_id),
+        )
+        conn.commit()
+        cur.close()
+    finally:
+        release_connection(conn)
+
+
+def maktab_topiclari_ol(chat_id: int) -> list[dict]:
+    """Guruhga bog'langan maktab topiclari va maktab nomlarini qaytaradi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """
+            SELECT gt.maktab_id, gt.message_thread_id, m.nomi AS maktab_nomi,
+                   COUNT(t.id) AS oquvchilar_soni,
+                   COUNT(t.user_id) AS ulanganlar_soni
+            FROM guruh_maktab_topiclari gt
+            JOIN maktablar m ON m.id = gt.maktab_id
+            LEFT JOIN talabalar t ON t.maktab_id = gt.maktab_id
+            WHERE gt.chat_id = %s
+            GROUP BY gt.maktab_id, gt.message_thread_id, m.nomi
+            ORDER BY m.nomi ASC
+            """,
+            (chat_id,),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(row) for row in rows]
     finally:
         release_connection(conn)
 
