@@ -1239,6 +1239,38 @@ def get_all_students_for_excel():
     return [dict(r) for r in rows]
 
 
+def barcha_maktablar_oquvchilari_excel_ol():
+    """Barcha maktab o'quvchilarini maktab va sinf bo'yicha tartiblangan Excel eksporti uchun qaytaradi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT
+                COALESCE(m.nomi, 'Maktabi ko''rsatilmagan') AS maktab_nomi,
+                t.sinf,
+                t.ismlar,
+                t.kod,
+                t.yonalish,
+                t.user_id,
+                n.umumiy_ball,
+                n.test_sanasi
+            FROM talabalar t
+            LEFT JOIN maktablar m ON m.id = t.maktab_id
+            LEFT JOIN test_natijalari n ON n.id = (
+                SELECT id FROM test_natijalari
+                WHERE talaba_kod = t.kod
+                ORDER BY test_sanasi DESC
+                LIMIT 1
+            )
+            ORDER BY m.nomi NULLS LAST, t.sinf ASC, t.ismlar ASC
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(row) for row in rows]
+    finally:
+        release_connection(conn)
+
+
 def get_sorted_students_for_excel():
     """Barcha o'quvchilarni ballari bo'yicha kamayish tartibida (reyting) oladi."""
     conn = get_connection()

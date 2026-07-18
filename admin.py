@@ -247,6 +247,7 @@ from database import (
     talaba_filtrlangan,
     talaba_filtrlangan_by_maktab,
     get_all_students_for_excel,
+    barcha_maktablar_oquvchilari_excel_ol,
     get_all_user_ids,
     get_user_ids_by_maktab,
     get_pending_requests,
@@ -348,6 +349,7 @@ from keyboards import (
     kalit_actions_keyboard,
     kalit_yonalish_tanlash_keyboard,
     oquvchilar_filtrlash_keyboard,
+    oquvchilar_royxati_boshlangich_keyboard,
     sinf_tanlash_keyboard,
     yonalish_tanlash_keyboard,
     filter_actions_keyboard,
@@ -3581,6 +3583,87 @@ async def request_action_handler(callback: CallbackQuery, state: FSMContext):
 # ─────────────────────────────────────────
 
 
+def _barcha_maktablar_excel_yarat(talabalar: list[dict], user_id: int) -> str:
+    """Barcha maktablar uchun o'qishga qulay, tartiblangan Excel fayl yaratadi."""
+    from datetime import datetime
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Barcha o'quvchilar"
+    worksheet.sheet_view.showGridLines = False
+    headers = [
+        "№", "Maktab", "Sinf", "Ism-familya", "Shaxsiy kod",
+        "Yo'nalish", "Oxirgi ball", "Oxirgi test sanasi", "Telegram",
+    ]
+    worksheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+    title = worksheet.cell(1, 1, "Barcha maktablar o'quvchilari ro'yxati")
+    title.font = Font(name="Arial", bold=True, size=14, color="FFFFFF")
+    title.fill = PatternFill("solid", fgColor="1F4E78")
+    title.alignment = Alignment(horizontal="center", vertical="center")
+    worksheet.row_dimensions[1].height = 28
+    worksheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
+    subtitle = worksheet.cell(
+        2, 1,
+        f"Jami: {len(talabalar)} ta o'quvchi | Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+    )
+    subtitle.font = Font(name="Arial", italic=True, color="666666")
+    subtitle.alignment = Alignment(horizontal="center")
+
+    header_fill = PatternFill("solid", fgColor="5B9BD5")
+    header_font = Font(name="Arial", bold=True, color="FFFFFF")
+    thin = Side(style="thin", color="D9E2F3")
+    border = Border(bottom=thin)
+    for column, label in enumerate(headers, start=1):
+        cell = worksheet.cell(4, column, label)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = border
+    worksheet.row_dimensions[4].height = 28
+
+    for index, talaba in enumerate(talabalar, start=1):
+        date_value = talaba.get("test_sanasi")
+        date_text = date_value.strftime("%d.%m.%Y") if date_value else "—"
+        values = [
+            index,
+            talaba.get("maktab_nomi") or "—",
+            talaba.get("sinf") or "—",
+            talaba.get("ismlar") or "—",
+            talaba.get("kod") or "—",
+            talaba.get("yonalish") or "—",
+            talaba.get("umumiy_ball") if talaba.get("umumiy_ball") is not None else "—",
+            date_text,
+            "✅ Ulangan" if talaba.get("user_id") else "⏳ Ulanmagan",
+        ]
+        for column, value in enumerate(values, start=1):
+            cell = worksheet.cell(index + 4, column, value)
+            cell.font = Font(name="Arial", size=10)
+            cell.alignment = Alignment(vertical="center", wrap_text=True)
+            cell.border = border
+            if index % 2 == 0:
+                cell.fill = PatternFill("solid", fgColor="F3F7FC")
+            if column == 9:
+                cell.fill = PatternFill(
+                    "solid", fgColor="E2F0D9" if talaba.get("user_id") else "FCE4D6"
+                )
+        worksheet.row_dimensions[index + 4].height = 22
+
+    worksheet.freeze_panes = "A5"
+    worksheet.auto_filter.ref = f"A4:I{len(talabalar) + 4}"
+    widths = [7, 28, 12, 28, 16, 32, 14, 20, 16]
+    for column, width in enumerate(widths, start=1):
+        worksheet.column_dimensions[chr(64 + column)].width = width
+
+    file_handle = tempfile.NamedTemporaryFile(
+        prefix=f"barcha_maktablar_{user_id}_", suffix=".xlsx", delete=False
+    )
+    file_handle.close()
+    workbook.save(file_handle.name)
+    return file_handle.name
+
+
 @router.message(F.text == "📋 O'quvchilar ro'yxati")
 async def students_list(message: Message, state: FSMContext):
     if not await admin_tekshir(state, message.from_user.id):
@@ -3610,11 +3693,76 @@ async def students_list(message: Message, state: FSMContext):
         return
 
     await message.answer(
-        "📋 <b>O'quvchilar ro'yxati uchun maktabni tanlang:</b>\n\n"
-        "Qaysi maktabning o'quvchilar ro'yxatini ko'rmoqchisiz?",
+        "📋 <b>O'quvchilar ro'yxati</b>\n\n"
+        "Kerakli ro'yxat turini tanlang:",
         parse_mode="HTML",
-        reply_markup=maktab_tanlash_keyboard(maktablar, "students_maktab")
+        reply_markup=oquvchilar_royxati_boshlangich_keyboard(),
     )
+
+
+@router.callback_query(F.data.startswith("students_scope:"))
+async def students_scope_callback(callback: CallbackQuery, state: FSMContext):
+    """Super admin uchun barcha yoki bitta maktab ro'yxati qamrovini tanlash."""
+    if not await admin_tekshir(state, callback.from_user.id):
+        return
+
+    scope = callback.data.split(":", 1)[1]
+    if scope == "all_list":
+        await state.update_data(
+            students_selected_maktab_id=None,
+            students_selected_maktab_nomi=None,
+        )
+        talabalar = talaba_hammasi()
+        if not talabalar:
+            await callback.answer("⚠️ O'quvchilar yo'q.", show_alert=True)
+            return
+        text, page, total_pages = _build_students_page(
+            talabalar, "📋 <b>Barcha maktablar o'quvchilari</b>", 1
+        )
+        await safe_edit(
+            callback,
+            text,
+            parse_mode="HTML",
+            reply_markup=filter_actions_keyboard("all", "all", page, total_pages),
+        )
+        await callback.answer()
+        return
+
+    if scope == "all_excel":
+        talabalar = barcha_maktablar_oquvchilari_excel_ol()
+        if not talabalar:
+            await callback.answer("⚠️ Excel uchun o'quvchilar topilmadi.", show_alert=True)
+            return
+        await callback.answer("⏳ Excel tayyorlanmoqda...")
+        path = None
+        try:
+            path = _barcha_maktablar_excel_yarat(talabalar, callback.from_user.id)
+            await callback.message.answer_document(
+                FSInputFile(path),
+                caption="📊 Barcha maktablar o'quvchilari — Excel",
+            )
+        finally:
+            if path and os.path.exists(path):
+                os.remove(path)
+        return
+
+    if scope == "one_school":
+        maktablar = maktablar_ol()
+        if not maktablar:
+            await callback.answer("⚠️ Hozircha maktablar mavjud emas.", show_alert=True)
+            return
+        await state.update_data(
+            students_selected_maktab_id=None,
+            students_selected_maktab_nomi=None,
+        )
+        await safe_edit(
+            callback,
+            "🏫 <b>Maktabni tanlang:</b>\n\n"
+            "Tanlangan maktab uchun sinf, yo'nalish yoki barcha o'quvchilar ro'yxatini olasiz.",
+            parse_mode="HTML",
+            reply_markup=maktab_tanlash_keyboard(maktablar, "students_maktab"),
+        )
+        await callback.answer()
 
 
 @router.callback_query(F.data.startswith("students_maktab:"))

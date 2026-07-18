@@ -2036,6 +2036,32 @@ def guruh_boshqarish_keyboard():
     )
 
 
+def oquvchilar_royxati_boshlangich_keyboard():
+    """Super admin uchun o'quvchilar ro'yxati qamrovini tanlash menyusi."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 Barcha maktablar o'quvchilari",
+                    callback_data="students_scope:all_list",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📊 Barcha maktablar (Excel)",
+                    callback_data="students_scope:all_excel",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏫 Bitta maktabni tanlash",
+                    callback_data="students_scope:one_school",
+                )
+            ],
+        ]
+    )
+
+
 def topic_boshqarish_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
