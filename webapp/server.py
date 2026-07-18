@@ -268,10 +268,18 @@ async def student_api(request: web.Request) -> web.Response:
         # Barcha natijalar (sanasi bo'yicha o'sib boruvchi tartib)
         cur.execute(
             """
-            SELECT umumiy_ball, majburiy, asosiy_1, asosiy_2, test_sanasi
-            FROM test_natijalari
-            WHERE talaba_kod = %s
-            ORDER BY test_sanasi ASC
+            SELECT tn.id, tn.umumiy_ball, tn.majburiy, tn.asosiy_1,
+                   tn.asosiy_2, tn.test_sanasi, cert.public_token
+            FROM test_natijalari tn
+            LEFT JOIN LATERAL (
+                SELECT ps.public_token
+                FROM public_sertifikatlar ps
+                WHERE ps.natija_id = tn.id AND ps.revoked = FALSE
+                ORDER BY ps.created_at DESC
+                LIMIT 1
+            ) cert ON TRUE
+            WHERE tn.talaba_kod = %s
+            ORDER BY tn.test_sanasi ASC
             """,
             (talaba["kod"],),
         )
@@ -318,11 +326,15 @@ async def student_api(request: web.Request) -> web.Response:
 
         results_list = [
             {
+                "id": n["id"],
                 "umumiy_ball": float(n["umumiy_ball"]),
                 "majburiy": float(n["majburiy"]),
                 "asosiy_1": float(n["asosiy_1"]),
                 "asosiy_2": float(n["asosiy_2"]),
                 "sana": n["test_sanasi"].strftime("%d.%m.%Y") if n["test_sanasi"] else "—",
+                "certificate_url": (
+                    f"/cert/{n['public_token']}" if n.get("public_token") else None
+                ),
             }
             for n in natijalar
         ]
@@ -372,6 +384,121 @@ async def student_api(request: web.Request) -> web.Response:
     finally:
         if conn:
             release_connection(conn)
+
+
+def _generate_student_certificate(talaba: dict, natija: dict) -> tuple[str, str]:
+    """DTM natijasi uchun public sertifikat yaratib, URL va hash qaytaradi."""
+    from certificate import CertificateGenerator
+    from database import sertifikat_public_saqlash
+
+    sana = str(natija.get("test_sanasi") or "")[:10]
+    generator = CertificateGenerator.from_db()
+    pdf_path, cert_hash = generator.generate(
+        talaba.get("ismlar", ""),
+        natija.get("umumiy_ball", 0),
+        sana,
+        talaba.get("kod", ""),
+        sinf=talaba.get("sinf", ""),
+        maktab=talaba.get("maktab_nomi", "—"),
+    )
+    preview_path = generator.generate_preview(pdf_path)
+    with open(pdf_path, "rb") as pdf_file:
+        pdf_data = pdf_file.read()
+    preview_data = None
+    if preview_path and os.path.exists(preview_path):
+        with open(preview_path, "rb") as preview_file:
+            preview_data = preview_file.read()
+
+    token = sertifikat_public_saqlash(
+        certificate_hash=cert_hash,
+        talaba_kod=talaba["kod"],
+        natija_id=natija["id"],
+        ismlar=talaba.get("ismlar", ""),
+        maktab=talaba.get("maktab_nomi", "—"),
+        sinf=talaba.get("sinf", ""),
+        yonalish=talaba.get("yonalish", ""),
+        umumiy_ball=natija["umumiy_ball"],
+        majburiy=natija["majburiy"],
+        asosiy_1=natija["asosiy_1"],
+        asosiy_2=natija["asosiy_2"],
+        test_sanasi=natija.get("test_sanasi"),
+        pdf_data=pdf_data,
+        preview_data=preview_data,
+    )
+    return f"/cert/{token}", cert_hash
+
+
+async def student_dtm_certificate_api(request: web.Request) -> web.Response:
+    """Tasdiqlangan o'quvchiga faqat o'z DTM sertifikatini yaratadi."""
+    talaba = _web_session_talaba(request)
+    if not talaba:
+        return web.json_response({"error": "Sessiya tugagan"}, status=401)
+    try:
+        data = await request.json()
+        result_id = int(data.get("result_id", 0))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return web.json_response({"error": "Natija noto'g'ri"}, status=400)
+    if result_id <= 0:
+        return web.json_response({"error": "Natija noto'g'ri"}, status=400)
+
+    from database import get_connection, release_connection
+    conn = get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """
+            SELECT tn.*, t.ismlar, t.sinf, t.yonalish,
+                   COALESCE(m.nomi, '—') AS maktab_nomi
+            FROM test_natijalari tn
+            JOIN talabalar t ON t.kod = tn.talaba_kod
+            LEFT JOIN maktablar m ON m.id = t.maktab_id
+            WHERE tn.id = %s AND tn.talaba_kod = %s AND t.status = 'aktiv'
+            """,
+            (result_id, talaba["kod"]),
+        )
+        natija = cur.fetchone()
+        if not natija:
+            return web.json_response({"error": "Natija topilmadi"}, status=404)
+        cur.execute(
+            """
+            SELECT public_token FROM public_sertifikatlar
+            WHERE natija_id = %s AND talaba_kod = %s AND revoked = FALSE
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (result_id, talaba["kod"]),
+        )
+        existing = cur.fetchone()
+        if existing:
+            return web.json_response({"certificate_url": f"/cert/{existing['public_token']}"})
+        cert_student = {
+            "kod": talaba["kod"], "ismlar": natija["ismlar"],
+            "sinf": natija["sinf"], "yonalish": natija["yonalish"],
+            "maktab_nomi": natija["maktab_nomi"],
+        }
+        result_data = dict(natija)
+    finally:
+        cur.close()
+        release_connection(conn)
+
+    try:
+        certificate_url, cert_hash = await asyncio.to_thread(
+            _generate_student_certificate, cert_student, result_data
+        )
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE talabalar SET cert_hash = %s WHERE kod = %s",
+                (cert_hash, talaba["kod"]),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            release_connection(conn)
+        return web.json_response({"certificate_url": certificate_url})
+    except Exception:
+        logging.exception("Kabinet DTM sertifikatini yaratishda xato")
+        return web.json_response({"error": "Sertifikat yaratilmadi"}, status=500)
 
 
 async def get_schedule_api(request: web.Request) -> web.Response:
@@ -1848,6 +1975,7 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/cert/{token}/preview.png", public_certificate_preview_handler)
     app.router.add_get("/mock-cert/{token}", public_mock_result_handler)
     app.router.add_get("/api/student", student_api)
+    app.router.add_post("/api/student/dtm/certificate", student_dtm_certificate_api)
     app.router.add_get("/api/student/mock", student_mock_api)
     app.router.add_get("/api/student/qr", student_qr_api)
     app.router.add_get("/api/student/notifications", student_notification_settings_api)

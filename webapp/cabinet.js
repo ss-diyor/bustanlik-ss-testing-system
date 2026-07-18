@@ -49,12 +49,51 @@ function hero(){return `<section class="hero"><div><div class="kicker">XUSH KELI
 function metrics(){const rank=state.stats.sinf_rank&&state.stats.sinf_rank!=='—'?`${esc(state.stats.sinf_rank)}-o‘rin`:'—';return `<div class="metric-grid"><div class="metric-card"><small>Oxirgi ball</small><strong>${fmt(state.stats.last)}</strong></div><div class="metric-card"><small>Eng yuqori</small><strong>${fmt(state.stats.best)}</strong></div><div class="metric-card"><small>O‘rtacha</small><strong>${fmt(state.stats.avg)}</strong></div><div class="metric-card"><small>Sinf o‘rni</small><strong>${rank}</strong></div></div>`}
 function renderHome(){
   const latest=[...state.results].reverse().slice(0,3);
-  document.getElementById('pageContent').innerHTML=hero()+metrics()+`<div class="section-head"><h2>Asosiy bo‘limlar</h2><p>TEZKOR KIRISH</p></div><div class="action-grid"><a class="action-card" href="/cabinet/dtm"><div class="icon">▥</div><h3>DTM natijalar</h3><p>Natijalar dinamikasi va barcha urinishlar.</p></a><a class="action-card" href="/cabinet/mock"><div class="icon">◎</div><h3>Mock natijalar</h3><p>IELTS, Milliy sertifikat va boshqa mocklar.</p></a><a class="action-card" href="/mock/home"><div class="icon">＋</div><h3>Test ishlash</h3><p>Faol mock imtihonlarni boshlang yoki davom ettiring.</p></a></div><div class="section-head"><h2>Oxirgi DTM natijalar</h2><p>${state.results.length} TA NATIJA</p></div><div class="result-list">${latest.length?latest.map(dtmCard).join(''):'<div class="panel empty">Hali DTM natijasi mavjud emas.</div>'}</div>`;
+  document.getElementById('pageContent').innerHTML=hero()+metrics()+`<div class="section-head"><h2>Asosiy bo‘limlar</h2><p>TEZKOR KIRISH</p></div><div class="action-grid"><a class="action-card" href="/cabinet/dtm"><div class="icon">▥</div><h3>DTM natijalar</h3><p>Natijalar dinamikasi va barcha urinishlar.</p></a><a class="action-card" href="/cabinet/mock"><div class="icon">◎</div><h3>Mock natijalar</h3><p>IELTS, Milliy sertifikat va boshqa mocklar.</p></a><a class="action-card" href="/mock/home"><div class="icon">＋</div><h3>Test ishlash</h3><p>Faol mock imtihonlarni boshlang yoki davom ettiring.</p></a></div><div class="section-head"><h2>Oxirgi DTM natijalar</h2><p>${state.results.length} TA NATIJA</p></div><div class="result-list">${latest.length?latest.map(dtmCompactCard).join(''):'<div class="panel empty">Hali DTM natijasi mavjud emas.</div>'}</div>`;
 }
-function dtmCard(r){return `<article class="result-card"><div><h3>DTM imtihoni</h3><p>${esc(r.sana)} · Majburiy: ${fmt(r.majburiy)} · 1-asosiy: ${fmt(r.asosiy_1)} · 2-asosiy: ${fmt(r.asosiy_2)}</p></div><div class="score">${fmt(r.umumiy_ball)}</div></article>`}
+function dtmCompactCard(r){return `<article class="result-card"><div><h3>DTM imtihoni</h3><p>${esc(r.sana)} · Majburiy: ${fmt(r.majburiy)} · 1-asosiy: ${fmt(r.asosiy_1)} · 2-asosiy: ${fmt(r.asosiy_2)}</p></div><div class="score">${fmt(r.umumiy_ball)}</div></article>`}
+function subjectScore(correct, coefficient){return Number(correct||0)*Number(coefficient||0)}
+function dtmTrendChart(list){
+  if(!list.length)return '<div class="empty">Grafik uchun natija mavjud emas.</div>';
+  const width=760,height=210,padX=34,padY=28,usableW=width-padX*2,usableH=height-padY*2;
+  const points=list.map((r,i)=>{const x=list.length===1?width/2:padX+(i/(list.length-1))*usableW;const y=padY+(1-Math.min(189,Number(r.umumiy_ball||0))/189)*usableH;return {x,y,r}});
+  const guides=[0,63,126,189].map(value=>{const y=padY+(1-value/189)*usableH;return `<line x1="${padX}" y1="${y}" x2="${width-padX}" y2="${y}"/><text x="2" y="${y+4}">${value}</text>`}).join('');
+  const dots=points.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="5"><title>${esc(p.r.sana)} — ${fmt(p.r.umumiy_ball)} ball</title></circle>${(i===0||i===points.length-1)?`<text class="chart-date" x="${p.x}" y="${height-5}" text-anchor="${i===0?'start':'end'}">${esc(p.r.sana)}</text>`:''}`).join('');
+  return `<div class="dtm-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="DTM ballari dinamikasi"><g class="chart-guides">${guides}</g><polyline points="${points.map(p=>`${p.x},${p.y}`).join(' ')}"/><g class="chart-dots">${dots}</g></svg></div>`;
+}
+function dtmSubject(label,correct,coefficient,color){const score=subjectScore(correct,coefficient);return `<div class="dtm-subject"><div class="subject-head"><span>${label}</span><b>${fmt(correct)}/30 <em>${fmt(score)} ball</em></b></div><div class="subject-track"><i style="width:${Math.min(100,(Number(correct||0)/30)*100)}%;background:${color}"></i></div></div>`}
+function dtmCard(r,index){
+  const chronologicalIndex=state.results.findIndex(x=>x.id===r.id);
+  const previous=chronologicalIndex>0?state.results[chronologicalIndex-1]:null;
+  const change=previous?Number(r.umumiy_ball)-Number(previous.umumiy_ball):null;
+  const changeHtml=change==null?'':`<span class="dtm-change ${change>=0?'up':'down'}">${change>=0?'↑':'↓'} ${Math.abs(change).toFixed(1)}</span>`;
+  const certText=r.certificate_url?'Sertifikatni ochish':'Sertifikat yaratish';
+  return `<article class="dtm-result" data-result-card="${r.id}"><div class="dtm-result-main"><div class="attempt-number">${String(index+1).padStart(2,'0')}</div><div class="dtm-result-copy"><div class="dtm-result-title"><h3>DTM imtihoni</h3>${changeHtml}</div><p>${esc(r.sana)} · ${((Number(r.umumiy_ball||0)/189)*100).toFixed(1)}%</p></div><div class="dtm-result-score"><strong>${fmt(r.umumiy_ball)}</strong><small>/ 189 ball</small></div></div><div class="dtm-result-actions"><button type="button" data-result-toggle="${r.id}" aria-expanded="false">Batafsil <span>⌄</span></button><button class="certificate-button" type="button" data-certificate="${r.id}" data-url="${esc(r.certificate_url||'')}">▤ ${certText}</button></div><div class="dtm-result-detail" id="result-detail-${r.id}" hidden>${dtmSubject('Majburiy fanlar',r.majburiy,state.config.MAJBURIY_KOEFF,'#4e7df0')}${dtmSubject('1-asosiy fan',r.asosiy_1,state.config.ASOSIY_1_KOEFF,'#20a16b')}${dtmSubject('2-asosiy fan',r.asosiy_2,state.config.ASOSIY_2_KOEFF,'#f1a126')}</div></article>`;
+}
 function renderDtm(){
   const list=[...state.results].reverse();
-  document.getElementById('pageContent').innerHTML=`${metrics()}<div class="section-head"><h2>Barcha DTM natijalari</h2><p>${list.length} TA URINISH</p></div><div class="result-list">${list.length?list.map(dtmCard).join(''):'<div class="panel empty">Hali DTM natijasi yo‘q.</div>'}</div>`;
+  const last=state.results.at(-1),previous=state.results.at(-2);
+  const growth=last&&previous?Number(last.umumiy_ball)-Number(previous.umumiy_ball):null;
+  document.getElementById('pageContent').innerHTML=`<section class="dtm-summary"><div><div class="eyebrow">DTM KO‘RSATKICHLARI</div><h2>${esc(state.student.ismlar)}</h2><p>${esc(state.student.yonalish)} · ${esc(state.student.sinf)} · ${esc(state.student.maktab)}</p></div><div class="dtm-summary-score"><small>ENG YUQORI NATIJA</small><strong>${fmt(state.stats.best)}</strong><span>/ 189</span></div></section><div class="metric-grid dtm-metrics"><div class="metric-card"><small>Jami urinish</small><strong>${state.stats.total_tests}</strong></div><div class="metric-card"><small>Oxirgi natija</small><strong>${fmt(state.stats.last)}</strong></div><div class="metric-card"><small>O‘rtacha ball</small><strong>${fmt(state.stats.avg)}</strong></div><div class="metric-card"><small>Oxirgi o‘zgarish</small><strong class="${growth!=null&&growth<0?'negative':'positive'}">${growth==null?'—':`${growth>=0?'+':''}${growth.toFixed(1)}`}</strong></div></div>${list.length?`<section class="panel dtm-analysis"><div class="section-head compact"><div><p>NATIJALAR DINAMIKASI</p><h2>Ballar o‘zgarishi</h2></div><span>MAKSIMAL 189 BALL</span></div>${dtmTrendChart(state.results)}</section>`:''}<div class="section-head"><h2>Barcha urinishlar</h2><p>${list.length} TA NATIJA</p></div><div class="dtm-result-list">${list.length?list.map(dtmCard).join(''):'<div class="panel empty">Hali DTM natijasi yo‘q.</div>'}</div>`;
+  bindDtmActions();
+}
+function bindDtmActions(){
+  document.querySelectorAll('[data-result-toggle]').forEach(button=>button.onclick=()=>{const detail=document.getElementById(`result-detail-${button.dataset.resultToggle}`);const willOpen=detail.hidden;detail.hidden=!willOpen;button.setAttribute('aria-expanded',String(willOpen));button.querySelector('span').textContent=willOpen?'⌃':'⌄'});
+  document.querySelectorAll('[data-certificate]').forEach(button=>button.onclick=()=>openDtmCertificate(button));
+}
+async function openDtmCertificate(button){
+  if(button.dataset.url){window.open(button.dataset.url,'_blank','noopener');return}
+  const certificateWindow=window.open('about:blank','_blank');
+  if(certificateWindow)certificateWindow.opener=null;
+  const original=button.textContent;button.disabled=true;button.textContent='Tayyorlanmoqda...';
+  try{
+    const response=await fetch('/api/student/dtm/certificate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({result_id:Number(button.dataset.certificate)})});
+    const data=await response.json();
+    if(response.status===401){location.href='/mock';return}
+    if(!response.ok||!data.certificate_url)throw new Error(data.error||'Sertifikat yaratilmadi');
+    button.dataset.url=data.certificate_url;button.textContent='▤ Sertifikatni ochish';
+    if(certificateWindow)certificateWindow.location.replace(data.certificate_url);else location.href=data.certificate_url;
+  }catch(error){if(certificateWindow)certificateWindow.close();button.textContent=original;alert(error.message)}finally{button.disabled=false}
 }
 async function getMock(){if(state.mock)return state.mock;const r=await fetch('/api/student/mock',{cache:'no-store'});if(!r.ok)throw new Error('Mock natijalari yuklanmadi');state.mock=(await r.json()).mock_results||[];return state.mock}
 async function renderMock(){
