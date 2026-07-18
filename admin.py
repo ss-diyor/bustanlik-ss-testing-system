@@ -304,6 +304,7 @@ from database import (
     get_all_admins,
     is_admin_in_db,
     get_all_registered_users,
+    foydalanuvchi_malumot_ol,
     # Yangi funktsiyalar
     talaba_tahrirlash,
     maktab_statistikasi,
@@ -6012,6 +6013,10 @@ async def kod_qidirish_process(message: Message, state: FSMContext):
             rank_text += f" | Parallel: {overall_rank}-o'rin"
         linked_text = "✅ Ulangan" if talaba.get("user_id") else "❌ Ulanmagan"
         telegram_id = talaba.get("user_id") or "—"
+        telegram_user = foydalanuvchi_malumot_ol(talaba.get("user_id"))
+        username = (telegram_user or {}).get("username") or "—"
+        username_text = f"@{username.lstrip('@')}" if username != "—" else "—"
+        phone = (telegram_user or {}).get("phone_number") or "—"
         text = (
             f"🔎 <b>O'quvchi profili</b>\n\n"
             f"🆔 Kod: <code>{escape(str(talaba['kod']))}</code>\n"
@@ -6020,6 +6025,8 @@ async def kod_qidirish_process(message: Message, state: FSMContext):
             f"📚 Sinf: <b>{escape(str(talaba.get('sinf') or '—'))}</b>\n"
             f"🎯 Yo'nalish: <b>{escape(str(talaba.get('yonalish') or '—'))}</b>\n\n"
             f"🔗 Telegram: <b>{linked_text}</b>\n"
+            f"👤 Username: <code>{escape(str(username_text))}</code>\n"
+            f"📞 Telefon: <code>{escape(str(phone))}</code>\n"
             f"🆔 Telegram ID: <code>{telegram_id}</code>\n"
             f"📅 Ro'yxatdan o'tgan: <b>{registered_text}</b>\n\n"
         )

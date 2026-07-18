@@ -2856,6 +2856,27 @@ def maktab_topici_ochir(chat_id: int, maktab_id: int) -> None:
         release_connection(conn)
 
 
+def foydalanuvchi_malumot_ol(user_id: int) -> dict | None:
+    """Telegram user_id bo'yicha saqlangan username va telefon ma'lumotini qaytaradi."""
+    if not user_id:
+        return None
+    conn = get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """
+            SELECT user_id, username, first_name, last_name, phone_number, registered_at
+            FROM users WHERE user_id = %s
+            """,
+            (user_id,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    finally:
+        release_connection(conn)
+
+
 def sertifikat_public_saqlash(
     *,
     certificate_hash: str,
