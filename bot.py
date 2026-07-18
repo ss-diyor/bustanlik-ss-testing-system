@@ -58,6 +58,23 @@ logging.basicConfig(
 # Bot va Dispatcher
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
+_forum_topic_icon_ids: list[str] | None = None
+
+
+async def _forum_topic_iconini_ol(seed: str) -> str | None:
+    """Telegram ruxsat bergan topic ikonlaridan deterministik bittasini tanlaydi."""
+    global _forum_topic_icon_ids
+    if _forum_topic_icon_ids is None:
+        try:
+            stickers = await bot.get_forum_topic_icon_stickers()
+            _forum_topic_icon_ids = [s.custom_emoji_id for s in stickers if s.custom_emoji_id]
+        except Exception as exc:
+            logging.getLogger(__name__).info("Topic ikonlari olinmadi: %s", exc)
+            _forum_topic_icon_ids = []
+
+    if not _forum_topic_icon_ids:
+        return None
+    return _forum_topic_icon_ids[sum(map(ord, seed)) % len(_forum_topic_icon_ids)]
 
 
 async def _topic_ol_yoki_yarat(chat_id: int, topic_nomi: str, mavzu_turi: str, maktab_id: int | None = None) -> int | None:
@@ -75,6 +92,7 @@ async def _topic_ol_yoki_yarat(chat_id: int, topic_nomi: str, mavzu_turi: str, m
             chat_id=chat_id,
             name=topic_nomi[:128],
             icon_color=0x6FB9F0,
+            icon_custom_emoji_id=await _forum_topic_iconini_ol(topic_nomi),
         )
         thread_id = topic.message_thread_id
         if mavzu_turi == "royxatdan_otish":

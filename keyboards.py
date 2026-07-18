@@ -2011,6 +2011,12 @@ def guruh_boshqarish_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    text="🎨 Topic ikonlarini yangilash",
+                    callback_data="guruh:topic_ikonlar",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="🗑 Guruhni o'chirish",
                     callback_data="guruh:ochirish_royxat",
                 )

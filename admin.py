@@ -5367,6 +5367,12 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
             return
 
         await call.answer("⏳ Topiclar tekshirilmoqda...")
+        try:
+            stickers = await call.bot.get_forum_topic_icon_stickers()
+            icon_ids = [s.custom_emoji_id for s in stickers if s.custom_emoji_id]
+        except Exception as exc:
+            logging.warning("Topic ikonlari olinmadi: %s", exc)
+            icon_ids = []
         yaratilgan = 0
         mavjud = 0
         xatolar = 0
@@ -5384,6 +5390,9 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
                         chat_id=chat_id,
                         name=f"🏫 {maktab['nomi']}"[:128],
                         icon_color=0x6FB9F0,
+                        icon_custom_emoji_id=(
+                            icon_ids[(chat_id + maktab_id) % len(icon_ids)] if icon_ids else None
+                        ),
                     )
                     maktab_topici_saqlash(chat_id, maktab_id, topic.message_thread_id)
                     yaratilgan += 1
@@ -5400,6 +5409,63 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
             "🏷 <b>Maktab topiclari tekshirildi.</b>\n\n"
             f"✅ Yaratildi: <b>{yaratilgan}</b> ta\n"
             f"⏭ Mavjud topiclar: <b>{mavjud}</b> ta\n"
+            f"⚠️ Xatolar: <b>{xatolar}</b> ta",
+            parse_mode="HTML",
+            reply_markup=guruh_boshqarish_keyboard(),
+        )
+        return
+
+    elif action == "topic_ikonlar":
+        if not guruhlar:
+            await call.answer("⚠️ Avval kamida bitta guruh ulang.", show_alert=True)
+            return
+
+        await call.answer("⏳ Topic ikonlari yangilanmoqda...")
+        try:
+            stickers = await call.bot.get_forum_topic_icon_stickers()
+            icon_ids = [s.custom_emoji_id for s in stickers if s.custom_emoji_id]
+        except Exception as exc:
+            logging.warning("Topic ikonlari olinmadi: %s", exc)
+            icon_ids = []
+
+        if not icon_ids:
+            await call.message.edit_text(
+                "⚠️ Telegram topic ikonlarini qaytarmadi. Botning <b>Manage Topics</b> huquqini tekshiring.",
+                parse_mode="HTML",
+                reply_markup=guruh_boshqarish_keyboard(),
+            )
+            return
+
+        yangilangan = 0
+        mavjud_emas = 0
+        xatolar = 0
+        for guruh in guruhlar:
+            chat_id = guruh["chat_id"]
+            for maktab in maktablar_ol():
+                thread_id = maktab_topici_ol(chat_id, maktab["id"])
+                if not thread_id:
+                    mavjud_emas += 1
+                    continue
+                try:
+                    await call.bot.edit_forum_topic(
+                        chat_id=chat_id,
+                        message_thread_id=thread_id,
+                        icon_custom_emoji_id=icon_ids[(chat_id + maktab["id"]) % len(icon_ids)],
+                    )
+                    yangilangan += 1
+                except Exception as exc:
+                    xatolar += 1
+                    logging.warning(
+                        "Topic ikoni yangilanmadi (chat_id=%s, thread_id=%s): %s",
+                        chat_id,
+                        thread_id,
+                        exc,
+                    )
+
+        await call.message.edit_text(
+            "🎨 <b>Topic ikonlari yangilandi.</b>\n\n"
+            f"✅ Yangilandi: <b>{yangilangan}</b> ta\n"
+            f"⏭ Topic yo'q: <b>{mavjud_emas}</b> ta\n"
             f"⚠️ Xatolar: <b>{xatolar}</b> ta",
             parse_mode="HTML",
             reply_markup=guruh_boshqarish_keyboard(),
