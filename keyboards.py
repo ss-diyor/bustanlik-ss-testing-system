@@ -2040,7 +2040,7 @@ def topic_boshqarish_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📊 Topic statistikasi", callback_data="guruh:topic_stats")],
-            [InlineKeyboardButton(text="📋 Profil ulanish holati", callback_data="guruh:topic_profile_status")],
+            [InlineKeyboardButton(text="📋 Profil ulanish holati", callback_data="guruh:topic_profile_menu")],
             [InlineKeyboardButton(text="📥 Generalga Excel hisoboti", callback_data="guruh:topic_excel_report")],
             [InlineKeyboardButton(text="🔗 Topic havolalari", callback_data="guruh:topic_links")],
             [InlineKeyboardButton(text="📌 Topicga pin xabari", callback_data="guruh:topic_pin")],
@@ -2048,6 +2048,25 @@ def topic_boshqarish_keyboard():
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="guruh:ro'yxat_menu")],
         ]
     )
+
+
+def topic_profile_scope_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Barcha maktablarga yuborish", callback_data="guruh:topic_profile_status")],
+            [InlineKeyboardButton(text="🎯 Maktabni tanlash", callback_data="guruh:topic_profile_select")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="guruh:topic_menu")],
+        ]
+    )
+
+
+def topic_profile_school_keyboard(maktablar: list[dict]):
+    buttons = [
+        [InlineKeyboardButton(text=f"🏫 {m['nomi']}", callback_data=f"topic_profile_maktab:{m['id']}")]
+        for m in maktablar
+    ]
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="guruh:topic_profile_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def guruh_ochirish_keyboard(guruhlar: list):

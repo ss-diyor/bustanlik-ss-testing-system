@@ -361,6 +361,8 @@ from keyboards import (
     maktab_boshqarish_keyboard,
     guruh_boshqarish_keyboard,
     topic_boshqarish_keyboard,
+    topic_profile_scope_keyboard,
+    topic_profile_school_keyboard,
     guruh_ochirish_keyboard,
     reminder_list_keyboard,
     maktab_list_keyboard,
@@ -5393,6 +5395,28 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
         await call.answer()
         return
 
+    elif action == "topic_profile_menu":
+        await call.message.edit_text(
+            "📋 <b>Profil ulanish holati</b>\n\nHisobot qayerga yuborilsin?",
+            parse_mode="HTML",
+            reply_markup=topic_profile_scope_keyboard(),
+        )
+        await call.answer()
+        return
+
+    elif action == "topic_profile_select":
+        maktablar = maktablar_ol()
+        if not maktablar:
+            await call.answer("⚠️ Maktablar topilmadi.", show_alert=True)
+            return
+        await call.message.edit_text(
+            "🎯 <b>Hisobot yuboriladigan maktabni tanlang:</b>",
+            parse_mode="HTML",
+            reply_markup=topic_profile_school_keyboard(maktablar),
+        )
+        await call.answer()
+        return
+
     elif action == "topic_profile_status":
         await call.answer("⏳ Profil ulanish holati yuborilmoqda...")
         sent = 0
@@ -5789,6 +5813,67 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
         )
         await call.answer()
         return
+
+
+@router.callback_query(F.data.startswith("topic_profile_maktab:"))
+async def topic_profile_selected_school(call: CallbackQuery, state: FSMContext):
+    """Faqat tanlangan maktab topiciga profil ulanish holatini yuboradi."""
+    if not await admin_tekshir(state, call.from_user.id):
+        return
+
+    maktab_id = int(call.data.split(":")[1])
+    maktab = next((m for m in maktablar_ol() if m["id"] == maktab_id), None)
+    if not maktab:
+        await call.answer("⚠️ Maktab topilmadi.", show_alert=True)
+        return
+
+    await call.answer("⏳ Hisobot yuborilmoqda...")
+    ulanganlar, ulanmaganlar = maktab_profil_ulanish_holati(maktab_id)
+    lines = [
+        "📋 <b>Profil ulanish holati</b>\n",
+        f"🏫 <b>{maktab['nomi']}</b>\n",
+        f"✅ <b>Profilini ulaganlar ({len(ulanganlar)} ta):</b>",
+    ]
+    if ulanganlar:
+        lines.extend(
+            f"• <code>{student['kod']}</code> — {student['ismlar'] or '—'} ({student['sinf'] or '—'})"
+            for student in ulanganlar
+        )
+    else:
+        lines.append("• Hozircha yo'q")
+    lines.append(f"\n⏳ <b>Hali ulanmaganlar ({len(ulanmaganlar)} ta):</b>")
+    if ulanmaganlar:
+        lines.extend(
+            f"• <code>{student['kod']}</code> — {student['ismlar'] or '—'} ({student['sinf'] or '—'})"
+            for student in ulanmaganlar
+        )
+    else:
+        lines.append("• Hozircha yo'q")
+
+    sent = 0
+    for guruh in guruhlar_ol():
+        topic = next(
+            (row for row in maktab_topiclari_ol(guruh["chat_id"]) if row["maktab_id"] == maktab_id),
+            None,
+        )
+        if not topic:
+            continue
+        try:
+            await call.bot.send_message(
+                guruh["chat_id"],
+                "\n".join(lines),
+                parse_mode="HTML",
+                message_thread_id=topic["message_thread_id"],
+            )
+            sent += 1
+        except Exception as exc:
+            logging.warning("Tanlangan maktab profil holati yuborilmadi: %s", exc)
+
+    await call.message.edit_text(
+        f"✅ <b>{maktab['nomi']}</b> topiciga hisobot yuborildi ({sent} ta guruh).",
+        parse_mode="HTML",
+        reply_markup=topic_boshqarish_keyboard(),
+    )
 
 
 @router.callback_query(F.data.startswith("guruh_del:"))
