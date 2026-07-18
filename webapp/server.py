@@ -285,28 +285,33 @@ async def student_api(request: web.Request) -> web.Response:
         )
         natijalar = cur.fetchall()
 
-        # Sinf reytingi (faqat shu maktab va shu sinf ichida)
+        # Sinf reytingi: shu maktab va sinfdagi har bir o'quvchining faqat
+        # eng oxirgi DTM natijasi olinadi. Teng ballar bir xil o'rin oladi.
         cur.execute(
             """
-            SELECT COUNT(*) + 1 AS sinf_rank
-            FROM (
-                SELECT DISTINCT ON (tn.talaba_kod) tn.umumiy_ball
+            WITH latest AS (
+                SELECT DISTINCT ON (t.kod)
+                       t.kod, tn.umumiy_ball
                 FROM test_natijalari tn
                 JOIN talabalar t ON tn.talaba_kod = t.kod
                 WHERE t.sinf = %s AND t.status = 'aktiv'
                   AND t.maktab_id IS NOT DISTINCT FROM %s
-                  AND t.kod != %s
-                ORDER BY tn.talaba_kod, tn.test_sanasi DESC
-            ) sub
-            WHERE sub.umumiy_ball > COALESCE(
-                (SELECT umumiy_ball FROM test_natijalari
-                 WHERE talaba_kod = %s ORDER BY test_sanasi DESC LIMIT 1), 0
+                ORDER BY t.kod, tn.test_sanasi DESC, tn.id DESC
+            ), ranked AS (
+                SELECT kod,
+                       RANK() OVER (ORDER BY umumiy_ball DESC) AS sinf_rank
+                FROM latest
             )
+            SELECT ranked.sinf_rank,
+                   (SELECT COUNT(*) FROM latest) AS sinf_total
+            FROM (SELECT 1) seed
+            LEFT JOIN ranked ON ranked.kod = %s
             """,
-            (talaba["sinf"], talaba.get("maktab_id"), talaba["kod"], talaba["kod"]),
+            (talaba["sinf"], talaba.get("maktab_id"), talaba["kod"]),
         )
         rank_row = cur.fetchone()
-        sinf_rank = rank_row["sinf_rank"] if rank_row else "—"
+        sinf_rank = rank_row["sinf_rank"] if rank_row and rank_row["sinf_rank"] else "—"
+        sinf_rank_total = int(rank_row["sinf_total"] or 0) if rank_row else 0
 
         # Sinfdoshlar ro'yxati (Faqat ismlar, maxfiylik uchun)
         # Faqat shu o'quvchining maktabi va sinfidagilar ko'rsatiladi.
@@ -360,6 +365,7 @@ async def student_api(request: web.Request) -> web.Response:
                     "total_tests": len(balls),
                     "trend": trend,
                     "sinf_rank": sinf_rank,
+                    "sinf_rank_total": sinf_rank_total,
                     "last": balls[-1] if balls else 0,
                 },
                 "results": results_list,
