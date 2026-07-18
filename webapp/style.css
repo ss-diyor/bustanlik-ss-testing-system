@@ -122,6 +122,8 @@ body {
   background: linear-gradient(135deg, var(--accent) 0%, #5865f2 100%);
   border-radius: 0 0 var(--radius) var(--radius);
   animation: fadeDown 0.4s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .student-avatar {
@@ -136,6 +138,25 @@ body {
   color: #fff;
   flex-shrink: 0;
   border: 2px solid rgba(255,255,255,0.4);
+  position: relative;
+  z-index: 1;
+}
+
+.student-card-logo {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  width: 108px;
+  max-width: 27%;
+  height: auto;
+  opacity: 0.42;
+  pointer-events: none;
+  user-select: none;
+}
+
+.student-info {
+  position: relative;
+  z-index: 1;
 }
 
 .student-info h1 {

@@ -28,9 +28,9 @@
     
     <!-- Tab Navigation -->
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('personal')">Shaxsiy Natijalar</button>
+      <button class="tab-btn active" onclick="switchTab('personal')">DTM natijalar</button>
+      <button class="tab-btn" onclick="switchTab('mock')">Mock natijalar</button>
       <button class="tab-btn" onclick="switchTab('classmates')">Sinfdoshlar</button>
-      <button class="tab-btn" onclick="switchTab('mock')">🎯 Mock</button>
       <button class="tab-btn" onclick="switchTab('schedule')">Taqvim</button>
       <button class="tab-btn" onclick="switchTab('materials')">Materiallar</button>
     </div>
@@ -39,6 +39,7 @@
     <div id="tab-personal" class="tab-content active-tab">
       <!-- Header: student info -->
       <header class="student-card">
+        <img class="student-card-logo" src="/static/bot-logo-card.png" alt="Bustanlik SS Testing System" />
         <div class="student-avatar" id="avatar-initials"></div>
         <div class="student-info">
           <h1 id="student-name">—</h1>
