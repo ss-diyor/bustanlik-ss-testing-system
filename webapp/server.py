@@ -103,6 +103,101 @@ def _mock_session_talaba_kod(request: web.Request) -> str | None:
         return None
 
 
+def _web_session_talaba(request: web.Request) -> dict | None:
+    """Faqat tashqi saytda Telegram tasdiqlagan o'quvchini aniqlaydi."""
+    kod = _mock_session_talaba_kod(request)
+    if not kod:
+        return None
+    from database import get_connection, release_connection
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            """
+            SELECT t.*, COALESCE(m.nomi, '—') AS maktab_nomi
+            FROM talabalar t LEFT JOIN maktablar m ON m.id=t.maktab_id
+            WHERE t.kod=%s AND t.status='aktiv'
+            """,
+            (kod,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+    finally:
+        cur.close(); release_connection(conn)
+
+
+async def student_qr_api(request: web.Request) -> web.Response:
+    talaba = _web_session_talaba(request)
+    if not talaba:
+        return web.json_response({"error": "Sessiya tugagan"}, status=401)
+    from certificate import CertificateGenerator
+    qr_buf = CertificateGenerator.from_db().generate_id_qr(talaba["kod"])
+    return web.Response(
+        body=qr_buf.getvalue(), content_type="image/png",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+async def student_notification_settings_api(request: web.Request) -> web.Response:
+    talaba = _web_session_talaba(request)
+    if not talaba or not talaba.get("user_id"):
+        return web.json_response({"error": "Sessiya tugagan"}, status=401)
+    from database import get_notification_settings, update_notification_setting, NOTIFICATION_DEFAULTS
+    if request.method == "GET":
+        return web.json_response({"settings": get_notification_settings(talaba["user_id"])})
+    try:
+        data = await request.json()
+        key = str(data.get("key", ""))
+        enabled = bool(data.get("enabled"))
+    except Exception:
+        return web.json_response({"error": "Noto'g'ri so'rov"}, status=400)
+    if key not in NOTIFICATION_DEFAULTS or not update_notification_setting(talaba["user_id"], key, enabled):
+        return web.json_response({"error": "Sozlama yangilanmadi"}, status=400)
+    return web.json_response({"success": True, "settings": get_notification_settings(talaba["user_id"])})
+
+
+async def student_contact_admin_api(request: web.Request) -> web.Response:
+    talaba = _web_session_talaba(request)
+    if not talaba:
+        return web.json_response({"error": "Sessiya tugagan"}, status=401)
+    try:
+        data = await request.json()
+        message_text = str(data.get("message", "")).strip()
+    except Exception:
+        return web.json_response({"error": "Noto'g'ri so'rov"}, status=400)
+    if not message_text or len(message_text) > 2000:
+        return web.json_response({"error": "Xabar 1–2000 belgi oralig'ida bo'lishi kerak"}, status=400)
+
+    from aiogram import Bot
+    from config import ADMIN_IDS
+    from keyboards import murojaat_javob_keyboard
+    safe_message = escape(message_text)
+    safe_name = escape(str(talaba.get("ismlar") or "—"))
+    safe_school = escape(str(talaba.get("maktab_nomi") or "—"))
+    text = (
+        "📩 <b>Saytdan yangi murojaat</b>\n\n"
+        f"🔑 <b>Kod:</b> <code>{escape(str(talaba['kod']))}</code>\n"
+        f"👨‍🎓 <b>O'quvchi:</b> {safe_name}\n"
+        f"🏫 <b>Maktab:</b> {safe_school}\n"
+        f"📚 <b>Sinf:</b> {escape(str(talaba.get('sinf') or '—'))}\n\n"
+        f"📝 <b>Murojaat:</b>\n{safe_message}"
+    )
+    bot = Bot(token=request.app["bot_token"])
+    sent = False
+    try:
+        for admin_id in ADMIN_IDS:
+            try:
+                await bot.send_message(admin_id, text, parse_mode="HTML", reply_markup=murojaat_javob_keyboard(talaba["user_id"]))
+                sent = True
+            except Exception:
+                continue
+    finally:
+        await bot.session.close()
+    if not sent:
+        return web.json_response({"error": "Adminga xabar yuborilmadi"}, status=503)
+    return web.json_response({"success": True})
+
+
 async def student_api(request: web.Request) -> web.Response:
     """O'quvchi ma'lumotlarini JSON formatida qaytaradi."""
     from database import get_connection, release_connection
@@ -1753,6 +1848,10 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/mock-cert/{token}", public_mock_result_handler)
     app.router.add_get("/api/student", student_api)
     app.router.add_get("/api/student/mock", student_mock_api)
+    app.router.add_get("/api/student/qr", student_qr_api)
+    app.router.add_get("/api/student/notifications", student_notification_settings_api)
+    app.router.add_put("/api/student/notifications", student_notification_settings_api)
+    app.router.add_post("/api/student/contact-admin", student_contact_admin_api)
     
     app.router.add_get("/admin", admin_handler)
     app.router.add_get("/scanner", scanner_handler)

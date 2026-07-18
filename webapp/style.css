@@ -1029,3 +1029,10 @@ body.light .mock-best-badge {
   background: rgba(185, 120, 10, 0.14);
   color: #a06008;
 }
+
+/* O'quvchi xizmatlari */
+.services-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.service-card { border:1px solid var(--card-border); border-radius:14px; background:var(--card-bg); color:var(--tg-theme-text-color); padding:17px 12px; text-align:left; cursor:pointer; font:inherit; }
+.service-card span { display:block; font-size:25px; margin-bottom:9px; }.service-card strong { display:block; font-size:.94rem; }.service-card small { display:block; color:var(--tg-theme-hint-color); margin-top:5px; line-height:1.35; }
+.service-panel { margin-top:16px; border:1px solid var(--card-border); border-radius:14px; padding:18px; background:var(--card-bg); }.service-panel h3 { margin:0 0 12px; }.service-panel img { display:block; width:min(240px,100%); margin:0 auto; }.service-panel textarea { width:100%; min-height:110px; resize:vertical; border:1px solid var(--card-border); background:var(--tg-theme-secondary-bg-color); color:var(--tg-theme-text-color); border-radius:10px; padding:11px; font:inherit; }.service-panel button { margin-top:10px; border:0; border-radius:10px; padding:10px 14px; background:var(--accent); color:#fff; font:inherit; font-weight:700; cursor:pointer; }.notification-row { display:flex; justify-content:space-between; gap:12px; padding:11px 0; border-bottom:1px solid var(--card-border); }.notification-row:last-child { border:0; }.notification-row label { color:var(--tg-theme-text-color); }.notification-row input { width:20px; height:20px; accent-color:var(--accent); }
+@media (max-width:520px) { .services-grid { grid-template-columns:1fr; } }

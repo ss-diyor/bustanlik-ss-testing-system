@@ -33,6 +33,7 @@
       <button class="tab-btn" onclick="switchTab('classmates')">Sinfdoshlar</button>
       <button class="tab-btn" onclick="switchTab('schedule')">Taqvim</button>
       <button class="tab-btn" onclick="switchTab('materials')">Materiallar</button>
+      <button class="tab-btn" onclick="switchTab('services')">Xizmatlar</button>
     </div>
 
     <!-- Personal Tab -->
@@ -145,6 +146,19 @@
         <div id="materials-list" class="materials-grid">
           <!-- Dinamik yuklanadi -->
         </div>
+      </section>
+    </div>
+
+    <!-- Student services Tab -->
+    <div id="tab-services" class="tab-content hidden">
+      <section class="history-section" style="padding-top:20px;">
+        <h2 class="section-title">👤 O'quvchi xizmatlari</h2>
+        <div class="services-grid">
+          <button class="service-card" onclick="showStudentQr()"><span>🆔</span><strong>Mening QR-kodim</strong><small>Davomat uchun QR-kodni ko'ring</small></button>
+          <button class="service-card" onclick="showNotifications()"><span>🔔</span><strong>Bildirishnomalar</strong><small>Qabul qilinadigan xabarlarni sozlang</small></button>
+          <button class="service-card" onclick="showContactAdmin()"><span>✍️</span><strong>Admin bilan bog'lanish</strong><small>Murojaatingizni yuboring</small></button>
+        </div>
+        <div id="service-panel" class="service-panel hidden"></div>
       </section>
     </div>
 

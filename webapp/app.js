@@ -191,6 +191,52 @@ function switchTab(tabId) {
   if (tabId === 'mock') loadMockResults();
 }
 
+function servicePanel() {
+  const panel = document.getElementById('service-panel');
+  panel.classList.remove('hidden');
+  return panel;
+}
+
+function showStudentQr() {
+  const panel = servicePanel();
+  panel.innerHTML = `<h3>🆔 Mening QR-kodim</h3><p>Davomatdan o'tishda ushbu QR-kodni ko'rsating.</p><img src="/api/student/qr?ts=${Date.now()}" alt="Shaxsiy QR-kod">`;
+}
+
+async function showNotifications() {
+  const panel = servicePanel();
+  panel.innerHTML = '<h3>🔔 Bildirishnomalar</h3><p>Yuklanmoqda...</p>';
+  try {
+    const data = await (await fetch('/api/student/notifications')).json();
+    const labels = {
+      notify_results: 'DTM natijalari', notify_mock_results: 'Mock natijalari',
+      notify_admin_messages: 'Admin xabarlari', notify_reminders: 'Eslatmalar'
+    };
+    panel.innerHTML = `<h3>🔔 Bildirishnomalar</h3>${Object.entries(labels).map(([key, label]) => `<div class="notification-row"><label for="${key}">${label}</label><input id="${key}" type="checkbox" ${data.settings?.[key] !== false ? 'checked' : ''}></div>`).join('')}`;
+    Object.keys(labels).forEach(key => document.getElementById(key).addEventListener('change', async event => {
+      await fetch('/api/student/notifications', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key, enabled:event.target.checked})});
+    }));
+  } catch (_) { panel.innerHTML = '<h3>🔔 Bildirishnomalar</h3><p class="empty-msg">Sozlamalarni yuklab bo‘lmadi.</p>'; }
+}
+
+function showContactAdmin() {
+  const panel = servicePanel();
+  panel.innerHTML = `<h3>✍️ Admin bilan bog'lanish</h3><textarea id="admin-message" maxlength="2000" placeholder="Murojaatingizni yozing..."></textarea><button id="send-admin-message">Yuborish</button><p id="contact-status"></p>`;
+  document.getElementById('send-admin-message').onclick = async () => {
+    const button = document.getElementById('send-admin-message');
+    const status = document.getElementById('contact-status');
+    const message = document.getElementById('admin-message').value.trim();
+    if (!message) { status.textContent = 'Murojaat matnini yozing.'; return; }
+    button.disabled = true;
+    try {
+      const res = await fetch('/api/student/contact-admin', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message})});
+      const data = await res.json();
+      status.textContent = res.ok ? '✅ Murojaatingiz adminga yuborildi.' : (data.error || 'Xatolik yuz berdi.');
+      if (res.ok) document.getElementById('admin-message').value = '';
+    } catch (_) { status.textContent = 'Server bilan bog‘lanib bo‘lmadi.'; }
+    button.disabled = false;
+  };
+}
+
 // ─── Load Schedule ────────────────────────
 async function loadSchedule() {
   const wrap = document.getElementById("schedule-list");
