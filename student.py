@@ -276,7 +276,7 @@ async def send_full_results(message: Message, kod: str):
         f"🎓 <b>Sizning natijangiz (Oxirgi test)</b>\n\n"
         f"👤 Ism: <b>{talaba['ismlar']}</b>\n"
         f"🆔 Kod: <code>{talaba['kod']}</code>\n"
-        f"🏫 Maktab: <b>{talaba.get('maktab', '—')}</b>\n"
+        f"🏫 Maktab: <b>{escape(_talaba_maktab_nomi(talaba))}</b>\n"
         f"📚 Sinf: <b>{talaba['sinf']}</b>\n"
         f"🎯 Yo'nalish: <b>{talaba['yonalish']}</b>\n\n"
         f"📊 <b>Fan bo'yicha natijalar:</b>\n"
