@@ -1115,6 +1115,7 @@ async def public_mock_result_handler(request: web.Request) -> web.Response:
     test_date = record.get("test_sanasi")
     date_text = test_date.strftime("%d.%m.%Y") if test_date else "—"
     bot_username = (BOT_USERNAME or "bustanlik_ss_bot").lstrip("@")
+    _, logo_url = _get_verify_config()
     title = f"{student_name} — Mock natijasi tasdiqlanishi"
 
     page = f"""<!doctype html>
@@ -1130,7 +1131,7 @@ async def public_mock_result_handler(request: web.Request) -> web.Response:
     * {{ box-sizing:border-box; }} body {{ margin:0; min-height:100vh; background:#f5f6fa; color:var(--ink); font-family:Inter,"Segoe UI",system-ui,sans-serif; }}
     .page {{ width:min(100%,760px); margin:0 auto; padding:46px 18px; }}
     .report {{ background:#fff; border:1px solid var(--line); box-shadow:0 12px 36px rgba(20,30,80,.10); }}
-    .top {{ padding:36px 28px 30px; text-align:center; }} .brand {{ color:var(--navy); font-weight:800; letter-spacing:.08em; font-size:.76rem; }}
+    .top {{ padding:28px 28px 24px; text-align:center; }} .school-logo {{ display:block; width:112px; height:112px; margin:0 auto; object-fit:contain; }}
     .band {{ background:var(--navy); color:#fff; text-align:center; padding:23px 20px 21px; }}
     .band h1 {{ font-size:clamp(1.3rem,4vw,1.85rem); letter-spacing:.05em; margin:0; }} .band p {{ margin:7px 0 0; font-size:.93rem; letter-spacing:.08em; }}
     .body {{ padding:34px 34px 30px; }} .valid {{ display:inline-flex; align-items:center; gap:8px; color:#287c24; background:#eef9ed; border:1px solid #b7dfb4; border-radius:999px; padding:8px 13px; font-size:.9rem; font-weight:750; }}
@@ -1141,13 +1142,13 @@ async def public_mock_result_handler(request: web.Request) -> web.Response:
     @media (max-width:520px) {{ .page {{ padding:18px 10px; }} .top {{ padding:28px 18px 24px; }} .body {{ padding:25px 20px; }} .row {{ display:block; }} .value {{ text-align:left; margin-top:5px; }} }}
   </style>
 </head><body><main class="page"><article class="report">
-  <header class="top"><div class="brand">BUSTANLIK SS TESTING SYSTEM</div></header>
+  <header class="top"><img src="{escape(logo_url)}" class="school-logo" alt="Maktab logosi"></header>
   <section class="band"><h1>MOCK NATIJASI</h1><p>NATIJANI TASDIQLASH</p></section>
   <section class="body"><div class="valid">✓ Mock natijasi haqiqiy</div>
     <h2>{student_name}</h2><p class="intro">Quyidagi mock imtihon natijasi tizimda tasdiqlangan.</p>
     <div class="rows"><div class="row"><span class="label">Fan</span><span class="value">{subject}</span></div><div class="row"><span class="label">Daraja</span><span class="value">{level}</span></div><div class="row"><span class="label">Natija sanasi</span><span class="value">{date_text}</span></div></div>
     <div class="result"><div><small>UMUMIY BALL</small><strong>{score_text}</strong></div><div>✓ TASDIQLANGAN</div></div>
-    <footer>Hisobot Bo'stonliq SS Testing System tomonidan yaratilgan.<br><a href="https://t.me/{escape(bot_username)}" target="_blank" rel="noopener">@{escape(bot_username)}</a></footer>
+    <footer><a href="https://t.me/{escape(bot_username)}" target="_blank" rel="noopener">@{escape(bot_username)}</a></footer>
   </section>
 </article></main></body></html>"""
     return web.Response(content_type="text/html", text=page)
