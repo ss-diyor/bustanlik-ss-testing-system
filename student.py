@@ -152,7 +152,7 @@ ADMIN_TUGMALAR = {
     "🔍 Kod bo'yicha qidirish",
     "❌ Bekor qilish",
     # ── O'quvchi menyusi tugmalari (holat o'rtasida bosilsa — to'xtatish) ────
-    "📊 Mening natijam",
+    "📊 DTM natijam",
     "👤 Shaxsiy kabinet",      # BUG FIX: yo'q edi → "Bunday kod topilmadi" xatosi
     "🏆 Mening o'rnim",
     "✅ Javoblarni tekshirish",
@@ -1034,7 +1034,7 @@ async def stats_process(callback: CallbackQuery):
 # ─────────────────────────────────────────
 
 
-@router.message(F.text == "📊 Mening natijam")
+@router.message(F.text == "📊 DTM natijam")
 async def my_results(message: Message, state: FSMContext):
     talaba = _talaba_ol(message.from_user.id)
 

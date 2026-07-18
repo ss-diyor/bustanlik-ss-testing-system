@@ -673,9 +673,9 @@ def user_menu_keyboard(
     """Foydalanuvchi asosiy menyusi (Dinamik)."""
     keyboard = []
 
-    # Birinchi qator: Mening natijam, Shaxsiy kabinet, Mening o'rnim
+    # Birinchi qator: DTM natijam, Shaxsiy kabinet, Mening o'rnim
     row1 = [
-        KeyboardButton(text="📊 Mening natijam"),
+        KeyboardButton(text="📊 DTM natijam"),
         KeyboardButton(text="👤 Shaxsiy kabinet"),
     ]
     if ranking_enabled == "True":
