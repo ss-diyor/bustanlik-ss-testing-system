@@ -13,6 +13,7 @@ Qo'shimcha turlar admin tomonidan qo'shiladi/o'chiriladi.
 import psycopg2
 import psycopg2.extras
 import json
+import secrets
 from database import get_connection, release_connection
 from dtm_scoring import dtm_ball_hisobla
 
@@ -197,6 +198,27 @@ def create_mock_tables(cursor=None):
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_nat_kod  ON mock_natijalari(talaba_kod)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_nat_key  ON mock_natijalari(exam_key)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_mock_nat_sana ON mock_natijalari(test_sanasi)")
+
+    # QR-kod orqali ochiladigan, bitta mock natijaga bog'langan public tasdiqlash
+    # yozuvi. Natija ma'lumotlari snapshot ko'rinishida saqlanadi, shuning uchun
+    # keyinchalik o'quvchi profili tahrirlansa ham hisobotdagi ma'lumot o'zgarmaydi.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS public_mock_natijalar (
+            id              SERIAL PRIMARY KEY,
+            public_token    TEXT UNIQUE NOT NULL,
+            mock_natija_id  INTEGER UNIQUE NOT NULL REFERENCES mock_natijalari(id) ON DELETE CASCADE,
+            talaba_kod      TEXT NOT NULL REFERENCES talabalar(kod) ON DELETE CASCADE,
+            ismlar          TEXT NOT NULL,
+            exam_label      TEXT,
+            subject_name    TEXT,
+            umumiy_ball     REAL,
+            level_label     TEXT,
+            test_sanasi     TIMESTAMP,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            revoked         BOOLEAN NOT NULL DEFAULT FALSE
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_public_mock_token ON public_mock_natijalar(public_token)")
 
     _seed_builtin(cur)
 
@@ -493,6 +515,65 @@ def mock_natijalari_ol(talaba_kod: str, exam_key: str = None, limit: int = 10) -
 def mock_songi_natija(talaba_kod: str, exam_key: str = None):
     r = mock_natijalari_ol(talaba_kod, exam_key, limit=1)
     return r[0] if r else None
+
+
+def mock_public_token_ol_yoki_yarat(talaba: dict, natija: dict) -> str | None:
+    """Mock natija uchun doimiy public QR token yaratadi yoki mavjudini qaytaradi."""
+    natija_id = natija.get("id")
+    if not natija_id:
+        return None
+
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            "SELECT public_token FROM public_mock_natijalar WHERE mock_natija_id=%s AND revoked=FALSE",
+            (natija_id,),
+        )
+        existing = cur.fetchone()
+        if existing:
+            return existing["public_token"]
+
+        token = secrets.token_urlsafe(24)
+        cur.execute(
+            """
+            INSERT INTO public_mock_natijalar
+                (public_token, mock_natija_id, talaba_kod, ismlar, exam_label,
+                 subject_name, umumiy_ball, level_label, test_sanasi)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING public_token
+            """,
+            (
+                token, natija_id, talaba.get("kod"), talaba.get("ismlar") or "O'quvchi",
+                natija.get("exam_label") or natija.get("exam_key"), natija.get("subject_name"),
+                natija.get("umumiy_ball"), natija.get("level_label"), natija.get("test_sanasi"),
+            ),
+        )
+        created = cur.fetchone()
+        conn.commit()
+        return created["public_token"] if created else None
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        release_connection(conn)
+
+
+def mock_public_natija_ol(public_token: str) -> dict | None:
+    """QR token bo'yicha faol public mock natijasini qaytaradi."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            "SELECT * FROM public_mock_natijalar WHERE public_token=%s AND revoked=FALSE",
+            (public_token,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+    finally:
+        cur.close()
+        release_connection(conn)
 
 
 def mock_natija_turlari(talaba_kod: str) -> list:

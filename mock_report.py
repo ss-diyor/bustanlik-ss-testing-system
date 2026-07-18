@@ -20,11 +20,12 @@ import json
 import re
 import unicodedata
 from datetime import datetime
+from io import BytesIO
 
 from fpdf import FPDF
 
 from database import talaba_topish
-from mock_database import mock_natijalari_ol, exam_type_ol
+from mock_database import mock_natijalari_ol, exam_type_ol, mock_public_token_ol_yoki_yarat
 from tz_utils import now as tz_now
 
 # ─── Yo'llar ──────────────────────────────────────────────────────────────────
@@ -352,28 +353,44 @@ def _subject_row(pdf: FPDF, subject_name: str):
     pdf.ln(2)
 
 
-def _footer(pdf: FPDF, sana: str, notes: str = None):
+def _footer(pdf: FPDF, sana: str, notes: str = None, verification_url: str = None):
     """Sana + izoh + maktab nomi."""
     # Footer quyi qismda turadi; uzun hisobotlarda esa kontent ustiga chiqmaydi.
-    footer_y = max(pdf.get_y() + 6, pdf.h - pdf.b_margin - 31)
+    footer_y = max(pdf.get_y() + 6, pdf.h - pdf.b_margin - (36 if verification_url else 31))
     pdf.set_y(footer_y)
     pdf.set_draw_color(*C_GRAY_BRD)
-    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+    text_right = pdf.w - pdf.r_margin - (26 if verification_url else 0)
+    text_width = text_right - pdf.l_margin
+    pdf.line(pdf.l_margin, pdf.get_y(), text_right, pdf.get_y())
     pdf.ln(4)
 
     pdf.set_font("DV", "", 10.5)
     pdf.set_text_color(*C_TEXT)
-    pdf.cell(0, 6, f"Natija sanasi: {sana}", ln=True)
+    pdf.cell(text_width, 6, f"Natija sanasi: {sana}", ln=True)
 
     if notes:
-        pdf.cell(0, 6, f"Izoh: {_strip_emoji(notes)}", ln=True)
+        pdf.cell(text_width, 6, f"Izoh: {_strip_emoji(notes)}", ln=True)
 
     pdf.set_font("DV", "", 9.5)
     pdf.cell(
-        0, 6,
+        text_width, 6,
         f"Hisobot: {tz_now().strftime('%d.%m.%Y %H:%M')}  | @BustanlikSStestingsystembot",
         ln=True,
     )
+    if verification_url:
+        try:
+            import qrcode
+            qr = qrcode.QRCode(version=None, box_size=4, border=1)
+            qr.add_data(verification_url)
+            qr.make(fit=True)
+            image = qr.make_image(fill_color="black", back_color="white")
+            buffer = BytesIO()
+            image.save(buffer, format="PNG")
+            buffer.seek(0)
+            pdf.image(buffer, x=text_right + 5, y=footer_y + 3, w=19, h=19)
+        except Exception:
+            # QR kutubxonasi o'rnatilmagan muhitda hisobotning o'zi baribir yaratiladi.
+            pass
     pdf.set_text_color(*C_BLACK)
 
 
@@ -718,7 +735,17 @@ def generate_mock_report(
     renderer = _RENDERERS.get(exam_key, _render_custom)
     renderer(pdf, natija, et)
 
-    _footer(pdf, sana, notes)
+    verification_url = None
+    try:
+        from config import CERTIFICATE_BASE_URL
+        public_token = mock_public_token_ol_yoki_yarat(talaba, natija)
+        if public_token:
+            verification_url = f"{CERTIFICATE_BASE_URL}/mock-cert/{public_token}"
+    except Exception:
+        # Public tasdiqlash saqlanmasa ham mock hisoboti yuborilishi davom etadi.
+        verification_url = None
+
+    _footer(pdf, sana, notes, verification_url)
 
     # ── Fayllarni saqlash ───────────────────────────────────────
     safe_key  = re.sub(r"[^A-Za-z0-9_]", "_", exam_key)

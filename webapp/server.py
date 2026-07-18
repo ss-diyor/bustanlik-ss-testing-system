@@ -1089,6 +1089,70 @@ def _public_certificate_record(request: web.Request) -> dict | None:
     return sertifikat_public_ol(token)
 
 
+def _public_mock_result_record(request: web.Request) -> dict | None:
+    token = request.match_info.get("token", "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,100}", token):
+        return None
+    from mock_database import mock_public_natija_ol
+    return mock_public_natija_ol(token)
+
+
+async def public_mock_result_handler(request: web.Request) -> web.Response:
+    """Mock hisobotidagi QR-kod uchun minimal, tasdiqlovchi public sahifa."""
+    record = _public_mock_result_record(request)
+    if not record:
+        return _public_certificate_not_found()
+
+    from config import CERTIFICATE_BASE_URL, BOT_USERNAME
+
+    token = record["public_token"]
+    public_url = f"{CERTIFICATE_BASE_URL}/mock-cert/{token}"
+    student_name = escape(str(record.get("ismlar") or "O'quvchi"))
+    subject = escape(str(record.get("subject_name") or record.get("exam_label") or "—"))
+    level = escape(str(record.get("level_label") or "—"))
+    score = record.get("umumiy_ball")
+    score_text = f"{score:g}" if isinstance(score, (int, float)) else "—"
+    test_date = record.get("test_sanasi")
+    date_text = test_date.strftime("%d.%m.%Y") if test_date else "—"
+    bot_username = (BOT_USERNAME or "bustanlik_ss_bot").lstrip("@")
+    title = f"{student_name} — Mock natijasi tasdiqlanishi"
+
+    page = f"""<!doctype html>
+<html lang="uz"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title}</title>
+  <meta name="description" content="Bo'stonliq SS Testing System mock natijasi tasdiqlanishi">
+  <meta property="og:type" content="website"><meta property="og:title" content="{title}">
+  <meta property="og:description" content="Mock natijasi tizimda tasdiqlangan.">
+  <meta property="og:url" content="{escape(public_url)}">
+  <style>
+    :root {{ --navy:#1c2864; --ink:#252942; --muted:#62677c; --line:#d9ddeb; --green:#439b34; }}
+    * {{ box-sizing:border-box; }} body {{ margin:0; min-height:100vh; background:#f5f6fa; color:var(--ink); font-family:Inter,"Segoe UI",system-ui,sans-serif; }}
+    .page {{ width:min(100%,760px); margin:0 auto; padding:46px 18px; }}
+    .report {{ background:#fff; border:1px solid var(--line); box-shadow:0 12px 36px rgba(20,30,80,.10); }}
+    .top {{ padding:36px 28px 30px; text-align:center; }} .brand {{ color:var(--navy); font-weight:800; letter-spacing:.08em; font-size:.76rem; }}
+    .band {{ background:var(--navy); color:#fff; text-align:center; padding:23px 20px 21px; }}
+    .band h1 {{ font-size:clamp(1.3rem,4vw,1.85rem); letter-spacing:.05em; margin:0; }} .band p {{ margin:7px 0 0; font-size:.93rem; letter-spacing:.08em; }}
+    .body {{ padding:34px 34px 30px; }} .valid {{ display:inline-flex; align-items:center; gap:8px; color:#287c24; background:#eef9ed; border:1px solid #b7dfb4; border-radius:999px; padding:8px 13px; font-size:.9rem; font-weight:750; }}
+    h2 {{ color:var(--navy); font-size:clamp(1.35rem,4vw,1.8rem); margin:23px 0 7px; }} .intro {{ color:var(--muted); margin:0 0 24px; }}
+    .rows {{ border-top:1px solid var(--line); }} .row {{ display:flex; justify-content:space-between; gap:20px; padding:15px 0; border-bottom:1px solid var(--line); }} .label {{ color:var(--muted); }} .value {{ font-weight:750; text-align:right; }}
+    .result {{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px; margin-top:25px; color:#fff; background:var(--navy); }} .result small {{ display:block; opacity:.78; margin-bottom:4px; }} .result strong {{ font-size:1.65rem; }}
+    footer {{ margin-top:34px; padding-top:17px; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem; }} footer a {{ color:var(--navy); font-weight:700; text-decoration:none; }}
+    @media (max-width:520px) {{ .page {{ padding:18px 10px; }} .top {{ padding:28px 18px 24px; }} .body {{ padding:25px 20px; }} .row {{ display:block; }} .value {{ text-align:left; margin-top:5px; }} }}
+  </style>
+</head><body><main class="page"><article class="report">
+  <header class="top"><div class="brand">BUSTANLIK SS TESTING SYSTEM</div></header>
+  <section class="band"><h1>MOCK NATIJASI</h1><p>NATIJANI TASDIQLASH</p></section>
+  <section class="body"><div class="valid">✓ Mock natijasi haqiqiy</div>
+    <h2>{student_name}</h2><p class="intro">Quyidagi mock imtihon natijasi tizimda tasdiqlangan.</p>
+    <div class="rows"><div class="row"><span class="label">Fan</span><span class="value">{subject}</span></div><div class="row"><span class="label">Daraja</span><span class="value">{level}</span></div><div class="row"><span class="label">Natija sanasi</span><span class="value">{date_text}</span></div></div>
+    <div class="result"><div><small>UMUMIY BALL</small><strong>{score_text}</strong></div><div>✓ TASDIQLANGAN</div></div>
+    <footer>Hisobot Bo'stonliq SS Testing System tomonidan yaratilgan.<br><a href="https://t.me/{escape(bot_username)}" target="_blank" rel="noopener">@{escape(bot_username)}</a></footer>
+  </section>
+</article></main></body></html>"""
+    return web.Response(content_type="text/html", text=page)
+
+
 async def public_certificate_pdf_handler(request: web.Request) -> web.Response:
     record = _public_certificate_record(request)
     if not record:
@@ -1645,6 +1709,7 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/cert/{token}", public_certificate_handler)
     app.router.add_get("/cert/{token}/file.pdf", public_certificate_pdf_handler)
     app.router.add_get("/cert/{token}/preview.png", public_certificate_preview_handler)
+    app.router.add_get("/mock-cert/{token}", public_mock_result_handler)
     app.router.add_get("/api/student", student_api)
     app.router.add_get("/api/student/mock", student_mock_api)
     
