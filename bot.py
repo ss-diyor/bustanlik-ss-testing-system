@@ -13,6 +13,8 @@ from database import (
     init_db, add_user, talaba_topish, talaba_user_id_yangila,
     get_setting, guruh_qosh, get_user, update_user_phone,
     guruhlar_ol, create_chatbot_logs_table,
+    royxatdan_otish_topici_ol, royxatdan_otish_topici_saqlash,
+    maktab_topici_ol, maktab_topici_saqlash,
 )
 from aiogram import F
 from keyboards import user_menu_keyboard, oqituvchi_menu_keyboard, admin_menu_keyboard, phone_number_keyboard
@@ -56,6 +58,81 @@ logging.basicConfig(
 # Bot va Dispatcher
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
+
+
+async def _topic_ol_yoki_yarat(chat_id: int, topic_nomi: str, mavzu_turi: str, maktab_id: int | None = None) -> int | None:
+    """Forum guruhida kerakli topicni topadi yoki bot huquqi bo'lsa yaratadi."""
+    if mavzu_turi == "royxatdan_otish":
+        thread_id = royxatdan_otish_topici_ol(chat_id)
+    else:
+        thread_id = maktab_topici_ol(chat_id, maktab_id) if maktab_id else None
+
+    if thread_id:
+        return thread_id
+
+    try:
+        topic = await bot.create_forum_topic(
+            chat_id=chat_id,
+            name=topic_nomi[:128],
+            icon_color=0x6FB9F0,
+        )
+        thread_id = topic.message_thread_id
+        if mavzu_turi == "royxatdan_otish":
+            royxatdan_otish_topici_saqlash(chat_id, thread_id)
+        elif maktab_id:
+            maktab_topici_saqlash(chat_id, maktab_id, thread_id)
+        return thread_id
+    except Exception as exc:
+        # Oddiy guruh yoki ruxsati yetarli bo'lmagan forumda eski usulda yuboramiz.
+        logging.getLogger(__name__).info(
+            "Topic yaratilmadi (chat_id=%s, topic=%s): %s", chat_id, topic_nomi, exc
+        )
+        return None
+
+
+async def _guruhga_royxatdan_otish_xabari(text: str) -> None:
+    """Yangi foydalanuvchi xabarini har bir guruhning maxsus topiciga yuboradi."""
+    for guruh in guruhlar_ol():
+        chat_id = guruh["chat_id"]
+        thread_id = await _topic_ol_yoki_yarat(
+            chat_id, "🆕 Yangi ro'yxatdan o'tganlar", "royxatdan_otish"
+        )
+        try:
+            await bot.send_message(
+                chat_id,
+                text,
+                parse_mode="HTML",
+                message_thread_id=thread_id,
+            )
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "Ro'yxatdan o'tish xabari yuborilmadi (chat_id=%s): %s", chat_id, exc
+            )
+
+
+async def _guruhga_profil_ulash_xabari(text: str, talaba: dict) -> None:
+    """Profil ulanish xabarini o'quvchi maktabiga tegishli topicga yuboradi."""
+    maktab_id = talaba.get("maktab_id")
+    maktab_nomi = talaba.get("maktab_nomi") or talaba.get("maktab")
+
+    for guruh in guruhlar_ol():
+        chat_id = guruh["chat_id"]
+        thread_id = None
+        if maktab_id and maktab_nomi:
+            thread_id = await _topic_ol_yoki_yarat(
+                chat_id, f"🏫 {maktab_nomi}", "maktab", int(maktab_id)
+            )
+        try:
+            await bot.send_message(
+                chat_id,
+                text,
+                parse_mode="HTML",
+                message_thread_id=thread_id,
+            )
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "Profil ulash xabari yuborilmadi (chat_id=%s): %s", chat_id, exc
+            )
 
 # Routerlarni ulash
 dp.include_router(admin.router)
@@ -209,11 +286,7 @@ async def contact_handler(message: Message):
         f"📱 Telefon: <code>{phone_number}</code>\n"
         f"🆔 Telegram ID: <code>{user.id}</code>"
     )
-    for g in guruhlar_ol():
-        try:
-            await bot.send_message(g["chat_id"], text, parse_mode="HTML")
-        except Exception:
-            pass
+    await _guruhga_royxatdan_otish_xabari(text)
 
     try:
         await notify_new_student(
@@ -290,11 +363,7 @@ async def bind_user_to_kod(message: Message):
             f"🔗 Telegram: {username}\n"
             f"🆔 Telegram ID: <code>{user.id}</code>"
         )
-        for g in guruhlar_ol():
-            try:
-                await bot.send_message(g["chat_id"], text, parse_mode="HTML")
-            except Exception:
-                pass
+        await _guruhga_profil_ulash_xabari(text, talaba)
 
         try:
             await send_discord(

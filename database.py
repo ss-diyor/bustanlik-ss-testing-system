@@ -565,6 +565,25 @@ def init_db():
         )
     """)
 
+    # Forum-guruhlardagi bildirishnoma mavzulari (Topics).
+    # Topic ID Telegram tomonidan beriladi va keyingi yuborishlar uchun saqlanadi.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS guruh_royxatdan_otish_topiclari (
+            chat_id BIGINT PRIMARY KEY,
+            message_thread_id INTEGER NOT NULL,
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS guruh_maktab_topiclari (
+            chat_id BIGINT NOT NULL,
+            maktab_id INTEGER NOT NULL,
+            message_thread_id INTEGER NOT NULL,
+            yaratilgan_sana TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (chat_id, maktab_id)
+        )
+    """)
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS appeals (
             id SERIAL PRIMARY KEY,
@@ -2701,10 +2720,85 @@ def guruhlar_ol():
 def guruh_ochir(chat_id: int):
     conn = get_connection()
     cur = conn.cursor()
+    cur.execute("DELETE FROM guruh_royxatdan_otish_topiclari WHERE chat_id = %s", (chat_id,))
+    cur.execute("DELETE FROM guruh_maktab_topiclari WHERE chat_id = %s", (chat_id,))
     cur.execute("DELETE FROM guruhlar WHERE chat_id = %s", (chat_id,))
     conn.commit()
     cur.close()
     release_connection(conn)
+
+
+def royxatdan_otish_topici_ol(chat_id: int) -> int | None:
+    """Guruhdagi yangi foydalanuvchilar topicining Telegram ID sini qaytaradi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT message_thread_id FROM guruh_royxatdan_otish_topiclari WHERE chat_id = %s",
+            (chat_id,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return row[0] if row else None
+    finally:
+        release_connection(conn)
+
+
+def royxatdan_otish_topici_saqlash(chat_id: int, message_thread_id: int) -> None:
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO guruh_royxatdan_otish_topiclari (chat_id, message_thread_id)
+            VALUES (%s, %s)
+            ON CONFLICT (chat_id) DO UPDATE
+            SET message_thread_id = EXCLUDED.message_thread_id
+            """,
+            (chat_id, message_thread_id),
+        )
+        conn.commit()
+        cur.close()
+    finally:
+        release_connection(conn)
+
+
+def maktab_topici_ol(chat_id: int, maktab_id: int) -> int | None:
+    """Maktab uchun yaratilgan topicning Telegram ID sini qaytaradi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT message_thread_id FROM guruh_maktab_topiclari
+            WHERE chat_id = %s AND maktab_id = %s
+            """,
+            (chat_id, maktab_id),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return row[0] if row else None
+    finally:
+        release_connection(conn)
+
+
+def maktab_topici_saqlash(chat_id: int, maktab_id: int, message_thread_id: int) -> None:
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO guruh_maktab_topiclari (chat_id, maktab_id, message_thread_id)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (chat_id, maktab_id) DO UPDATE
+            SET message_thread_id = EXCLUDED.message_thread_id
+            """,
+            (chat_id, maktab_id, message_thread_id),
+        )
+        conn.commit()
+        cur.close()
+    finally:
+        release_connection(conn)
 
 # Til sozlamalari
 def update_user_language(user_id: int, language: str) -> bool:
