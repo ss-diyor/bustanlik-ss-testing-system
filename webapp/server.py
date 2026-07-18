@@ -1148,7 +1148,7 @@ async def public_mock_result_handler(request: web.Request) -> web.Response:
   <section class="band"><h1>MOCK NATIJASI</h1><p>NATIJANI TASDIQLASH</p></section>
   <section class="body"><div class="valid">✓ Mock natijasi haqiqiy</div>
     <h2>{student_name}</h2><p class="intro">Quyidagi mock imtihon natijasi tizimda tasdiqlangan.</p>
-    <div class="rows"><div class="row"><span class="label">Fan:</span><span class="value">{subject}</span></div><div class="row"><span class="label">Daraja:</span><span class="value">{level}</span></div><div class="row"><span class="label">Natija sanasi:</span><span class="value">{date_text}</span></div></div>
+    <div class="rows"><div class="row"><span class="label">Fan:&nbsp;</span><span class="value">{subject}</span></div><div class="row"><span class="label">Daraja:&nbsp;</span><span class="value">{level}</span></div><div class="row"><span class="label">Natija sanasi:&nbsp;</span><span class="value">{date_text}</span></div></div>
     <div class="result"><div><small>UMUMIY BALL</small><strong>{score_text}</strong></div><div>✓ TASDIQLANGAN</div></div>
     <footer><a href="https://t.me/{escape(bot_username)}" target="_blank" rel="noopener">@{escape(bot_username)}</a></footer>
   </section>
