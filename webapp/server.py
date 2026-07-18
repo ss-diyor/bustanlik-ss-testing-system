@@ -1227,14 +1227,45 @@ async def student_mock_api(request: web.Request) -> web.Response:
 
         # Mock natijalarini olish (so'nggi 50 ta, barcha imtihon turlari)
         cur.execute("""
-            SELECT id, exam_key, exam_label, sections, umumiy_ball,
-                   level_label, subject_name, notes, test_sanasi
-            FROM mock_natijalari
-            WHERE talaba_kod = %s
-            ORDER BY test_sanasi DESC
+            SELECT mn.id, mn.exam_key, mn.exam_label, mn.sections,
+                   mn.umumiy_ball, mn.level_label, mn.subject_name,
+                   mn.notes, mn.test_sanasi, et.total_max, et.score_type,
+                   public_result.public_token
+            FROM mock_natijalari mn
+            LEFT JOIN mock_exam_types et ON et.exam_key = mn.exam_key
+            LEFT JOIN LATERAL (
+                SELECT pmn.public_token
+                FROM public_mock_natijalar pmn
+                WHERE pmn.mock_natija_id = mn.id AND pmn.revoked = FALSE
+                LIMIT 1
+            ) public_result ON TRUE
+            WHERE mn.talaba_kod = %s
+            ORDER BY mn.test_sanasi DESC
             LIMIT 50
         """, (talaba_kod,))
         rows = cur.fetchall()
+
+        exam_keys = sorted({row["exam_key"] for row in rows})
+        section_configs = {}
+        if exam_keys:
+            cur.execute(
+                """
+                SELECT exam_key, section_key, label, max_score
+                FROM mock_sections
+                WHERE exam_key = ANY(%s)
+                ORDER BY exam_key, sort_order, id
+                """,
+                (exam_keys,),
+            )
+            for section in cur.fetchall():
+                section_configs.setdefault(section["exam_key"], []).append({
+                    "key": section["section_key"],
+                    "label": section["label"],
+                    "max_score": (
+                        float(section["max_score"])
+                        if section["max_score"] is not None else None
+                    ),
+                })
 
         cur.close(); release_connection(conn)
 
@@ -1248,6 +1279,13 @@ async def student_mock_api(request: web.Request) -> web.Response:
                 d["test_sanasi"] = d["test_sanasi"].strftime("%d.%m.%Y")
             if d.get("umumiy_ball") is not None:
                 d["umumiy_ball"] = float(d["umumiy_ball"])
+            if d.get("total_max") is not None:
+                d["total_max"] = float(d["total_max"])
+            d["section_config"] = section_configs.get(d["exam_key"], [])
+            d["verification_url"] = (
+                f"/mock-cert/{d['public_token']}" if d.get("public_token") else None
+            )
+            d.pop("public_token", None)
             natijalar.append(d)
 
         return safe_json_response({"mock_results": natijalar})
@@ -1255,6 +1293,103 @@ async def student_mock_api(request: web.Request) -> web.Response:
     except Exception as e:
         logging.error(f"Student Mock API error: {e}", exc_info=True)
         return web.json_response({"error": "Server error"}, status=500)
+
+
+def _student_mock_result(talaba_kod: str, result_id: int) -> dict | None:
+    """Sessiyadagi o'quvchiga tegishli bitta mock natijani qaytaradi."""
+    from database import get_connection, release_connection
+    conn = get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            "SELECT * FROM mock_natijalari WHERE id=%s AND talaba_kod=%s",
+            (result_id, talaba_kod),
+        )
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return None
+        result = dict(row)
+        if isinstance(result.get("sections"), str):
+            result["sections"] = json.loads(result["sections"])
+        return result
+    finally:
+        release_connection(conn)
+
+
+async def student_mock_verification_api(request: web.Request) -> web.Response:
+    """Mock natija uchun QR-tasdiqlash havolasini yaratadi yoki qaytaradi."""
+    talaba = _web_session_talaba(request)
+    if not talaba:
+        return web.json_response({"error": "Sessiya tugagan"}, status=401)
+    try:
+        data = await request.json()
+        result_id = int(data.get("result_id", 0))
+    except Exception:
+        return web.json_response({"error": "Natija noto'g'ri"}, status=400)
+    result = _student_mock_result(talaba["kod"], result_id)
+    if not result:
+        return web.json_response({"error": "Natija topilmadi"}, status=404)
+    try:
+        from mock_database import mock_public_token_ol_yoki_yarat
+        token = await asyncio.to_thread(
+            mock_public_token_ol_yoki_yarat, talaba, result
+        )
+        if not token:
+            raise RuntimeError("Token yaratilmadi")
+        return web.json_response({"verification_url": f"/mock-cert/{token}"})
+    except Exception:
+        logging.exception("Mock tasdiqlash havolasini yaratishda xato")
+        return web.json_response({"error": "Tasdiqlash havolasi yaratilmadi"}, status=500)
+
+
+async def student_mock_report_pdf_api(request: web.Request) -> web.Response:
+    """O'quvchining muayyan mock natijasini PDF hisobot sifatida qaytaradi."""
+    talaba = _web_session_talaba(request)
+    if not talaba:
+        raise web.HTTPUnauthorized(text="Sessiya tugagan")
+    try:
+        result_id = int(request.match_info.get("result_id", "0"))
+    except ValueError:
+        raise web.HTTPBadRequest(text="Natija noto'g'ri")
+    result = _student_mock_result(talaba["kod"], result_id)
+    if not result:
+        raise web.HTTPNotFound(text="Natija topilmadi")
+
+    pdf_path = png_path = None
+    try:
+        from mock_report import generate_mock_report
+        pdf_path, png_path = await asyncio.to_thread(
+            generate_mock_report,
+            talaba["kod"],
+            result.get("exam_key"),
+            result_id,
+        )
+        if not pdf_path or not os.path.exists(pdf_path):
+            raise RuntimeError("PDF yaratilmadi")
+        with open(pdf_path, "rb") as pdf_file:
+            pdf_data = pdf_file.read()
+        filename = f"mock_{talaba['kod']}_{result_id}.pdf"
+        return web.Response(
+            body=pdf_data,
+            content_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{filename}"',
+                "Cache-Control": "no-store",
+            },
+        )
+    except web.HTTPException:
+        raise
+    except Exception:
+        logging.exception("Kabinet mock PDF hisobotini yaratishda xato")
+        return web.json_response({"error": "PDF hisobot yaratilmadi"}, status=500)
+    finally:
+        for path in (pdf_path, png_path):
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
 
 
 async def verify_handler(request: web.Request) -> web.Response:
@@ -1977,6 +2112,8 @@ def create_app(bot_token: str) -> web.Application:
     app.router.add_get("/api/student", student_api)
     app.router.add_post("/api/student/dtm/certificate", student_dtm_certificate_api)
     app.router.add_get("/api/student/mock", student_mock_api)
+    app.router.add_post("/api/student/mock/verification", student_mock_verification_api)
+    app.router.add_get("/api/student/mock/report/{result_id}.pdf", student_mock_report_pdf_api)
     app.router.add_get("/api/student/qr", student_qr_api)
     app.router.add_get("/api/student/notifications", student_notification_settings_api)
     app.router.add_put("/api/student/notifications", student_notification_settings_api)
