@@ -277,6 +277,7 @@ from database import (
     maktab_topici_saqlash,
     maktab_topici_ochir,
     maktab_topiclari_ol,
+    maktab_profil_ulanish_holati,
     appeal_qosh,
     appeal_javob_ber,
     appeals_ol,
@@ -5389,6 +5390,55 @@ async def guruh_actions(call: CallbackQuery, state: FSMContext):
             "\n".join(lines), parse_mode="HTML", reply_markup=topic_boshqarish_keyboard()
         )
         await call.answer()
+        return
+
+    elif action == "topic_profile_status":
+        await call.answer("⏳ Profil ulanish holati yuborilmoqda...")
+        sent = 0
+        errors = 0
+        for guruh in guruhlar:
+            for row in maktab_topiclari_ol(guruh["chat_id"]):
+                ulanganlar, ulanmaganlar = maktab_profil_ulanish_holati(row["maktab_id"])
+                lines = [
+                    "📋 <b>Profil ulanish holati</b>\n",
+                    f"🏫 <b>{row['maktab_nomi']}</b>\n",
+                    f"✅ <b>Profilini ulaganlar ({len(ulanganlar)} ta):</b>",
+                ]
+                if ulanganlar:
+                    lines.extend(
+                        f"• <code>{student['kod']}</code> — {student['ismlar'] or '—'} ({student['sinf'] or '—'})"
+                        for student in ulanganlar
+                    )
+                else:
+                    lines.append("• Hozircha yo'q")
+                lines.append(f"\n⏳ <b>Hali ulanmaganlar ({len(ulanmaganlar)} ta):</b>")
+                if ulanmaganlar:
+                    lines.extend(
+                        f"• <code>{student['kod']}</code> — {student['ismlar'] or '—'} ({student['sinf'] or '—'})"
+                        for student in ulanmaganlar
+                    )
+                else:
+                    lines.append("• Hozircha yo'q")
+
+                try:
+                    await call.bot.send_message(
+                        guruh["chat_id"],
+                        "\n".join(lines),
+                        parse_mode="HTML",
+                        message_thread_id=row["message_thread_id"],
+                    )
+                    sent += 1
+                    await asyncio.sleep(0.25)
+                except Exception as exc:
+                    errors += 1
+                    logging.warning("Profil ulanish holati yuborilmadi: %s", exc)
+
+        await call.message.edit_text(
+            "📋 <b>Profil ulanish holati yuborildi.</b>\n\n"
+            f"✅ Topiclar: <b>{sent}</b> ta\n⚠️ Xatolar: <b>{errors}</b> ta",
+            parse_mode="HTML",
+            reply_markup=topic_boshqarish_keyboard(),
+        )
         return
 
     elif action == "topic_links":

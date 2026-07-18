@@ -2885,6 +2885,29 @@ def maktab_topiclari_ol(chat_id: int) -> list[dict]:
     finally:
         release_connection(conn)
 
+
+def maktab_profil_ulanish_holati(maktab_id: int) -> tuple[list[dict], list[dict]]:
+    """Maktab o'quvchilarini Telegram profil ulanish holati bo'yicha ajratadi."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """
+            SELECT kod, ismlar, sinf, user_id
+            FROM talabalar
+            WHERE maktab_id = %s AND COALESCE(is_demo, FALSE) = FALSE
+            ORDER BY ismlar ASC, kod ASC
+            """,
+            (maktab_id,),
+        )
+        rows = [dict(row) for row in cur.fetchall()]
+        cur.close()
+        ulanganlar = [row for row in rows if row["user_id"]]
+        ulanmaganlar = [row for row in rows if not row["user_id"]]
+        return ulanganlar, ulanmaganlar
+    finally:
+        release_connection(conn)
+
 # Til sozlamalari
 def update_user_language(user_id: int, language: str) -> bool:
     """Foydalanuvchi tilini yangilash"""
