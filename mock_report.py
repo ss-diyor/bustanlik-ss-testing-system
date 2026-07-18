@@ -195,6 +195,9 @@ def _draw_header(pdf: FPDF, exam_label: str):
     pdf.cell(PW, 7, clean_label, align="C", ln=True)
 
     # "MOCK NATIJASI" — subtitle (pastda bo'lishi kerak)
+    # ln=True dan keyin FPDF x koordinatasini chap margin'ga qaytaradi;
+    # subtitle esa butun sahifa markazida turishi uchun x=0 dan boshlanadi.
+    pdf.set_x(0)
     pdf.set_font("DV", "", 9)
     pdf.cell(PW, 6, "MOCK NATIJASI", align="C", ln=True)
 
@@ -351,21 +354,23 @@ def _subject_row(pdf: FPDF, subject_name: str):
 
 def _footer(pdf: FPDF, sana: str, notes: str = None):
     """Sana + izoh + maktab nomi."""
-    pdf.ln(6)
+    # Footer quyi qismda turadi; uzun hisobotlarda esa kontent ustiga chiqmaydi.
+    footer_y = max(pdf.get_y() + 6, pdf.h - pdf.b_margin - 31)
+    pdf.set_y(footer_y)
     pdf.set_draw_color(*C_GRAY_BRD)
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
-    pdf.ln(3)
+    pdf.ln(4)
 
-    pdf.set_font("DV", "", 8.5)
+    pdf.set_font("DV", "", 10.5)
     pdf.set_text_color(*C_TEXT)
-    pdf.cell(0, 5, f"Natija sanasi: {sana}", ln=True)
+    pdf.cell(0, 6, f"Natija sanasi: {sana}", ln=True)
 
     if notes:
-        pdf.cell(0, 5, f"Izoh: {_strip_emoji(notes)}", ln=True)
+        pdf.cell(0, 6, f"Izoh: {_strip_emoji(notes)}", ln=True)
 
-    pdf.set_font("DV", "", 7.5)
+    pdf.set_font("DV", "", 9.5)
     pdf.cell(
-        0, 5,
+        0, 6,
         f"Hisobot: {tz_now().strftime('%d.%m.%Y %H:%M')}  | @BustanlikSStestingsystembot",
         ln=True,
     )
