@@ -1115,7 +1115,9 @@ async def public_mock_result_handler(request: web.Request) -> web.Response:
     test_date = record.get("test_sanasi")
     date_text = test_date.strftime("%d.%m.%Y") if test_date else "—"
     bot_username = (BOT_USERNAME or "bustanlik_ss_bot").lstrip("@")
-    _, logo_url = _get_verify_config()
+    # Nisbiy URL ishlatiladi: QR sahifasi qaysi domenda ochilsa, logo ham aynan
+    # o'sha domendan yuklanadi (VERIFY_BASE_URL noto'g'ri bo'lsa ham).
+    logo_url = "/static/logo.png"
     title = f"{student_name} — Mock natijasi tasdiqlanishi"
 
     page = f"""<!doctype html>
@@ -1136,17 +1138,17 @@ async def public_mock_result_handler(request: web.Request) -> web.Response:
     .band h1 {{ font-size:clamp(1.3rem,4vw,1.85rem); letter-spacing:.05em; margin:0; }} .band p {{ margin:7px 0 0; font-size:.93rem; letter-spacing:.08em; }}
     .body {{ padding:34px 34px 30px; }} .valid {{ display:inline-flex; align-items:center; gap:8px; color:#287c24; background:#eef9ed; border:1px solid #b7dfb4; border-radius:999px; padding:8px 13px; font-size:.9rem; font-weight:750; }}
     h2 {{ color:var(--navy); font-size:clamp(1.35rem,4vw,1.8rem); margin:23px 0 7px; }} .intro {{ color:var(--muted); margin:0 0 24px; }}
-    .rows {{ border-top:1px solid var(--line); }} .row {{ display:flex; justify-content:space-between; gap:20px; padding:15px 0; border-bottom:1px solid var(--line); }} .label {{ color:var(--muted); }} .value {{ font-weight:750; text-align:right; }}
+    .rows {{ border-top:1px solid var(--line); }} .row {{ display:flex; justify-content:space-between; gap:20px; padding:15px 0; border-bottom:1px solid var(--line); }} .label {{ color:var(--muted); }} .value {{ margin-left:12px; font-weight:750; text-align:right; }}
     .result {{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px; margin-top:25px; color:#fff; background:var(--navy); }} .result small {{ display:block; opacity:.78; margin-bottom:4px; }} .result strong {{ font-size:1.65rem; }}
     footer {{ margin-top:34px; padding-top:17px; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem; }} footer a {{ color:var(--navy); font-weight:700; text-decoration:none; }}
-    @media (max-width:520px) {{ .page {{ padding:18px 10px; }} .top {{ padding:28px 18px 24px; }} .body {{ padding:25px 20px; }} .row {{ display:block; }} .value {{ text-align:left; margin-top:5px; }} }}
+    @media (max-width:520px) {{ .page {{ padding:18px 10px; }} .top {{ padding:28px 18px 24px; }} .body {{ padding:25px 20px; }} .row {{ display:block; }} .value {{ text-align:left; margin:5px 0 0; }} }}
   </style>
 </head><body><main class="page"><article class="report">
   <header class="top"><img src="{escape(logo_url)}" class="school-logo" alt="Maktab logosi"></header>
   <section class="band"><h1>MOCK NATIJASI</h1><p>NATIJANI TASDIQLASH</p></section>
   <section class="body"><div class="valid">✓ Mock natijasi haqiqiy</div>
     <h2>{student_name}</h2><p class="intro">Quyidagi mock imtihon natijasi tizimda tasdiqlangan.</p>
-    <div class="rows"><div class="row"><span class="label">Fan</span><span class="value">{subject}</span></div><div class="row"><span class="label">Daraja</span><span class="value">{level}</span></div><div class="row"><span class="label">Natija sanasi</span><span class="value">{date_text}</span></div></div>
+    <div class="rows"><div class="row"><span class="label">Fan:</span><span class="value">{subject}</span></div><div class="row"><span class="label">Daraja:</span><span class="value">{level}</span></div><div class="row"><span class="label">Natija sanasi:</span><span class="value">{date_text}</span></div></div>
     <div class="result"><div><small>UMUMIY BALL</small><strong>{score_text}</strong></div><div>✓ TASDIQLANGAN</div></div>
     <footer><a href="https://t.me/{escape(bot_username)}" target="_blank" rel="noopener">@{escape(bot_username)}</a></footer>
   </section>
