@@ -2,7 +2,8 @@ const state = { student:null, stats:null, results:[], classmates:[], config:null
 const page = location.pathname.split('/').filter(Boolean)[1] || 'home';
 const titles = {
   home:['O‘QUVCHI KABINETI','Bosh sahifa'], dtm:['NATIJALAR','DTM natijalar'],
-  mock:['NATIJALAR','Mock natijalar'], ranking:['STATISTIKA','Reyting va sinfdoshlar'],
+  mock:['NATIJALAR','Mock natijalar'], ranking:['STATISTIKA','Sinf reytingi'],
+  classroom:['SINF','Mening sinfim'],
   learning:['TA’LIM','O‘qish va testlar'], services:['SOZLAMALAR','Xizmatlar']
 };
 const esc = value => String(value ?? '—').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -42,6 +43,7 @@ async function render(target){
   if(target==='dtm') renderDtm();
   if(target==='mock') await renderMock();
   if(target==='ranking') renderRanking();
+  if(target==='classroom') renderClassroom();
   if(target==='learning') await renderLearning();
   if(target==='services') renderServices();
 }
@@ -132,11 +134,14 @@ async function openMockVerification(button){
   try{const response=await fetch('/api/student/mock/verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({result_id:Number(button.dataset.mockVerify)})});const data=await response.json();if(response.status===401){location.href='/mock';return}if(!response.ok||!data.verification_url)throw new Error(data.error||'Havola yaratilmadi');button.dataset.url=data.verification_url;button.textContent='⌁ Tasdiqlashni ochish';if(verificationWindow)verificationWindow.location.replace(data.verification_url);else location.href=data.verification_url}catch(error){if(verificationWindow)verificationWindow.close();button.textContent=original;alert(error.message)}finally{button.disabled=false}
 }
 function renderRanking(){
-  const classmates=state.classmates||[];
   const hasRank=state.stats.sinf_rank&&state.stats.sinf_rank!=='—';
   const rankValue=hasRank?state.stats.sinf_rank:'—';
   const rankCopy=hasRank?`${esc(state.student.sinf)} sinfida DTM natijasi mavjud ${esc(state.stats.sinf_rank_total)} nafar o‘quvchi orasida`:'Sinfdagi o‘rinni hisoblash uchun DTM natijasi kerak.';
-  document.getElementById('pageContent').innerHTML=`<section class="class-rank-hero"><div class="class-rank-copy"><div class="eyebrow">SINF REYTINGI</div><h2>${esc(state.student.ismlar)}</h2><p>${rankCopy}</p><div class="rank-method">Oxirgi DTM natijasi asosida · Teng ball — bir xil o‘rin</div></div><div class="class-rank-position"><small>SIZNING O‘RNINGIZ</small><strong>${hasRank?'#':''}${esc(rankValue)}</strong>${hasRank?`<span>${fmt(state.stats.last)} ball</span>`:''}</div></section><div class="page-grid rank-page-grid"><section class="panel"><h2>Sinfdoshlar</h2><p class="panel-hint">Ro‘yxat alifbo tartibida. Boshqa o‘quvchilarning ballari maxfiy saqlanadi.</p><div class="classmate-list">${classmates.length?classmates.map(c=>`<div class="classmate">${esc(c.ismlar)}</div>`).join(''):'<div class="empty">Sinfdoshlar topilmadi.</div>'}</div></section><aside class="panel rank-info"><h2>Hisoblash tartibi</h2><div class="profile-lines"><div class="profile-line"><span>Reyting hududi</span><b>${esc(state.student.maktab)}, ${esc(state.student.sinf)}</b></div><div class="profile-line"><span>Natija turi</span><b>Oxirgi DTM</b></div><div class="profile-line"><span>Reytingdagilar</span><b>${esc(state.stats.sinf_rank_total)} nafar</b></div><div class="profile-line"><span>Sizning ballingiz</span><b>${hasRank?`${fmt(state.stats.last)} ball`:'Natija yo‘q'}</b></div></div></aside></div>`;
+  document.getElementById('pageContent').innerHTML=`<section class="class-rank-hero"><div class="class-rank-copy"><div class="eyebrow">SINF REYTINGI</div><h2>${esc(state.student.ismlar)}</h2><p>${rankCopy}</p><div class="rank-method">Oxirgi DTM natijasi asosida · Teng ball — bir xil o‘rin</div></div><div class="class-rank-position"><small>SIZNING O‘RNINGIZ</small><strong>${hasRank?'#':''}${esc(rankValue)}</strong>${hasRank?`<span>${fmt(state.stats.last)} ball</span>`:''}</div></section><section class="panel rank-info rank-method-panel"><h2>Hisoblash tartibi</h2><div class="profile-lines"><div class="profile-line"><span>Reyting hududi</span><b>${esc(state.student.maktab)}, ${esc(state.student.sinf)}</b></div><div class="profile-line"><span>Natija turi</span><b>Oxirgi DTM</b></div><div class="profile-line"><span>Reytingdagilar</span><b>${esc(state.stats.sinf_rank_total)} nafar</b></div><div class="profile-line"><span>Sizning ballingiz</span><b>${hasRank?`${fmt(state.stats.last)} ball`:'Natija yo‘q'}</b></div></div></section>`;
+}
+function renderClassroom(){
+  const classmates=state.classmates||[];
+  document.getElementById('pageContent').innerHTML=`<section class="classroom-hero"><div><div class="eyebrow">MENING SINFIM</div><h2>${esc(state.student.sinf)}</h2><p>${esc(state.student.maktab)}</p></div><div class="classroom-count"><strong>${classmates.length}</strong><span>o‘quvchi</span></div></section><section class="panel classroom-panel"><div class="section-head compact"><div><p>SINFDOSHLAR</p><h2>O‘quvchilar ro‘yxati</h2></div><span>ALIFBO TARTIBIDA</span></div><div class="classroom-list">${classmates.length?classmates.map((student,index)=>{const isCurrent=student.ismlar===state.student.ismlar;return `<div class="classroom-student ${isCurrent?'current':''}"><div class="classroom-index">${String(index+1).padStart(2,'0')}</div><div class="classroom-avatar">${initials(student.ismlar)}</div><strong>${esc(student.ismlar)}</strong>${isCurrent?'<span>Siz</span>':''}</div>`}).join(''):'<div class="empty">Sinfdoshlar topilmadi.</div>'}</div></section>`;
 }
 async function renderLearning(){
   const [scheduleResponse,materialsResponse]=await Promise.all([fetch('/api/schedule'),fetch('/api/materials')]);
