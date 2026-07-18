@@ -960,7 +960,8 @@ async def student_mock_api(request: web.Request) -> web.Response:
     init_data = request.headers.get("X-Telegram-Init-Data", "")
     user, err_msg = validate_telegram_init_data(init_data, bot_token)
 
-    if not user:
+    session_kod = _mock_session_talaba_kod(request)
+    if not user and not session_kod:
         debug = os.getenv("WEBAPP_DEBUG", "")
         if debug:
             try:
@@ -969,8 +970,11 @@ async def student_mock_api(request: web.Request) -> web.Response:
                 return web.json_response({"error": "Invalid user_id"}, status=400)
         else:
             return web.json_response({"error": f"Unauthorized: {err_msg}"}, status=401)
-    else:
+    elif user:
         user_id = user.get("id", 0)
+
+    if session_kod:
+        user_id = None
 
     if not user_id and not session_kod:
         return web.json_response({"error": "No user_id"}, status=400)
